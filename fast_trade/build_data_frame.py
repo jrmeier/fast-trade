@@ -1,9 +1,6 @@
 import pandas as pd
 import talib as ta
-
-def custom(close, *args, **kwargs):
-    return close
-
+from custom_functions import *
 indicator_map = {
     'ta.ma': ta.MA,
     'ta.ema': ta.EMA,
@@ -11,20 +8,19 @@ indicator_map = {
     'custom': custom
 }
 
-def build_data_frame(csv_path, indicators=[], interval=10):
+def build_data_frame(csv_path, indicators=[], interval=1):
     # read in the csv file
     df = pd.read_csv(csv_path)
     # make all the calculations
     df = df.iloc[::interval, :]
-
     for ind in indicators:
-        # print("ind: ",ind)
-        field_name = ind.get('field_name')
+        field_name = ind.get('ref')
         ind_name = ind.get('name', None)
         timeperiod = ind.get('timeperiod', None)
-        field = ind.get('field', None)
+        field = ind.get('df', None)
         
         df[field_name] = indicator_map[ind_name](df[field], timeperiod)
+    
     return df
 
 if __name__ == "__main__":
@@ -32,17 +28,23 @@ if __name__ == "__main__":
     interval = 15
     indicators = [
         {
-            'field_name':'21_ma',
+            'ref':'short',
             'name': 'ta.ma',
             'timeperiod': 21,
-            'field':'last_price'
+            'df':'last_price'
         },
-        {   'field_name':'44_ma',
+        {   'ref':'mid',
             'name': 'ta.ma',
             'timeperiod': 44,
-            'field':'last_price'
+            'df':'last_price'
+        },
+        {   'ref':'long',
+            'name': 'ta.ma',
+            'timeperiod': 75,
+            'df':'last_price'
         },
     ]
 
-    res = build_data_frame(path, indicators, interval)
-    print(res)
+    # buy signal 
+    data_frame = build_data_frame(path, indicators, interval)
+    print(data_frame)
