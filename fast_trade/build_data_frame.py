@@ -14,7 +14,6 @@ indicator_map = {
 def build_data_frame(csv_path, indicators=[], interval=10):
     # read in the csv file
     df = pd.read_csv(csv_path)
-
     # make all the calculations
     df = df.iloc[::interval, :]
 
