@@ -1,0 +1,4 @@
+.fast_trade/
+*.csv
+
+__pycache__/
