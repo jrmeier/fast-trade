@@ -16,3 +16,8 @@ python -m venv .fast_trade
 source .fast_trade/bin/activate
 pip install -r requirements.txt
 ```
+
+# How to use
+1. Provide a path for the data file.
+2. Set your interval (this of this like a charting period). The default is 1 minute.
+3. 
