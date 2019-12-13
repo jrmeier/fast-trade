@@ -9,7 +9,7 @@ indicator_map = {
     'custom': custom
 }
 
-def build_data_frame(csv_path, indicators=[], interval=1):
+def build_data_frame(csv_path, indicators=[]):
     # read in the csv file
     df = pd.read_csv(csv_path)
     # make all the calculations

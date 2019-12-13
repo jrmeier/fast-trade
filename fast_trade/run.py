@@ -1,10 +1,10 @@
 from build_data_frame import build_data_frame
 
-def run(csv_path, interval, indicators, strategy, should_log=True):
+def run(csv_path, indicators, strategy, should_log=True):
     # take in the dataframe
     # take in the strategy
     # read each frame
-    data_frame = build_data_frame(csv_path, indicators, interval)
+    data_frame = build_data_frame(csv_path, indicators)
     log = []
     
     for frame in data_frame.iterrows():
@@ -71,7 +71,7 @@ if __name__ == "__main__":
         "exit": [('short','<', 'mid')]
     }
 
-    df,log = run(csv_path, interval, indicators, strategy)
+    df,log = run(csv_path, indicators, strategy)
 
 
     print(log)
