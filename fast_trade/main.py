@@ -103,8 +103,8 @@ def main(pairs, strategy, csv_base, log_path):
 if __name__ == "__main__":
     # csv_path = 'BTCUSDT_sample.csv'
     # csv_base = "/Users/jedmeier/Projects/fast_trade/fast_trade"
-    csv_base = "/Users/jedmeier/2017_standard"
-    log_path = "/Users/jedmeier/Projects/fast_trade/fast_trade/logs"
+    csv_base = "/home/jedmeier/crypto-data/crypto_data/2017_standard"
+    log_path = "/home/jedmeier/fast_trade/fast_trade/logs"
     # log_path = None
     pairs = ["BTCPAX"]
     strategy = {
