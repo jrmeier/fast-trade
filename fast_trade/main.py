@@ -39,17 +39,19 @@ def run_pair_sim(csv_path, strategy, pair, log_path):
     stop = datetime.datetime.now()
     
     total_time = stop - start
+    print("total time: ",total_time)
     # return data_frame, log
     # re.replace()
     # re.sub(r'(?is)</html>.+', '</html>', article)
-    log_filename = "{}_{}_{}.json".format(strategy.get('name'), pair, datetime.datetime.now())
-    log_filename = re.sub(r'(\s)|(:)|(-)',"_",log_filename)
-    # print(log_filename)
-    new_logpath = os.path.join(log_path, log_filename)
-    print("total time: ", total_time)
-    # return new_logpath
-    with open(new_logpath, 'w+') as log_file:
-        log_file.write(json.dumps(log,indent=3))
+    if log_path:
+        log_filename = "{}_{}_{}.json".format(strategy.get('name'), pair, datetime.datetime.now())
+        log_filename = re.sub(r'(\s)|(:)|(-)',"_",log_filename)
+        # print(log_filename)
+        new_logpath = os.path.join(log_path, log_filename)
+        print("total time: ", total_time)
+        # return new_logpath
+        with open(new_logpath, 'w+') as log_file:
+            log_file.write(json.dumps(log,indent=3))
 
 
 
@@ -75,9 +77,10 @@ def main(pairs, strategy, csv_base, log_path):
 
 if __name__ == "__main__":
     # csv_path = 'BTCUSDT_sample.csv'
-    csv_base = "/Users/jedmeier/Projects/crypto-data/crypto_data/2017_standard"
-    log_path = "/Users/jedmeier/Projects/fast_trade/fast_trade/logs"
-    pairs = ["ADABNB","XMRBTC"]
+    csv_base = "/Users/jedmeier/Projects/fast_trade/fast_trade"
+    # log_path = "/Users/jedmeier/Projects/fast_trade/fast_trade/logs"
+    log_path = None
+    pairs = ["BTCUSDT"]
     strategy = {
         "name": "Simple MA",
         "enter": [
