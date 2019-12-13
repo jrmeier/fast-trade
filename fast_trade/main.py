@@ -17,7 +17,6 @@ def run_pair_sim(csv_path, strategy, pair, log_path, remove_csv=False):
 
     start = datetime.datetime.now()
 
-    print("running: ",pair)
     data_frame = build_data_frame(csv_path, strategy.get('indicators', []))
     log = []
     
@@ -106,7 +105,11 @@ if __name__ == "__main__":
     csv_base = "/home/jedmeier/crypto-data/crypto_data/2017_standard"
     log_path = "/home/jedmeier/fast_trade/fast_trade/logs"
     # log_path = None
-    pairs = ["BTCPAX"]
+    # pairs = ["BTCPAX"]
+    with open("../2017_all.json") as all_pairs_file:
+        pairs = json.load(all_pairs_file)
+    
+    
     strategy = {
         "name": "Simple MA",
         "enter": [
