@@ -17,7 +17,7 @@ def run_pair_sim(csv_path, strategy, pair, log_path, remove_csv=False):
 
     start = datetime.datetime.now()
 
-
+    print("running: ",pair)
     data_frame = build_data_frame(csv_path, strategy.get('indicators', []))
     log = []
     
@@ -47,11 +47,11 @@ def run_pair_sim(csv_path, strategy, pair, log_path, remove_csv=False):
         "total_time": str(total_time),
         "log_file": None,
     }
-    # now.strftime("%m/%d/%Y, %H:%M:%S")
+
     if log_path:
         current_time = datetime.datetime.now().strftime("%m_%d_%Y__%H_%M_%S")
         log_filename = "log_{}_{}_{}.json".format(strategy.get('name'), pair, current_time)
-        # log_filename = re.sub(r'(\s)|(:)|(-)',"_",log_filename)
+
         summary['log_file'] = log_filename
         new_logpath = os.path.join(log_path, log_filename)
 
@@ -103,8 +103,8 @@ def main(pairs, strategy, csv_base, log_path):
 if __name__ == "__main__":
     # csv_path = 'BTCUSDT_sample.csv'
     # csv_base = "/Users/jedmeier/Projects/fast_trade/fast_trade"
-    csv_base = "/Users/jedmeier/2017_standard"
-    log_path = "/Users/jedmeier/Projects/fast_trade/fast_trade/logs"
+    csv_base = "/home/jedmeier/crypto-data/crypto_data/2017_standard"
+    log_path = "/home/jedmeier/fast_trade/fast_trade/logs"
     # log_path = None
     pairs = ["BTCPAX"]
     strategy = {
