@@ -3,10 +3,11 @@ import os
 import datetime
 import re
 import json
+import zipfile
 
 
 
-def run_pair_sim(csv_path, strategy, pair, log_path):
+def run_pair_sim(csv_path, strategy, pair, log_path, remove_csv=False):
     # take in the dataframe
     # take in the strategy
     # read each frame
@@ -24,14 +25,13 @@ def run_pair_sim(csv_path, strategy, pair, log_path):
         last_price = frame[1]['close']
         enter = take_action(frame[1], strategy['enter'])
         exit_position = take_action(frame[1], strategy['exit'])
-        # log_obj = ['date','enter','price']
         log_obj = []
         if enter:
             log_obj = [frame[1]['date'],'enter',last_price]
         if exit_position:
             log_obj = [frame[1]['date'],'exit',last_price]
-        # if not enter and not exit_position:
-            # log_obj = [frame[1]['date'],'hold',last_price]
+        if not enter and not exit_position:
+            log_obj = [frame[1]['date'],'hold',last_price]
         
         if log_path and log_obj:
             log.append(log_obj)
@@ -39,19 +39,36 @@ def run_pair_sim(csv_path, strategy, pair, log_path):
     stop = datetime.datetime.now()
     
     total_time = stop - start
-    print("total time: ",total_time)
-    # return data_frame, log
-    # re.replace()
-    # re.sub(r'(?is)</html>.+', '</html>', article)
+    summary = {
+        "strategy": strategy.get('name'),
+        "pair": pair,
+        "start": start.strftime("%m_%d_%Y__%H_%M_%S"),
+        "stop": stop.strftime("%m_%d_%Y__%H_%M_%S"),
+        "total_time": str(total_time),
+        "log_file": None,
+    }
+    # now.strftime("%m/%d/%Y, %H:%M:%S")
     if log_path:
-        log_filename = "{}_{}_{}.json".format(strategy.get('name'), pair, datetime.datetime.now())
-        log_filename = re.sub(r'(\s)|(:)|(-)',"_",log_filename)
-        # print(log_filename)
+        current_time = datetime.datetime.now().strftime("%m_%d_%Y__%H_%M_%S")
+        log_filename = "log_{}_{}_{}.json".format(strategy.get('name'), pair, current_time)
+        # log_filename = re.sub(r'(\s)|(:)|(-)',"_",log_filename)
+        summary['log_file'] = log_filename
         new_logpath = os.path.join(log_path, log_filename)
-        print("total time: ", total_time)
-        # return new_logpath
+
         with open(new_logpath, 'w+') as log_file:
             log_file.write(json.dumps(log,indent=3))
+
+        summary_filename = "summary_{}_{}_{}.json".format(strategy.get('name'), pair, current_time)
+
+        summary_path = os.path.join(log_path, summary_filename)
+
+        with open(summary_path, 'w+') as summary_file:
+            summary_file.write(json.dumps(summary, indent=3))
+
+    print(summary)
+    # remove the csv file?
+    if remove_csv:
+        os.remove(csv_path)
 
 
 
@@ -69,18 +86,27 @@ def take_action(df_row, strategy):
         return all(results)
 
 def main(pairs, strategy, csv_base, log_path):
+    # prep the csv files, the might be zipped
     for pair in pairs:
-        # csv_path = os.path.abspath(csv_base.format(pair))
         csv_filename = "{}.csv".format(pair)
         csv_path = os.path.join(csv_base, csv_filename)
-        run_pair_sim(csv_path, strategy, pair, log_path)
+        remove_csv = False
+        if not os.path.isfile(csv_path):
+            # check for a zip
+            if os.path.isfile("{}.zip".format(csv_path)):
+                with zipfile.ZipFile("{}.zip".format(csv_path), "r") as zip_file:
+                    zip_file.extractall(csv_base)
+                remove_csv = True
+
+        run_pair_sim(csv_path, strategy, pair, log_path, remove_csv)
 
 if __name__ == "__main__":
     # csv_path = 'BTCUSDT_sample.csv'
-    csv_base = "/Users/jedmeier/Projects/fast_trade/fast_trade"
-    # log_path = "/Users/jedmeier/Projects/fast_trade/fast_trade/logs"
-    log_path = None
-    pairs = ["BTCUSDT"]
+    # csv_base = "/Users/jedmeier/Projects/fast_trade/fast_trade"
+    csv_base = "/Users/jedmeier/2017_standard"
+    log_path = "/Users/jedmeier/Projects/fast_trade/fast_trade/logs"
+    # log_path = None
+    pairs = ["BTCPAX"]
     strategy = {
         "name": "Simple MA",
         "enter": [
