@@ -1,6 +1,7 @@
 import pandas as pd
 import talib as ta
 from custom_functions import *
+
 indicator_map = {
     'ta.ma': ta.MA,
     'ta.ema': ta.EMA,
@@ -12,7 +13,6 @@ def build_data_frame(csv_path, indicators=[], interval=1):
     # read in the csv file
     df = pd.read_csv(csv_path)
     # make all the calculations
-    df = df.iloc[::interval, :]
     for ind in indicators:
         field_name = ind.get('ref')
         ind_name = ind.get('name', None)

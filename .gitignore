@@ -1,4 +1,4 @@
 .fast_trade/
 *.csv
-
+.vscode
 __pycache__/

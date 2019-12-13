@@ -1,6 +1,6 @@
 from build_data_frame import build_data_frame
 
-def run(csv_path, interval, indicators, strategy):
+def run(csv_path, interval, indicators, strategy, should_log=True):
     # take in the dataframe
     # take in the strategy
     # read each frame
@@ -8,17 +8,19 @@ def run(csv_path, interval, indicators, strategy):
     log = []
     
     for frame in data_frame.iterrows():
-        last_price = frame[1][0]
+        last_price = frame[1]['close']
         enter = take_action(frame[1], strategy['enter'])
         exit_position = take_action(frame[1], strategy['exit'])
+        # log_obj = ['date','enter','price']
         if enter:
-            log_obj = {'action': 'enter', 'price': last_price, 'current': frame[0]}
+            log_obj = [frame[1]['date'],'enter',last_price]
         if exit_position:
-            log_obj = {'action': 'exit', 'price': last_price, 'current': frame[0]}
+            log_obj = [frame[1]['date'],'exit',last_price]
         if not enter and not exit_position:
             log_obj = {'action': 'hold', 'price': last_price, 'current': frame[0]}
-
-        log.append(log_obj)
+            log_obj = [frame[1]['date'],'hold',last_price]
+        if should_log:
+            log.append(log_obj)
 
 
     return data_frame, log
@@ -40,24 +42,24 @@ def take_action(df_row, strategy):
 
 
 if __name__ == "__main__":
-    csv_path = 'BTCUSDT.csv'
+    csv_path = 'BTCUSDT_sample.csv'
     interval = 5 # in minutes
     indicators = [ # must be a list, must look like below
             {
                 'ref':'short', # reference for strategy
                 'name': 'ta.ma', # indicator name
                 'timeperiod': 4, # timeperiod to use
-                'df':'last_price' # data frame column name
+                'df':'close' # data frame column name
             },
             {   'ref':'mid',
                 'name': 'ta.ma',
                 'timeperiod': 10,
-                'df':'last_price'
+                'df':'close'
             },
             {   'ref':'long',
                 'name': 'ta.ma',
                 'timeperiod': 21,
-                'df':'last_price'
+                'df':'close'
             },
         ]
 
@@ -69,6 +71,7 @@ if __name__ == "__main__":
         "exit": [('short','<', 'mid')]
     }
 
-    res = run(csv_path, interval, indicators, strategy)
+    df,log = run(csv_path, interval, indicators, strategy)
 
-    print(res)
+
+    print(log)
