@@ -4,10 +4,10 @@ import datetime
 import re
 import json
 import zipfile
+import pandas as pd
 
 
-
-def run_pair_sim(csv_path, strategy, pair, log_path, remove_csv=False):
+def run_pair_sim(csv_path, strategy, pair, log_path, current_time, remove_csv=False):
     # take in the dataframe
     # take in the strategy
     # read each frame
@@ -16,48 +16,45 @@ def run_pair_sim(csv_path, strategy, pair, log_path, remove_csv=False):
         return
 
     start = datetime.datetime.now()
+    df = build_data_frame(csv_path, strategy.get('indicators', []))
 
-    data_frame = build_data_frame(csv_path, strategy.get('indicators', []))
-    log = []
-    
-    for frame in data_frame.iterrows():
-        last_price = frame[1]['close']
-        enter = take_action(frame[1], strategy['enter'])
-        exit_position = take_action(frame[1], strategy['exit'])
-        log_obj = []
+    def run_it(frame):
+        last_price = frame['close']
+        enter = take_action(frame, strategy['enter'])
+        exit_position = take_action(frame, strategy['exit'])
         if enter:
-            log_obj = [frame[1]['date'],'enter',last_price]
+            return 'enter'
         if exit_position:
-            log_obj = [frame[1]['date'],'exit',last_price]
+            return 'exit'
         if not enter and not exit_position:
-            log_obj = [frame[1]['date'],'hold',last_price]
-        
-        if log_path and log_obj:
-            log.append(log_obj)
-    
+            return 'hold'
+
+    df['action'] = df.apply(lambda frame: run_it(frame), axis=1)
     stop = datetime.datetime.now()
-    
-    total_time = stop - start
+
+    log = pd.DataFrame()
+    log['date'] = df['date']
+    log['action'] = df['action']
+    log['close'] = df['close']
+
     summary = {
         "strategy": strategy.get('name'),
         "pair": pair,
         "start": start.strftime("%m_%d_%Y__%H_%M_%S"),
         "stop": stop.strftime("%m_%d_%Y__%H_%M_%S"),
-        "total_time": str(total_time),
+        "total_time": str(stop - start),
         "log_file": None,
     }
 
     if log_path:
-        current_time = datetime.datetime.now().strftime("%m_%d_%Y__%H_%M_%S")
-        log_filename = "log_{}_{}_{}.json".format(strategy.get('name'), pair, current_time)
+        strat_name = strategy.get('name').replace(" ","")
+        log_filename = "{}_{}_{}_log.csv".format(strat_name, pair, current_time)
 
         summary['log_file'] = log_filename
         new_logpath = os.path.join(log_path, log_filename)
+        log.to_csv(new_logpath,index=False)
 
-        with open(new_logpath, 'w+') as log_file:
-            log_file.write(json.dumps(log,indent=3))
-
-        summary_filename = "summary_{}_{}_{}.json".format(strategy.get('name'), pair, current_time)
+        summary_filename = "{}_{}_{}_summary.json".format(strategy.get('name'), pair, current_time)
 
         summary_path = os.path.join(log_path, summary_filename)
 
@@ -86,6 +83,7 @@ def take_action(df_row, strategy):
 
 def main(pairs, strategy, csv_base, log_path):
     # prep the csv files, the might be zipped
+    current_time = datetime.datetime.now().strftime("%m_%d_%Y__%H_%M_%S")
     for pair in pairs:
         csv_filename = "{}.csv".format(pair)
         csv_path = os.path.join(csv_base, csv_filename)
@@ -97,17 +95,18 @@ def main(pairs, strategy, csv_base, log_path):
                     zip_file.extractall(csv_base)
                 remove_csv = True
 
-        run_pair_sim(csv_path, strategy, pair, log_path, remove_csv)
+        run_pair_sim(csv_path, strategy, pair, log_path, current_time, remove_csv)
 
 if __name__ == "__main__":
     # csv_path = 'BTCUSDT_sample.csv'
-    # csv_base = "/Users/jedmeier/Projects/fast_trade/fast_trade"
-    csv_base = "/home/jedmeier/crypto-data/crypto_data/2017_standard"
-    log_path = "/home/jedmeier/fast_trade/fast_trade/logs"
+    csv_base = "/Users/jedmeier/Projects/fast_trade/fast_trade"
+    log_path = "/Users/jedmeier/Projects/fast_trade/fast_trade/logs"
+    # csv_base = "/home/jedmeier/crypto-data/crypto_data/2017_standard"
+    # log_path = "/home/jedmeier/fast_trade/fast_trade/logs"
     # log_path = None
-    # pairs = ["BTCPAX"]
-    with open("../2017_all.json") as all_pairs_file:
-        pairs = json.load(all_pairs_file)
+    pairs = ["BTCUSDT_sample"]
+    # with open("../2017_all.json") as all_pairs_file:
+    #     pairs = json.load(all_pairs_file)
     
     
     strategy = {

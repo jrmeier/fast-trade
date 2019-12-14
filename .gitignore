@@ -3,3 +3,5 @@
 .vscode
 __pycache__/
 logs/
+.env
+.DS_Store
