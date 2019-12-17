@@ -99,38 +99,38 @@ def main(pairs, strategy, csv_base, log_path):
 
 if __name__ == "__main__":
     # csv_path = 'BTCUSDT_sample.csv'
-    csv_base = "/Users/jedmeier/Projects/fast_trade/fast_trade"
-    log_path = "/Users/jedmeier/Projects/fast_trade/fast_trade/logs"
-    # csv_base = "/home/jedmeier/crypto-data/crypto_data/2017_standard"
-    # log_path = "/home/jedmeier/fast_trade/fast_trade/logs"
+    #csv_base = "/Users/jedmeier/Projects/fast_trade/fast_trade"
+    #log_path = "/Users/jedmeier/Projects/fast_trade/fast_trade/logs"
+    csv_base = "/var/www/static/current/2017_standard"
+    log_path = "/var/www/static/current/logs"
     # log_path = None
-    pairs = ["BTCUSDT_sample"]
-    # with open("../2017_all.json") as all_pairs_file:
-    #     pairs = json.load(all_pairs_file)
+    #pairs = ["BTCUSDT"]
+    with open("../2017_all.json") as all_pairs_file:
+        pairs = json.load(all_pairs_file)
     
     
     strategy = {
-        "name": "Simple MA",
+        "name": "EMA",
         "enter": [
-            ('short','>','mid'), # ref to compare, operator, other ref to compare
-            ('short', '>', 'long')
+            ('close','>','mid'), # ref to compare, operator, other ref to compare
+            ('close', '>', 'long')
             ],
-        "exit": [('short','<', 'mid')],
+        "exit": [('close','<', 'mid')],
         "indicators": [ # must be a list, must look like below
             {
                 'ref':'short', # reference for strategy
-                'name': 'ta.ma', # indicator name
-                'timeperiod': 4, # timeperiod to use
+                'name': 'ta.ema', # indicator name
+                'timeperiod': 31, # timeperiod to use
                 'df':'close' # data frame column name
             },
             {   'ref':'mid',
-                'name': 'ta.ma',
-                'timeperiod': 10,
+                'name': 'ta.ema',
+                'timeperiod': 90,
                 'df':'close'
             },
             {   'ref':'long',
-                'name': 'ta.ma',
-                'timeperiod': 21,
+                'name': 'ta.ema',
+                'timeperiod': 180,
                 'df':'close'
             },
         ]
