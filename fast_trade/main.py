@@ -1,4 +1,4 @@
-from build_data_frame import build_data_frame
+# from build_data_frame import build_data_frame
 import os
 import datetime
 import re
@@ -8,7 +8,21 @@ import pandas as pd
 import uuid
 import random
 import string
+from indicator_map import indicator_map
 
+
+
+def build_data_frame(csv_path, indicators=[]):
+    ohlc = pd.read_csv(csv_path, parse_dates=False)
+    df = ohlc.copy() # not sure if this is needed
+    
+    for ind in indicators:
+        timeperiod = ind.get('timeperiod')
+        ind_name = ind.get('name')
+        field_name = ind.get('ref')
+        df[field_name] = indicator_map[ind_name](ohlc, timeperiod)
+
+    return df
 
 def run_pair_sim(csv_path, strategy, pair, log_path, run_id, remove_csv=False, avg_time=None):
     # take in the dataframe
@@ -19,7 +33,7 @@ def run_pair_sim(csv_path, strategy, pair, log_path, run_id, remove_csv=False, a
         return
 
     start = datetime.datetime.utcnow()
-    df = build_data_frame(csv_path, strategy.get('indicators', []))
+    df = build_data_frame(csv_path, strategy.get('indicators'))
     def run_it(frame):
         last_price = frame['close']
         enter = take_action(frame, strategy['enter'])
@@ -95,7 +109,10 @@ def take_action(df_row, strategy):
     if len(results):
         return all(results)
 
-def main(pairs, strategy, csv_base, log_path):
+# def main(pairs, strategy, csv_base, log_path):
+def main():
+    pairs = ["BTCUSDT"]
+    csv_base = 
     # prep the csv files, the might be zipped
     run_id = str(uuid.uuid4())
     run_start = datetime.datetime.utcnow()
@@ -139,17 +156,41 @@ def main(pairs, strategy, csv_base, log_path):
 
 if __name__ == "__main__":
     # csv_base = "/Users/jedmeier/Projects/fast_trade/fast_trade"
-    csv_base = "/Users/jedmeier/zipped"
+    csv_base = "/Users/jedmeier/2017_standard/"
     log_path = "/Users/jedmeier/Projects/fast_trade/fast_trade/logs"
     
     # csv_base = "/home/jedmeier/crypto-data/crypto_data/2017_standard"
     # log_path = "/home/jedmeier/fast_trade/fast_trade/logs"
     # log_path = None
-    # pairs = ["BTCUSDT_sample"]
-    with open("../2017_all.json") as all_pairs_file:
-        pairs = json.load(all_pairs_file)
+    pairs = ["BTCUSDT"]
+    # with open("../2017_all.json") as all_pairs_file:
+    #     pairs = json.load(all_pairs_file)
     
     with open("../SimpleMa.strat.json") as strat_file:
         strategy = json.load(strat_file)
     
     main(pairs, strategy, csv_base, log_path)
+
+    # csv_file_path = os.path.join(csv_base, "BTCUSDT.csv")
+#     indicators = [
+#       {
+#          "ref": "short",
+#          "name": "ta.ema",
+#          "timeperiod": 51,
+#          "df": "close"
+#       },
+#       {
+#          "ref": "mid",
+#          "name": "ta.ema",
+#          "timeperiod": 120,
+#          "df": "close"
+#       },
+#       {
+#          "ref": "long",
+#          "name": "ta.ema",
+#          "timeperiod": 280,
+#          "df": "close"
+#       }
+#    ]
+#     # print(csv_file_path)
+#     build_data_frame(csv_file_path, indicators)
