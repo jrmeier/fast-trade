@@ -124,6 +124,13 @@ def main(pairs, strategy, csv_base, log_path):
     for pair in pairs:
         csv_filename = "{}.csv".format(pair)
         print("{} {}/{}".format(pair, pairs.index(pair)+1, len(pairs)))
+        time_elapsed = datetime.datetime.utcnow() - run_start
+        status = {"current_pair": pair, "current_location": pairs.index(pair)+1, "total_pairs": len(pairs), "time_elapsed": str(time_elapsed)}
+
+        status_path = os.path.join(log_path,"aStatus")
+        with open(status_path, 'w+') as status_file:
+            status_file.write(json.dumps(status))
+
         csv_path = os.path.join(csv_base, csv_filename)
         remove_csv = False
         if not os.path.isfile(csv_path):
