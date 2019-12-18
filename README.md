@@ -34,3 +34,6 @@ pip install -r requirements.txt
 2. Build your strategy
 3. ???
 4. Profit
+
+
+Available Indicators (graciously stolen from https://github.com/peerchemist/finta)

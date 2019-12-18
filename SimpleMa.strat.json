@@ -1,0 +1,42 @@
+{
+   "name": "EMA_longer",
+   "enter": [
+      [
+         "close",
+         ">",
+         "mid"
+      ],
+      [
+         "close",
+         ">",
+         "long"
+      ]
+   ],
+   "exit": [
+      [
+         "close",
+         "<",
+         "mid"
+      ]
+   ],
+   "indicators": [
+      {
+         "ref": "short",
+         "name": "ta.ema",
+         "timeperiod": 51,
+         "df": "close"
+      },
+      {
+         "ref": "mid",
+         "name": "ta.ema",
+         "timeperiod": 120,
+         "df": "close"
+      },
+      {
+         "ref": "long",
+         "name": "ta.ema",
+         "timeperiod": 280,
+         "df": "close"
+      }
+   ]
+}

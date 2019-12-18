@@ -1,4 +1,4 @@
-from build_data_frame import build_data_frame
+# from build_data_frame import build_data_frame
 import os
 import datetime
 import re
@@ -8,7 +8,21 @@ import pandas as pd
 import uuid
 import random
 import string
+from indicator_map import indicator_map
 
+
+
+def build_data_frame(csv_path, indicators=[]):
+    ohlc = pd.read_csv(csv_path, parse_dates=False)
+    df = ohlc.copy() # not sure if this is needed
+    
+    for ind in indicators:
+        timeperiod = ind.get('timeperiod')
+        ind_name = ind.get('name')
+        field_name = ind.get('ref')
+        df[field_name] = indicator_map[ind_name](ohlc, timeperiod)
+
+    return df
 
 def run_pair_sim(csv_path, strategy, pair, log_path, run_id, remove_csv=False, avg_time=None):
     # take in the dataframe
@@ -19,7 +33,7 @@ def run_pair_sim(csv_path, strategy, pair, log_path, run_id, remove_csv=False, a
         return
 
     start = datetime.datetime.utcnow()
-    df = build_data_frame(csv_path, strategy.get('indicators', []))
+    df = build_data_frame(csv_path, strategy.get('indicators'))
     def run_it(frame):
         last_price = frame['close']
         enter = take_action(frame, strategy['enter'])
@@ -138,41 +152,17 @@ def main(pairs, strategy, csv_base, log_path):
             new_run_log.write(json.dumps(run_sum, indent=3))
 
 if __name__ == "__main__":
-    # csv_path = 'BTCUSDT_sample.csv'
-    #csv_base = "/Users/jedmeier/Projects/fast_trade/fast_trade"
-    #log_path = "/Users/jedmeier/Projects/fast_trade/fast_trade/logs"
     csv_base = "/var/www/static/current/2017_standard"
     log_path = "/var/www/static/current/logs"
-    # log_path = None
+    
+    # csv_base = "/Users/jedmeier/2017_standard/"
+    # log_path = "/Users/jedmeier/Projects/fast_trade/fast_trade/logs"
+    
     #pairs = ["BTCUSDT"]
-    # csv_base = "/Users/jedmeier/Projects/fast_trade/fast_trade"
-    #csv_base = "/Users/jedmeier/zipped"
-    strategy = {
-        "name": "EMA",
-        "enter": [
-            ('close','>','mid'), # ref to compare, operator, other ref to compare
-            ('close', '>', 'long')
-            ],
-        "exit": [('close','<', 'mid')],
-        "indicators": [ # must be a list, must look like below
-            {
-                'ref':'short', # reference for strategy
-                'name': 'ta.ema', # indicator name
-                'timeperiod': 31, # timeperiod to use
-                'df':'close' # data frame column name
-            },
-            {   'ref':'mid',
-                'name': 'ta.ema',
-                'timeperiod': 90,
-                'df':'close'
-            },
-            {   'ref':'long',
-                'name': 'ta.ema',
-                'timeperiod': 180,
-                'df':'close'
-            },
-        ]
-
-    }
-
+    with open("../2017_all.json") as all_pairs_file:
+        pairs = json.load(all_pairs_file)
+    
+    with open("../running-scared.strat.json") as strat_file:
+        strategy = json.load(strat_file)
+    
     main(pairs, strategy, csv_base, log_path)
