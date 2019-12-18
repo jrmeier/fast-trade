@@ -111,8 +111,6 @@ def take_action(df_row, strategy):
 
 # def main(pairs, strategy, csv_base, log_path):
 def main():
-    pairs = ["BTCUSDT"]
-    csv_base = 
     # prep the csv files, the might be zipped
     run_id = str(uuid.uuid4())
     run_start = datetime.datetime.utcnow()
