@@ -28,7 +28,7 @@ def main(pairs, strategy, csv_base, log_path):
         time_elapsed = datetime.datetime.utcnow() - run_start
         status = {"current_pair": pair, "current_location": pairs.index(pair)+1, "total_pairs": len(pairs), "time_elapsed": str(time_elapsed)}
 
-        status_path = os.path.join(log_path,"aStatus")
+        status_path = os.path.join(log_path,"aStatus.json")
         with open(status_path, 'w+') as status_file:
             status_file.write(json.dumps(status))
 
@@ -77,5 +77,6 @@ if __name__ == "__main__":
 
     for n in range(100):
         strategy = generate_strategy()
+        # print(json.dumps(strategy,indent=3))
         # print(strategy)
         main(pairs, strategy, csv_base, log_path)
