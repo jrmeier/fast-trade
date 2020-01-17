@@ -5,8 +5,9 @@ from store import generate_random_name
 
 def generate_strategy():
     time1 = random.randint(0,100)
-    time2 = random.randint(time1, time1*2)
-    time3 = random.randint(time2, time2*3)
+    time2 = random.randint(time1+1, time1*2)
+    time3 = random.randint(time2+1, time2*3)
+    ema_exit = random.choice(["short","mid","long"])
     return {
         "name": generate_random_name(),
         "enter": [
@@ -25,7 +26,7 @@ def generate_strategy():
                 [
                     "close",
                     "<",
-                    "mid"
+                    ema_exit
                 ]
             ],
             "indicators": [
@@ -51,6 +52,6 @@ def generate_strategy():
             }
 
 
-# if __name__ == "__main__":
+if __name__ == "__main__":
 
-#     print(generate_strategy())
+    print(generate_strategy())

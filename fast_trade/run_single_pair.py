@@ -11,11 +11,9 @@ def determine_action_iter(frame, strategy):
     enter = take_action(frame, strategy['enter'])
     exit_position = take_action(frame, strategy['exit'])
     if enter:
-        return 'enter'
+        return 'en'
     if exit_position:
-        return 'exit'
-    if not enter and not exit_position:
-        return 'hold'
+        return 'ex'
 
 def run_single_pair(csv_path, strategy, pair, log_path, run_id, remove_csv=False, avg_time=None):
     if not os.path.isfile(csv_path):
