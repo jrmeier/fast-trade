@@ -45,7 +45,7 @@ def run_single_pair(csv_path, strategy, pair, log_path, run_id, remove_csv=False
         strat_name = strategy.get('name').replace(" ","")
         log_filename = "{}_log.csv".format(pair)
 
-        strat_filename = "_{}_strat.json".format(strat_name)
+        strat_filename = "{}_strat.json".format(strat_name)
 
         with open(os.path.join(log_path, strat_filename), 'w+') as strat_file:
             strat_file.write(json.dumps(strategy, indent=3))

@@ -28,7 +28,7 @@ def main(pairs, strategy, csv_base, log_path):
         time_elapsed = datetime.datetime.utcnow() - run_start
         status = {"current_pair": pair, "current_location": pairs.index(pair)+1, "total_pairs": len(pairs), "time_elapsed": str(time_elapsed)}
 
-        status_path = os.path.join(log_path,"aStatus.json")
+        status_path = os.path.join(log_path,"status.json")
         with open(status_path, 'w+') as status_file:
             status_file.write(json.dumps(status))
 
@@ -60,22 +60,17 @@ def main(pairs, strategy, csv_base, log_path):
             new_run_log.write(json.dumps(run_sum, indent=3))
 
 if __name__ == "__main__":
-    csv_base = "/var/www/static/current/2017_standard"
-    log_path = "/var/www/static/current/logs"
+    #csv_base = "/var/www/static/current/2017_standard"
+    #log_path = "/var/www/static/current/logs"
     #log_path = "/mnt/volume_sfo2_01/"
     
-    #csv_base = "/Users/jedmeier/2017_standard/"
-    #log_path = "/Users/jedmeier/Projects/fast_trade/fast_trade/logs"
+    csv_base = "/Users/jedmeier/2017_standard/"
+    log_path = "/Users/jedmeier/Projects/fast_trade/fast_trade/logs"
     
    # pairs = ["BTCUSDT"]
     with open("../2017_all.json") as all_pairs_file:
         pairs = json.load(all_pairs_file)
     
-    # with open("../running-scared.strat.json") as strat_file:
-    #strategy = json.load(strat_file)
-
-    # generate a bunch of ranges
-
     for n in range(50):
         strategy = generate_strategy()
         # print(json.dumps(strategy,indent=3))
