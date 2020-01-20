@@ -12,12 +12,12 @@ def determine_action(frame, strategy, df_col_map):
     enter = take_action(frame, strategy['enter'], df_col_map)
     if enter:
         # return [frame[0], 'en', frame[1]]
-        return 'en'
+        return 'e'
     
     exit_position = take_action(frame, strategy['exit'], df_col_map)
     if exit_position:
         # return [frame[0], 'ex', frame[1]]
-        return 'ex'
+        return 'x'
     
     # return [frame[0], 'h', frame[1]]
     return 'h'
