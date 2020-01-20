@@ -3,17 +3,38 @@ import os
 import datetime
 import json
 import zipfile
+import csv
 
 from build_data_frame import build_data_frame
 
-def determine_action_iter(frame, strategy):
-    last_price = frame['close']
-    enter = take_action(frame, strategy['enter'])
-    exit_position = take_action(frame, strategy['exit'])
+
+def determine_action(frame, strategy, df_col_map):
+    enter = take_action(frame, strategy['enter'], df_col_map)
     if enter:
+        # return [frame[0], 'en', frame[1]]
         return 'en'
+    
+    exit_position = take_action(frame, strategy['exit'], df_col_map)
     if exit_position:
+        # return [frame[0], 'ex', frame[1]]
         return 'ex'
+    
+    # return [frame[0], 'h', frame[1]]
+    return 'h'
+
+def take_action(raw_row, strategy, df_col_map):
+    results = []
+
+    for each in strategy:
+        if each[1] == ">":
+            results.append(bool(df_col_map[each[0]] > df_col_map[each[2]]))
+        if each[1] == "<":
+            results.append(bool(df_col_map[each[0]] < df_col_map[each[2]]))
+        if each[1] == "=":
+            results.append(bool(df_col_map[each[0]] == df_col_map[each[2]]))
+
+    if len(results):
+        return all(results)
 
 def run_single_pair(csv_path, strategy, pair, log_path, run_id, remove_csv=False, avg_time=None):
     if not os.path.isfile(csv_path):
@@ -22,15 +43,17 @@ def run_single_pair(csv_path, strategy, pair, log_path, run_id, remove_csv=False
 
     start = datetime.datetime.utcnow()
     df = build_data_frame(csv_path, strategy.get('indicators'))
+    
+    df_col_map = {}
+    for idx, each in enumerate(df.columns):
+        df_col_map[each] = raw_row[idx]
 
-    df['action'] = df.apply(lambda frame: determine_action_iter(frame, strategy), axis=1)
+    log = filter(None, [determine_action(frame, strategy, df_col_map) for frame in df.values])
+    
     stop = datetime.datetime.utcnow()
 
-    log = pd.DataFrame()
-    log['date'] = df['date']
-    log['action'] = df['action']
-    log['close'] = df['close']
-    
+    profitable_percentage = 
+
     summary = {
         "name": strategy.get('name'),
         "run_id": run_id,
@@ -39,6 +62,7 @@ def run_single_pair(csv_path, strategy, pair, log_path, run_id, remove_csv=False
         "stop": stop.strftime("%m/%d/%Y %H:%M:%S"),
         "total_time": str(stop - start),
         "log_file": None,
+        "profitable_percentage": 
     }
 
     if log_path:
@@ -50,12 +74,14 @@ def run_single_pair(csv_path, strategy, pair, log_path, run_id, remove_csv=False
         with open(os.path.join(log_path, strat_filename), 'w+') as strat_file:
             strat_file.write(json.dumps(strategy, indent=3))
 
-
         new_logpath = os.path.join(log_path, log_filename)
 
         summary['log_file'] = new_logpath + ".zip"
 
-        log.to_csv(new_logpath,index=False)
+        with open(new_logpath, "w") as new_logfile:
+            file_writer = csv.writer(new_logfile, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL)
+            file_writer.writerows(log)
+            
 
         with zipfile.ZipFile(f"{new_logpath}.zip", "w") as log_zip:
             log_zip.write(
@@ -72,17 +98,3 @@ def run_single_pair(csv_path, strategy, pair, log_path, run_id, remove_csv=False
     if remove_csv:
         os.remove(csv_path)
 
-
-
-def take_action(df_row, strategy):
-    results = []
-    for each in strategy:
-        if each[1] == ">":
-            results.append(bool(df_row[each[0]] > df_row[each[2]]))
-        if each[1] == "<":
-            results.append(bool(df_row[each[0]] < df_row[each[2]]))
-        if each[1] == "=":
-            results.append(bool(df_row[each[0]] == df_row[each[2]]))
-    
-    if len(results):
-        return all(results)

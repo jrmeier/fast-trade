@@ -31,6 +31,7 @@ def anaylze(log_filepath):
             transactions.append(row)
             in_trade = False
 
+    
 
     return sum(diffs)
 

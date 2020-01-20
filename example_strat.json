@@ -23,19 +23,19 @@
       {
          "ref": "short",
          "name": "ta.ema",
-         "timeperiod": 21,
+         "timeperiod": "15m",
          "df": "close"
       },
       {
          "ref": "mid",
          "name": "ta.ema",
-         "timeperiod": 42,
+         "timeperiod": "1h",
          "df": "close"
       },
       {
          "ref": "long",
          "name": "ta.ema",
-         "timeperiod": 84,
+         "timeperiod": "4h",
          "df": "close"
       }
    ]

@@ -9,6 +9,7 @@ from build_data_frame import build_data_frame
 
 from generate_strategy import generate_strategy
 from run_single_pair import run_single_pair
+from dotenv import load_dotenv
 
 def main(pairs, strategy, csv_base, log_path):
     # prep the csv files, the might be zipped
@@ -26,7 +27,13 @@ def main(pairs, strategy, csv_base, log_path):
         csv_filename = "{}.csv".format(pair)
         print("{} {}/{}".format(pair, pairs.index(pair)+1, len(pairs)))
         time_elapsed = datetime.datetime.utcnow() - run_start
-        status = {"current_pair": pair, "current_location": pairs.index(pair)+1, "total_pairs": len(pairs), "time_elapsed": str(time_elapsed)}
+        status = {
+            "current_pair": pair,
+            "current_location": pairs.index(pair)+1,
+            "total_pairs": len(pairs),
+            "time_elapsed": str(time_elapsed),
+            "perc_complete": str((pairs.index(pair)+1 / len(pairs)))
+            }
 
         status_path = os.path.join(log_path,"status.json")
         with open(status_path, 'w+') as status_file:
@@ -60,19 +67,29 @@ def main(pairs, strategy, csv_base, log_path):
             new_run_log.write(json.dumps(run_sum, indent=3))
 
 if __name__ == "__main__":
-    #csv_base = "/var/www/static/current/2017_standard"
-    #log_path = "/var/www/static/current/logs"
-    #log_path = "/mnt/volume_sfo2_01/"
+    pairs = []
+    strategy = None    
     
-    csv_base = "/Users/jedmeier/2017_standard/"
-    log_path = "/Users/jedmeier/Projects/fast_trade/fast_trade/logs"
+    csv_path = os.getenv("CSV_PATH")
+    log_path = os.getenv("LOG_PATH")
+    config_path = os.getenv("CONFIG_PATH")
+
+    with open(config_path, "r") as config_file:
+        config = json.load(config_file)
     
-   # pairs = ["BTCUSDT"]
-    with open("../2017_all.json") as all_pairs_file:
-        pairs = json.load(all_pairs_file)
+    if config.get("pairs"):
+        pairs = config.get("pairs")
+
+    if not pairs:
+        with open(config.get("pairs_file", "r")) as pairs_file:
+            pairs = json.load(pairs_file)
+
+    if config.get("strategy_file"):
+        with open(config.get("strategy_file", "r")) as strat_file:
+            strategy = json.load(strat_file)
     
-    for n in range(50):
+    if not strategy:
         strategy = generate_strategy()
-        # print(json.dumps(strategy,indent=3))
-        # print(strategy)
-        main(pairs, strategy, csv_base, log_path)
+
+    for each in range(0, config.get("iterations",1)):
+        main(pairs, strategy, csv_path, log_path)
