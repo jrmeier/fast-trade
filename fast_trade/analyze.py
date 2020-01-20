@@ -3,6 +3,7 @@ import os
 import csv
 import json
 
+
 def anaylze(log_filepath):
     arc_name = log_filepath.split("/")[-1].split(".zip")[0]
 
@@ -10,10 +11,9 @@ def anaylze(log_filepath):
     unzipped_file = f"{unzipped_path}/{arc_name}"
     if not os.path.isfile(unzipped_file):
         with zipfile.ZipFile(log_filepath, "r") as zip_ref:
-          zip_ref.extractall(unzipped_path)
+            zip_ref.extractall(unzipped_path)
 
-
-    with open(log_filepath, 'r') as opened_file:
+    with open(log_filepath, "r") as opened_file:
         log = csv.reader(opened_file, delimiter=",")
         logs = list(log)[1:]
 
@@ -31,8 +31,6 @@ def anaylze(log_filepath):
             transactions.append(row)
             in_trade = False
 
-    
-
     return sum(diffs)
 
 
@@ -42,4 +40,3 @@ if __name__ == "__main__":
     res = anaylze(log_filepath)
 
     print(res)
-    

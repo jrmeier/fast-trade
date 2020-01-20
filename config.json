@@ -1,3 +1,5 @@
 {
-    "pairs_file": "../2017_all.json"
+    "pairs": ["ADABNB"],
+    "strategy_file": "../example_strat.json",
+    "datasaver": false
 }
