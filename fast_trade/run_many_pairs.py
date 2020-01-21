@@ -12,7 +12,7 @@ from run_single_pair import run_single_pair
 from dotenv import load_dotenv
 
 
-def main(pairs, strategy, csv_base, log_path, datasaver):
+def run_many_pairs(pairs, strategy, csv_base, log_path, datasaver):
     # prep the csv files, the might be zipped
     run_id = str(uuid.uuid4())
     run_start = datetime.datetime.utcnow()
@@ -48,7 +48,7 @@ def main(pairs, strategy, csv_base, log_path, datasaver):
                 with zipfile.ZipFile("{}.zip".format(csv_path), "r") as zip_file:
                     zip_file.extractall(csv_base)
                 remove_csv = True
-                
+
         run_single_pair(csv_path, strategy, pair, log_path, run_id, datasaver)
 
     run_stop = datetime.datetime.utcnow()

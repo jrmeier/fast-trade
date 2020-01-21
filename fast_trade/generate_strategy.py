@@ -3,10 +3,10 @@ from store import generate_random_name
 
 
 def generate_strategy():
-    charts = ["m","h","d"]
+    charts = ["m", "h", "d"]
     t1 = random.randint(1, 100)
-    t2 = random.randint(t1+1, t1*2)
-    t3 = random.randint(t2+1, t2*3)
+    t2 = random.randint(t1 + 1, t1 * 2)
+    t3 = random.randint(t2 + 1, t2 * 3)
     chart = random.choice(charts)
     time1 = f"{t1}{chart}"
     time2 = f"{t2}{chart}"

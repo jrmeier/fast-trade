@@ -53,13 +53,12 @@ def run_single_pair(csv_path, strategy, pair, log_path, run_id, datasaver):
     start = datetime.datetime.utcnow()
     df = build_data_frame(csv_path, strategy.get("indicators"))
 
-    log = filter(
-        None,
-        [
-            determine_action(frame, strategy, list(df.columns), datasaver)
-            for frame in df.values
-        ],
-    )
+    actions = [
+        determine_action(frame, strategy, list(df.columns), datasaver)
+        for frame in df.values
+    ]
+    print(actions)
+    # df['actions'] = actions
 
     stop = datetime.datetime.utcnow()
 
@@ -72,35 +71,36 @@ def run_single_pair(csv_path, strategy, pair, log_path, run_id, datasaver):
         "total_time": str(stop - start),
         "log_file": None,
     }
+    os.remove(csv_path)
 
-    if log_path:
-        strat_name = strategy.get("name").replace(" ", "")
-        log_filename = "{}_log.csv".format(pair)
+    return summary
 
-        strat_filename = "{}_strat.json".format(strat_name)
 
-        with open(os.path.join(log_path, strat_filename), "w+") as strat_file:
-            strat_file.write(json.dumps(strategy, indent=3))
+def save_log_file(strategy, pair, log_path, log):
+    strat_name = strategy.get("name").replace(" ", "")
+    log_filename = "{}_log.csv".format(pair)
 
-        new_logpath = os.path.join(log_path, log_filename)
+    strat_filename = "{}_strat.json".format(strat_name)
 
-        summary["log_file"] = new_logpath + ".zip"
+    with open(os.path.join(log_path, strat_filename), "w+") as strat_file:
+        strat_file.write(json.dumps(strategy, indent=3))
 
-        with open(new_logpath, "w") as new_logfile:
-            file_writer = csv.writer(
-                new_logfile, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
-            )
-            file_writer.writerows(log)
+    new_logpath = os.path.join(log_path, log_filename)
 
-        with zipfile.ZipFile(f"{new_logpath}.zip", "w") as log_zip:
-            log_zip.write(
-                new_logpath, compress_type=zipfile.ZIP_DEFLATED, arcname=log_filename,
-            )
-        os.remove(new_logpath)
-        summary_filename = "{}_sum.json".format(pair)
-        summary_path = os.path.join(log_path, summary_filename)
+    summary["log_file"] = new_logpath + ".zip"
+    with open(new_logpath, "w") as new_logfile:
+        file_writer = csv.writer(
+            new_logfile, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
+        )
+        file_writer.writerows(log)
 
-        with open(summary_path, "w+") as summary_file:
-            summary_file.write(json.dumps(summary, indent=3))
-        
-        os.remove(csv_path)
+    with zipfile.ZipFile(f"{new_logpath}.zip", "w") as log_zip:
+        log_zip.write(
+            new_logpath, compress_type=zipfile.ZIP_DEFLATED, arcname=log_filename,
+        )
+    os.remove(new_logpath)
+    summary_filename = "{}_sum.json".format(pair)
+    summary_path = os.path.join(log_path, summary_filename)
+
+    with open(summary_path, "w+") as summary_file:
+        summary_file.write(json.dumps(summary, indent=3))
