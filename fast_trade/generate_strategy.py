@@ -4,7 +4,7 @@ from store import generate_random_name
 
 
 def generate_strategy():
-    time1 = random.randint(0,100)
+    time1 = random.randint(1,100)
     time2 = random.randint(time1+1, time1*2)
     time3 = random.randint(time2+1, time2*3)
     ema_exit = random.choice(["short","mid","long"])
