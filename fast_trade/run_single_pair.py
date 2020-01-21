@@ -102,7 +102,5 @@ def run_single_pair(csv_path, strategy, pair, log_path, run_id, datasaver):
 
         with open(summary_path, "w+") as summary_file:
             summary_file.write(json.dumps(summary, indent=3))
-
-    # remove the csv file?
-    if remove_csv:
+        
         os.remove(csv_path)

@@ -48,7 +48,7 @@ def main(pairs, strategy, csv_base, log_path, datasaver):
                 with zipfile.ZipFile("{}.zip".format(csv_path), "r") as zip_file:
                     zip_file.extractall(csv_base)
                 remove_csv = True
-
+                
         run_single_pair(csv_path, strategy, pair, log_path, run_id, datasaver)
 
     run_stop = datetime.datetime.utcnow()
