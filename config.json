@@ -1,5 +1,4 @@
 {
-    "pairs_file": "../2017_all.json",
-    "datasaver": true,
-    "iterations": 100
+    "pairs": ["BTCUSDT"],
+    "datasaver": false
 }
