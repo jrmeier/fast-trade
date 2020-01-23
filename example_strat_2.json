@@ -1,0 +1,42 @@
+{
+   "name": "example",
+   "enter": [
+      [
+         "close",
+         ">",
+         "mid"
+      ],
+      [
+         "close",
+         ">",
+         "long"
+      ]
+   ],
+   "exit": [
+      [
+         "close",
+         "<",
+         "mid"
+      ]
+   ],
+   "indicators": [
+      {
+         "ref": "short",
+         "name": "ta.ema",
+         "timeperiod": "15m",
+         "df": "close"
+      },
+      {
+         "ref": "mid",
+         "name": "ta.ema",
+         "timeperiod": "1h",
+         "df": "close"
+      },
+      {
+         "ref": "long",
+         "name": "ta.ema",
+         "timeperiod": "4h",
+         "df": "close"
+      }
+   ]
+}
