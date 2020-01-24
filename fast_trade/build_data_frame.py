@@ -35,4 +35,4 @@ if __name__ == "__main__":
 
     res = determine_timeperiod(timeperiod)
 
-    print(res)
+    # print(res)

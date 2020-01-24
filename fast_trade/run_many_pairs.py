@@ -20,7 +20,6 @@ def run_many_pairs(pairs, strategy, csv_base, log_path, datasaver):
     if log_path:
         run_dir_name = "run_{}".format(run_start.strftime("%m_%d_%Y_%H_%M_%S"))
         log_path = os.path.join(log_path, run_dir_name)
-
         if not os.path.isdir(log_path):
             os.mkdir(log_path)
 
@@ -91,8 +90,6 @@ if __name__ == "__main__":
         with open(config.get("strategy_file", "r")) as strat_file:
             strategy = json.load(strat_file)
 
-    if not strategy:
-        strategy = generate_strategy()
-
     for each in range(0, config.get("iterations", 1)):
-        main(pairs, strategy, csv_path, log_path, datasaver)
+        strategy = generate_strategy()
+        run_many_pairs(pairs, strategy, csv_path, log_path, datasaver)

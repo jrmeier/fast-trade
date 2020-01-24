@@ -57,8 +57,8 @@ def run_single_pair(csv_path, strategy, pair, log_path, run_id, datasaver):
         determine_action(frame, strategy, list(df.columns), datasaver)
         for frame in df.values
     ]
-    print(actions)
-    # df['actions'] = actions
+    # print(actions)
+    # df['actions'] = 
 
     stop = datetime.datetime.utcnow()
 
@@ -72,11 +72,11 @@ def run_single_pair(csv_path, strategy, pair, log_path, run_id, datasaver):
         "log_file": None,
     }
     os.remove(csv_path)
-
+    save_log_file(strategy, pair, log_path, actions, summary)
     return summary
 
 
-def save_log_file(strategy, pair, log_path, log):
+def save_log_file(strategy, pair, log_path, log, summary):
     strat_name = strategy.get("name").replace(" ", "")
     log_filename = "{}_log.csv".format(pair)
 
@@ -87,7 +87,8 @@ def save_log_file(strategy, pair, log_path, log):
 
     new_logpath = os.path.join(log_path, log_filename)
 
-    summary["log_file"] = new_logpath + ".zip"
+    # summary["log_file"] = new_logpath + ".zip"
+
     with open(new_logpath, "w") as new_logfile:
         file_writer = csv.writer(
             new_logfile, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
