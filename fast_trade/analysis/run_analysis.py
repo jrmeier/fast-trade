@@ -36,5 +36,4 @@ def exit_trade(close, aux_balance):
     """ exiting the trade """
     if aux_balance and close:
         return round(float(aux_balance) * float(close), 8)
-    
     return 0.0

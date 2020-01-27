@@ -1,12 +1,12 @@
 # Fast Trade
 
-A library to do back-testing on currency data with generated strategies quickly and easily. The data comes from this project [crypto-data](https://github.com/jrmeier/crypto-data). One this that is missing is determining if the stratey was successful or not. All this libary produces is a log of what decision this strategy would make at this time. It provides no way to "score" the strategy. That's being worked on but isn't implimented yet.
+A library to do back-testing on currency data with generated strategies quickly and easily. The data comes from this project [crypto-data](https://github.com/jrmeier/crypto-data). 
 
 ## Goals
 
-- run in less than 30s
-- outputs in the form of JSON or CSV
+- run in less than 30s on average hardware
 - headless
+- extensible
 
 ## Install
 
@@ -48,26 +48,26 @@ Below is an example of a very simple strategey. Basically, indicators are used t
       [
          "close",
          "<",
-         "mid"
+         "short"
       ]
    ],
    "indicators": [
       {
          "ref": "short",
          "name": "ta.ema",
-         "timeperiod": 21,
+         "timeperiod": "21m",
          "df": "close"
       },
       {
          "ref": "mid",
          "name": "ta.ema",
-         "timeperiod": 42,
+         "timeperiod": "1h",
          "df": "close"
       },
       {
          "ref": "long",
          "name": "ta.ema",
-         "timeperiod": 84,
+         "timeperiod": "4h",
          "df": "close"
       }
    ]
@@ -80,7 +80,7 @@ Below is an example of a very simple strategey. Basically, indicators are used t
       {
          "ref": "short", // indicator to be referred to
          "name": "ta.ema", // technical analysis function name to be used
-         "timeperiod": 21, // number of ticks to process
+         "timeperiod": "21m", // number of ticks to process. Default is minutes, but "d" (days) and "h" (hours) are avaliable
          "df": "close" // which column of the dataframe to look at
       }
 ```
