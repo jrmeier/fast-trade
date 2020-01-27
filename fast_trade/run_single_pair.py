@@ -4,26 +4,19 @@ import datetime
 import json
 import zipfile
 import csv
+from dotenv import load_dotenv
 
 from build_data_frame import build_data_frame
+from analysis.run_analysis import analyze_log
 
-
-def determine_action(frame, strategy, df_col_map, datasaver):
-    enter = take_action(frame, strategy["enter"], df_col_map)
-    if enter:
-        if datasaver:
-            return "e"
-        return [frame[0], "en", frame[1]]
-
-    exit_position = take_action(frame, strategy["exit"], df_col_map)
-    if exit_position:
-        if datasaver:
-            return "x"
-        return [frame[0], "ex", frame[1]]
-
-    if datasaver:
-        return "h"
-    return [frame[0], "h", frame[1]]
+def determine_action(frame, strategy, df_col_map):
+    if take_action(frame, strategy["enter"], df_col_map):
+        return "e"
+    
+    if take_action(frame, strategy["exit"], df_col_map):
+        return "x"
+    
+    return "h"
 
 
 def take_action(raw_row, strategy, columns):
@@ -45,7 +38,7 @@ def take_action(raw_row, strategy, columns):
         return all(results)
 
 
-def run_single_pair(csv_path, strategy, pair, log_path, run_id, datasaver):
+def run_single_pair(csv_path, strategy, pair, log_path, run_id, starting_balance):
     if not os.path.isfile(csv_path):
         print("{} does not exist.".format(csv_path))
         return
@@ -53,14 +46,24 @@ def run_single_pair(csv_path, strategy, pair, log_path, run_id, datasaver):
     start = datetime.datetime.utcnow()
     df = build_data_frame(csv_path, strategy.get("indicators"))
 
-    actions = [
-        determine_action(frame, strategy, list(df.columns), datasaver)
+    df['actions'] = [
+        determine_action(frame, strategy, list(df.columns))
         for frame in df.values
     ]
+
     # print(actions)
-    # df['actions'] = 
+    # df['actions'] = actions
+
+
+    # saved_df = df.to_csv("saved_df.csv", index=False)
 
     stop = datetime.datetime.utcnow()
+    base, aux = analyze_log(df, starting_balance)
+    df['base_balance'] = base
+    df['aux_balance'] = aux
+
+    print("aux max: ", df["aux_balance"].max())
+    print("base max: ", df['base_balance'].max())
 
     summary = {
         "name": strategy.get("name"),
@@ -71,8 +74,10 @@ def run_single_pair(csv_path, strategy, pair, log_path, run_id, datasaver):
         "total_time": str(stop - start),
         "log_file": None,
     }
-    os.remove(csv_path)
-    save_log_file(strategy, pair, log_path, actions, summary)
+
+    # print(df.tail())
+    # os.remove(csv_path)
+    # save_log_file(strategy, pair, log_path, actions, summary)
     return summary
 
 
@@ -105,3 +110,22 @@ def save_log_file(strategy, pair, log_path, log, summary):
 
     with open(summary_path, "w+") as summary_file:
         summary_file.write(json.dumps(summary, indent=3))
+
+
+if __name__ == "__main__":
+    # def run_single_pair(csv_path, strategy, pair, log_path, run_id, datasaver):
+    load_dotenv()
+    csv_path = f"{os.getenv('CSV_PATH')}BTCUSDT.csv"
+    log_path = os.getenv("LOG_PATH")
+
+    with open("./example_strat.json", "r") as strat_file:
+            strategy = json.load(strat_file)
+    
+    pair = "BTCUSDT"
+    run_id = "123"
+    datasaver = True
+    # print("csv_file: ",csv_path)
+    starting_balance = 1000
+    run_single_pair(csv_path, strategy, pair, log_path, run_id, starting_balance)    
+
+    
