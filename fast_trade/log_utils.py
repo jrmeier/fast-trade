@@ -34,21 +34,6 @@ def read_logfile(log_filepath):
         logs = list(log)
 
     return logs
-    in_trade = False
-    transactions = []
-    diffs = []
-    # for row in logs:
-    #     if row[1] == "en" and not in_trade:
-    #         transactions.append(row)
-    #         in_trade = True
-
-    #     if row[1] == "ex" and in_trade:
-    #         diff = round(float(row[2]) - float(transactions[-1][2]), 8)
-    #         diffs.append(diff)
-    #         transactions.append(row)
-    #         in_trade = False
-
-    # return diffs
 
 
 def process_run_path(run_obj):

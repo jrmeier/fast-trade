@@ -1,2 +1,2 @@
-def custom(close, *args, **kwargs):
+def custom(df, *args, **kwargs):
     return close

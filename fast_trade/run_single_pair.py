@@ -50,34 +50,29 @@ def run_single_pair(csv_path, strategy, pair, log_path, run_id, starting_balance
         determine_action(frame, strategy, list(df.columns))
         for frame in df.values
     ]
-
-    # print(actions)
-    # df['actions'] = actions
-
-
-    # saved_df = df.to_csv("saved_df.csv", index=False)
-
+    
     stop = datetime.datetime.utcnow()
     base, aux = analyze_log(df, starting_balance)
     df['base_balance'] = base
     df['aux_balance'] = aux
 
-    print("aux max: ", df["aux_balance"].max())
-    print("base max: ", df['base_balance'].max())
-
     summary = {
-        "name": strategy.get("name"),
-        "run_id": run_id,
         "pair": pair,
         "start": start.strftime("%m/%d/%Y %H:%M:%S"),
         "stop": stop.strftime("%m/%d/%Y %H:%M:%S"),
         "total_time": str(stop - start),
         "log_file": None,
+        "aux_max": df["aux_balance"].max(),
+        "base_max": df["base_balance"].max(),
     }
+
+    save_summary_file(summary, log_path)
 
     # print(df.tail())
     # os.remove(csv_path)
-    # save_log_file(strategy, pair, log_path, actions, summary)
+     
+
+    #save_log_file(strategy, pair, log_path, actions, summary)
     return summary
 
 

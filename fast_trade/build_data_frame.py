@@ -29,10 +29,3 @@ def determine_timeperiod(timeperiod_str):
 
     return int(timeperiod_str)
 
-
-if __name__ == "__main__":
-    timeperiod = "1d"
-
-    res = determine_timeperiod(timeperiod)
-
-    # print(res)
