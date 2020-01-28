@@ -28,4 +28,3 @@ def determine_timeperiod(timeperiod_str):
         return int(clean) * 1440
 
     return int(timeperiod_str)
-

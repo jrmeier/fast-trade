@@ -9,13 +9,14 @@ from dotenv import load_dotenv
 from build_data_frame import build_data_frame
 from analysis.run_analysis import analyze_log
 
+
 def determine_action(frame, strategy, df_col_map):
     if take_action(frame, strategy["enter"], df_col_map):
         return "e"
-    
+
     if take_action(frame, strategy["exit"], df_col_map):
         return "x"
-    
+
     return "h"
 
 
@@ -46,15 +47,14 @@ def run_single_pair(csv_path, strategy, pair, log_path, run_id, starting_balance
     start = datetime.datetime.utcnow()
     df = build_data_frame(csv_path, strategy.get("indicators"))
 
-    df['actions'] = [
-        determine_action(frame, strategy, list(df.columns))
-        for frame in df.values
+    df["actions"] = [
+        determine_action(frame, strategy, list(df.columns)) for frame in df.values
     ]
-    
+
     stop = datetime.datetime.utcnow()
     base, aux = analyze_log(df, starting_balance)
-    df['base_balance'] = base
-    df['aux_balance'] = aux
+    df["base_balance"] = base
+    df["aux_balance"] = aux
 
     summary = {
         "pair": pair,
@@ -70,9 +70,8 @@ def run_single_pair(csv_path, strategy, pair, log_path, run_id, starting_balance
 
     # print(df.tail())
     # os.remove(csv_path)
-     
 
-    #save_log_file(strategy, pair, log_path, actions, summary)
+    # save_log_file(strategy, pair, log_path, actions, summary)
     return summary
 
 
@@ -114,13 +113,11 @@ if __name__ == "__main__":
     log_path = os.getenv("LOG_PATH")
 
     with open("./example_strat.json", "r") as strat_file:
-            strategy = json.load(strat_file)
-    
+        strategy = json.load(strat_file)
+
     pair = "BTCUSDT"
     run_id = "123"
     datasaver = True
     # print("csv_file: ",csv_path)
     starting_balance = 1000
-    run_single_pair(csv_path, strategy, pair, log_path, run_id, starting_balance)    
-
-    
+    run_single_pair(csv_path, strategy, pair, log_path, run_id, starting_balance)

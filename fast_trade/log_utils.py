@@ -6,16 +6,16 @@ import requests
 import pandas as pd
 from dotenv import load_dotenv
 
+
 def build_log_dataframe(log, symbol):
     load_dotenv()
     csv_path = os.getenv("CSV_PATH")
-    csv_filename =f"{csv_path}{symbol}.csv"
+    csv_filename = f"{csv_path}{symbol}.csv"
     csv_zipfilename = f"{csv_path}{symbol}.csv.zip"
     # print("zipfilename: ",csv_filename)
     if os.path.isfile(csv_zipfilename):
         with zipfile.ZipFile(csv_zipfilename, "r") as zip_ref:
             zip_ref.extractall(f"{symbol}.csv")
-
 
     # print(csv_filename)
 
@@ -40,8 +40,8 @@ def process_run_path(run_obj):
     # get the log file
     # buid the real path
     for log_obj in run_obj:
-        for pair in log_obj['pairs']:
-            pair_obj = log_obj['pairs'][pair]
+        for pair in log_obj["pairs"]:
+            pair_obj = log_obj["pairs"][pair]
             log_filepath = f"{log_obj['base_path']}{pair_obj['log']}"
             # call the analysis function
             print(log_filepath)
@@ -55,7 +55,7 @@ def get_log_files(log_path):
             "base_path": base_path,
             "RunSummary": None,
             "strat": None,
-            "pairs": {}
+            "pairs": {},
         }
         if os.path.isdir(base_path):
             # this is each file in the base path
@@ -69,19 +69,19 @@ def get_log_files(log_path):
                 symbol = run_file.split("_log")[0]
                 if "_log" in run_file:
                     if log_obj["pairs"].get(symbol):
-                        log_obj["pairs"][symbol]['log'] = run_file
+                        log_obj["pairs"][symbol]["log"] = run_file
                     else:
                         log_obj["pairs"][symbol] = {}
-                        log_obj["pairs"][symbol]['log'] = run_file
-                
+                        log_obj["pairs"][symbol]["log"] = run_file
+
                 if "_sum" in run_file:
                     symbol = run_file.split("_sum")[0]
                     if log_obj["pairs"].get(symbol):
-                        log_obj["pairs"][symbol]['sum'] = run_file
+                        log_obj["pairs"][symbol]["sum"] = run_file
                     else:
 
                         log_obj["pairs"][symbol] = {}
-                        log_obj["pairs"][symbol]['sum'] = run_file      
+                        log_obj["pairs"][symbol]["sum"] = run_file
             run_paths.append(log_obj)
 
     return run_paths
@@ -110,6 +110,5 @@ if __name__ == "__main__":
     # res = process_run_path(run_paths)
     # log_file_path = "/Users/jedmeier/Projects/fast_trade/fast_trade/logs/run_01_20_2020_22_21_27/ADABNB_log.csv.zip"
     # res = read_logfile(log_file_path)
-    
-    res = build_log_dataframe("lol","BTCUSDT")
-    
+
+    res = build_log_dataframe("lol", "BTCUSDT")
