@@ -12,6 +12,8 @@ def build_data_frame(csv_path, indicators=[]):
         field_name = ind.get("ref")
         df[field_name] = indicator_map[ind_name](csv, timeperiod)
 
+    # drop all rows where the close is 0
+    df = df[df.close != 0]
     return df
 
 

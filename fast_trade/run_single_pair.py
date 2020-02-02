@@ -7,7 +7,7 @@ import csv
 from dotenv import load_dotenv
 
 from build_data_frame import build_data_frame
-from analysis.run_analysis import analyze_log
+from run_analysis import analyze_df
 
 
 def determine_action(frame, strategy, df_col_map):
@@ -39,7 +39,7 @@ def take_action(raw_row, strategy, columns):
         return all(results)
 
 
-def run_single_pair(csv_path, strategy, pair, log_path, run_id, starting_balance):
+def run_single_pair(csv_path, strategy, pair, log_path, run_id, starting_balance, profit_perc):
     if not os.path.isfile(csv_path):
         print("{} does not exist.".format(csv_path))
         return
@@ -52,9 +52,10 @@ def run_single_pair(csv_path, strategy, pair, log_path, run_id, starting_balance
     ]
 
     stop = datetime.datetime.utcnow()
-    base, aux = analyze_log(df, starting_balance)
+    base, aux = analyze_df(df, starting_balance)
     df["base_balance"] = base
-    df["aux_balance"] = aux
+    # = df.iloc[[0, -1]]
+
 
     summary = {
         "pair": pair,
@@ -62,17 +63,32 @@ def run_single_pair(csv_path, strategy, pair, log_path, run_id, starting_balance
         "stop": stop.strftime("%m/%d/%Y %H:%M:%S"),
         "total_time": str(stop - start),
         "log_file": None,
+        "starting_base": 0,
+        "ending_base": df.iloc[-1]['base_balance'],
+        "starting_aux": starting_balance,
+        "ending_aux": df.iloc[-1]['aux_balance'],
         "aux_max": df["aux_balance"].max(),
-        "base_max": df["base_balance"].max(),
+        "base_max": df["base_balance"].max()
+
     }
 
-    save_summary_file(summary, log_path)
+    if df['aux_balance'].max() > starting_balance * profit_perc:
+        print("okay I'm saving it")
+    # save_summary_file(summary, log_path)
 
-    # print(df.tail())
+    # print(summary)
+    # df.to_csv("what.csv")
     # os.remove(csv_path)
 
     # save_log_file(strategy, pair, log_path, actions, summary)
     return summary
+
+def save_summary_file(summary, log_path):
+    summary_filename = "{}_sum.json".format(pair)
+    summary_path = os.path.join(log_path, summary_filename)
+
+    with open(summary_path, "w+") as summary_file:
+        summary_file.write(json.dumps(summary, indent=2))
 
 
 def save_log_file(strategy, pair, log_path, log, summary):
@@ -98,12 +114,8 @@ def save_log_file(strategy, pair, log_path, log, summary):
         log_zip.write(
             new_logpath, compress_type=zipfile.ZIP_DEFLATED, arcname=log_filename,
         )
+    
     os.remove(new_logpath)
-    summary_filename = "{}_sum.json".format(pair)
-    summary_path = os.path.join(log_path, summary_filename)
-
-    with open(summary_path, "w+") as summary_file:
-        summary_file.write(json.dumps(summary, indent=3))
 
 
 if __name__ == "__main__":
@@ -120,4 +132,6 @@ if __name__ == "__main__":
     datasaver = True
     # print("csv_file: ",csv_path)
     starting_balance = 1000
-    run_single_pair(csv_path, strategy, pair, log_path, run_id, starting_balance)
+    # profit percentage to save log file
+    profit_perc = 1.2
+    run_single_pair(csv_path, strategy, pair, log_path, run_id, starting_balance, profit_perc)
