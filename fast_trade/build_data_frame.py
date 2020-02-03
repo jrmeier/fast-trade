@@ -8,9 +8,9 @@ def build_data_frame(csv_path, indicators=[]):
 
     for ind in indicators:
         timeperiod = determine_timeperiod(str(ind.get("timeperiod")))
-        ind_name = ind.get("name")
-        field_name = ind.get("ref")
-        df[field_name] = indicator_map[ind_name](csv, timeperiod)
+        func = ind.get("func")
+        field_name = ind.get("name")
+        df[field_name] = indicator_map[func](csv, timeperiod)
 
     # drop all rows where the close is 0
     df = df[df.close != 0]

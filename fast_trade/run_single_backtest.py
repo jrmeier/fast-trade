@@ -14,7 +14,8 @@ def determine_action(frame, strategy, df_col_map):
         strategy: object with the logic of how to trade
         df_col_map: dictionary with the column name and index of the dataframe
     
-    Returns: String of "e" (enter), "x" (exit), "h" (hold)
+    Returns: 
+        string, "e" (enter), "x" (exit), "h" (hold) of what the strategy would do
     """
     if take_action(frame, strategy["enter"], df_col_map):
         return "e"
@@ -32,7 +33,8 @@ def take_action(row, strategy, columns):
         strategy: dictionary of logic and how to impliment it
         columns: list of data points describing the row
 
-    Returns: boolean, True if row meets the criteria of given strategy, False if otherwise
+    Returns: 
+        boolean, True if row meets the criteria of given strategy, False if otherwise
     """
     results = []
 

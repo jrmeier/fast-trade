@@ -53,20 +53,20 @@ Below is an example of a very simple strategey. Basically, indicators are used t
    ],
    "indicators": [
       {
-         "ref": "short",
-         "name": "ta.ema",
+         "name": "short",
+         "func": "ta.ema",
          "timeperiod": "21m",
          "df": "close"
       },
       {
-         "ref": "mid",
-         "name": "ta.ema",
+         "name": "mid",
+         "func": "ta.ema",
          "timeperiod": "1h",
          "df": "close"
       },
       {
-         "ref": "long",
-         "name": "ta.ema",
+         "name": "long",
+         "func": "ta.ema",
          "timeperiod": "4h",
          "df": "close"
       }
@@ -78,8 +78,8 @@ Below is an example of a very simple strategey. Basically, indicators are used t
 
 ```javascript
       {
-         "ref": "short", // indicator to be referred to
-         "name": "ta.ema", // technical analysis function name to be used
+         "name": "short", // indicator name
+         "func": "ta.ema", // technical analysis function to be used
          "timeperiod": "21m", // number of ticks to process. Default is minutes, but "d" (days) and "h" (hours) are avaliable
          "df": "close" // which column of the dataframe to look at
       }
@@ -92,7 +92,7 @@ Below is an example of a very simple strategey. Basically, indicators are used t
       [
          "close", // part of the dataframe to compare to
          ">", // logic to use to compare
-         "short" // the ref from the defined indicator
+         "short" // the name from the defined indicator
       ]
    ]
 ```

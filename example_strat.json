@@ -21,20 +21,20 @@
    ],
    "indicators": [
       {
-         "ref": "short",
-         "name": "ta.ema",
+         "name": "short",
+         "func": "ta.ema",
          "timeperiod": "70m",
          "df": "close"
       },
       {
-         "ref": "mid",
-         "name": "ta.ema",
+         "name": "mid",
+         "func": "ta.ema",
          "timeperiod": "102m",
          "df": "close"
       },
       {
-         "ref": "long",
-         "name": "ta.ema",
+         "name": "long",
+         "func": "ta.ema",
          "timeperiod": "151m",
          "df": "close"
       }
