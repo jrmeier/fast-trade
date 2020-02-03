@@ -80,7 +80,7 @@ Below is an example of a very simple strategey. Basically, indicators are used t
       {
          "name": "short", // indicator name
          "func": "ta.ema", // technical analysis function to be used
-         "timeperiod": "21m", // number of ticks to process. Default is minutes, but "d" (days) and "h" (hours) are avaliable
+         "timeperiod": "21m", // number of ticks to process. Default is minutes, but "m" (minutes), "d" (days), and "h" (hours) are avaliable
          "df": "close" // which column of the dataframe to look at
       }
 ```
