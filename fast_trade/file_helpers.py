@@ -7,6 +7,41 @@ import pandas as pd
 from dotenv import load_dotenv
 
 
+def save_summary_file(summary, log_path):
+    summary_filename = "{}_sum.json".format(pair)
+    summary_path = os.path.join(log_path, summary_filename)
+
+    with open(summary_path, "w+") as summary_file:
+        summary_file.write(json.dumps(summary, indent=2))
+
+
+def save_log_file(df, pair, log_path):
+    strat_name = strategy.get("name").replace(" ", "")
+    log_filename = "{}_log.csv".format(pair)
+
+    strat_filename = "{}_strat.json".format(strat_name)
+
+    with open(os.path.join(log_path, strat_filename), "w+") as strat_file:
+        strat_file.write(json.dumps(strategy, indent=3))
+
+    new_logpath = os.path.join(log_path, log_filename)
+
+    # summary["log_file"] = new_logpath + ".zip"
+
+    with open(new_logpath, "w") as new_logfile:
+        file_writer = csv.writer(
+            new_logfile, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
+        )
+        file_writer.writerows(log)
+
+    with zipfile.ZipFile(f"{new_logpath}.zip", "w") as log_zip:
+        log_zip.write(
+            new_logpath, compress_type=zipfile.ZIP_DEFLATED, arcname=log_filename,
+        )
+
+    os.remove(new_logpath)
+
+
 def build_log_dataframe(log, symbol):
     load_dotenv()
     csv_path = os.getenv("CSV_PATH")

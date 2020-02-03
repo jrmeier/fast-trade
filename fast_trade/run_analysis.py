@@ -20,7 +20,7 @@ def analyze_df(df, base_balance):
             base_balance = exit_trade(close, aux_balance)
             aux_balance = 0
             in_trade = False
-        
+
         aux_log.append(aux_balance)
         base_log.append(base_balance)
     return aux_log, base_log
