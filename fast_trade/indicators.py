@@ -1,6 +1,6 @@
 from finta import TA
 
-indicator_map = {
+indicators = {
     "ta.sma": TA.SMA,
     "ta.smm": TA.SMM,
     "ta.ssma": TA.SSMA,

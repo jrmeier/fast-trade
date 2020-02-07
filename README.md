@@ -16,6 +16,12 @@ source .fast_trade/bin/activate
 pip install -r requirements.txt
 ```
 
+## Testing
+
+```bash
+python -m pytest
+```
+
 Available Indicators (graciously stolen from https://github.com/peerchemist/finta)
 
 ## Output
