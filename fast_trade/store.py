@@ -1,3 +1,4 @@
+import random
 nouns = [
     "territory",
     "skin",
@@ -1410,7 +1411,6 @@ adjectives = [
     "drunk",
     "incompetent",
 ]
-import random
 
 
 def generate_random_name():

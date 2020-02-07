@@ -1,10 +1,10 @@
 {
-   "name": "example",
+   "name": "fluttering-ice",
    "enter": [
       [
          "close",
          ">",
-         "mid"
+         "short"
       ],
       [
          "close",
@@ -21,21 +21,21 @@
    ],
    "indicators": [
       {
-         "ref": "short",
-         "name": "ta.ema",
-         "timeperiod": "15m",
+         "name": "short",
+         "func": "ta.ema",
+         "timeperiod": "70m",
          "df": "close"
       },
       {
-         "ref": "mid",
-         "name": "ta.ema",
-         "timeperiod": "1h",
+         "name": "mid",
+         "func": "ta.ema",
+         "timeperiod": "102m",
          "df": "close"
       },
       {
-         "ref": "long",
-         "name": "ta.ema",
-         "timeperiod": "4h",
+         "name": "long",
+         "func": "ta.ema",
+         "timeperiod": "151m",
          "df": "close"
       }
    ]
