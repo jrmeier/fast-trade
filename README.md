@@ -1,4 +1,4 @@
-# Fast Trade
+# Fast Trade ![Python application](https://github.com/jrmeier/fast-trade/workflows/Python%20application/badge.svg)
 
 A library to do back-testing on currency data with generated strategies quickly and easily. The data comes from this project [crypto-data](https://github.com/jrmeier/crypto-data). 
 
