@@ -12,6 +12,7 @@ def generate_strategy():
     time2 = f"{t2}{chart}"
     time3 = f"{t3}{chart}"
     ema_exit = random.choice(["short", "mid", "long"])
+
     return {
         "name": generate_random_name(),
         "enter": [["close", ">", "mid"], ["close", ">", "long"]],
