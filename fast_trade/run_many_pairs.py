@@ -1,11 +1,6 @@
 import os
-import datetime
+# import datetime
 import json
-import zipfile
-import pandas as pd
-import uuid
-from indicator_map import indicator_map
-from build_data_frame import build_data_frame
 
 from generate_strategy import generate_strategy
 from run_single_backtest import run_single_backtest
@@ -14,7 +9,7 @@ from dotenv import load_dotenv
 
 def run_many_pairs(pairs, strategy, csv_base, log_path):
     # prep the csv files, the might be zipped
-    run_start = datetime.datetime.utcnow()
+    # run_start = datetime.datetime.utcnow()
 
     # create_log_dir(log_path)
 
@@ -23,7 +18,7 @@ def run_many_pairs(pairs, strategy, csv_base, log_path):
 
         res = run_single_backtest(csv_path, strategy)
         print(json.dumps(res, indent=4))
-    run_stop = datetime.datetime.utcnow()
+    # run_stop = datetime.datetime.utcnow()
 
 
 if __name__ == "__main__":

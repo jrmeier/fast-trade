@@ -12,10 +12,11 @@ def determine_action(frame, strategy, df_col_map):
     Params:
         frame: current row of the dataframe
         strategy: object with the logic of how to trade
-        df_col_map: dictionary with the column name and index of the dataframe
-    
-    Returns: 
-        string, "e" (enter), "x" (exit), "h" (hold) of what the strategy would do
+        df_col_map: dictionary with the column name and index
+        of the dataframe
+    Returns:
+        string, "e" (enter), "x" (exit), "h" (hold) of what
+        the strategy would do
     """
     if take_action(frame, strategy["enter"], df_col_map):
         return "e"
@@ -28,13 +29,13 @@ def determine_action(frame, strategy, df_col_map):
 
 def take_action(row, strategy, columns):
     """
-    Params: 
+    Params:
         row: data row to operate on
         strategy: dictionary of logic and how to impliment it
         columns: list of data points describing the row
-
-    Returns: 
-        boolean, True if row meets the criteria of given strategy, False if otherwise
+    Returns:
+        boolean, True if row meets the criteria of given strategy,
+        False if otherwise
     """
     results = []
 
@@ -60,9 +61,9 @@ def run_single_backtest(csv_path, strategy, starting_aux_bal=0):
     """
     Params:
         csv_path: required, where to find the csv file of the ohlcv data
-        strategy: require, object containing the logic of this given strategy
-        starting_aux_balance: optional, how much of the aux coin to start the backtest with
-
+        strategy: require, object containing the logic to test
+        starting_aux_balance: optional, how much of the aux coin to start
+        the backtest
     Returns:
         summary of the performace of backtest and dataframe
     """
@@ -74,7 +75,9 @@ def run_single_backtest(csv_path, strategy, starting_aux_bal=0):
     df = build_data_frame(csv_path, strategy.get("indicators"))
 
     df["actions"] = [
-        determine_action(frame, strategy, list(df.columns)) for frame in df.values
+        determine_action(
+            frame, strategy, list(df.columns)
+            ) for frame in df.values
     ]
 
     stop = datetime.datetime.utcnow()

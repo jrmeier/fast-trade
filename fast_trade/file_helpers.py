@@ -7,6 +7,8 @@ import pandas as pd
 from dotenv import load_dotenv
 
 load_dotenv()
+# flake8: noqa
+# this is a mess 
 
 
 def load_ohlcv_file(pair):
@@ -189,7 +191,7 @@ if __name__ == "__main__":
     #     }
     # ]
     # res = process_run_path(run_paths)
-    # log_file_path = "/Users/jedmeier/Projects/fast_trade/fast_trade/logs/run_01_20_2020_22_21_27/ADABNB_log.csv.zip"
+    # log_file_path = "/Users/jedmeier/Projects/fast_trade/fast_trade/logs/run_01_20_2020_22_21_27/ADABNB_log.csv.zip" # noqa
     # res = read_logfile(log_file_path)
 
     res = build_log_dataframe("lol", "BTCUSDT")
