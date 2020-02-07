@@ -1,33 +1,22 @@
 import pandas as pd
 from finta import TA
 import os
-import sys
-
-myPath = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, myPath + "/../")
-
-
-def load_ohlcv_file(csv_path):
-    if not os.path.isfile(csv_path):
-        raise Exception(f"File doesn't exist: {csv_path}")
 
 
 def build_data_frame(csv_path, indicators=[]):
     if not os.path.isfile(csv_path):
         raise Exception(f"File doesn't exist: {csv_path}")
 
-    csv = pd.read_csv(csv_path, parse_dates=False)
-    df = csv.copy()  # not sure if this is needed
+    csv_data = pd.read_csv(csv_path, parse_dates=False)
+    df = csv_data.copy()
     for ind in indicators:
         timeperiod = determine_timeperiod(str(ind.get("timeperiod")))
         func = ind.get("func")
         field_name = ind.get("name")
-        df[field_name] = indicator_map[func](csv, timeperiod)
+        df[field_name] = indicator_map[func](df, timeperiod)
 
-    # drop all rows where the close is 0
     df = df[df.close != 0]
 
-    print(list(df.values)[4][-1])
     return df
 
 

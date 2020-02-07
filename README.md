@@ -36,7 +36,7 @@ This creates a directory named run_DATE. In here, are a `RunSummary.json` which 
 
 The real goal of this project is to get to the point where these strategies can be generated with a generative neural network and be specific to each cryptocurrency and any other patterns that may exist.
 
-Below is an example of a very simple strategey. Basically, indicators are used to build a list of indicators to look at which must all be true to produce an enter or exit status for that tick. This can use any of the indicators listed in the [indicator_map.py](https://github.com/jrmeier/fast_trade/blob/master/fast_trade/indicator_map.py) file.
+Below is an example of a very simple strategey. Basically, indicators are used to build a list of indicators to look at which must all be true to produce an enter or exit status for that tick. This can use any of the indicators listed in the [indicators.py](https://github.com/jrmeier/fast_trade/blob/master/fast_trade/indicators.py) file.
 
 
 ```json

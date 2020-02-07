@@ -1,5 +1,7 @@
+# flake8: noqa
 """
-This is to convert the large logs with the extra data to since column, smaller logs which are just as accurate and take up much less space.
+This is to convert the large logs with the extra data to since column
+smaller logs which are just as accurate and take up much less space.
 """
 import zipfile
 import os

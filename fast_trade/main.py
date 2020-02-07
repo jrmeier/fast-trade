@@ -1,7 +1,6 @@
 import os
 import datetime
 import json
-from dotenv import load_dotenv
 
 from build_data_frame import build_data_frame
 from run_analysis import analyze_df
@@ -118,19 +117,5 @@ def run_single_backtest(csv_path, strategy, starting_aux_bal=0):
         "base_max": base_max,
         "strategy": strategy,
         "max_gain_perc": max_gain_perc,
-        # "df": df,
+        "df": df,
     }
-
-
-if __name__ == "__main__":
-    load_dotenv()
-    csv_path = f"{os.getenv('CSV_PATH')}BTCUSDT.csv"
-
-    with open("./example_strat.json", "r") as strat_file:
-        strategy = json.load(strat_file)
-
-    # starting_aux_bal = 15000
-
-    res = run_single_backtest(csv_path, strategy)
-
-    print(res)
