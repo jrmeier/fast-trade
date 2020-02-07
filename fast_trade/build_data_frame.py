@@ -2,8 +2,10 @@ import pandas as pd
 from finta import TA
 import os
 import sys
+
 myPath = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, myPath + '/../')
+sys.path.insert(0, myPath + "/../")
+
 
 def load_ohlcv_file(csv_path):
     if not os.path.isfile(csv_path):
@@ -13,7 +15,7 @@ def load_ohlcv_file(csv_path):
 def build_data_frame(csv_path, indicators=[]):
     if not os.path.isfile(csv_path):
         raise Exception(f"File doesn't exist: {csv_path}")
-    
+
     csv = pd.read_csv(csv_path, parse_dates=False)
     df = csv.copy()  # not sure if this is needed
     for ind in indicators:

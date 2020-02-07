@@ -20,7 +20,7 @@ def run_many_pairs(pairs, strategy, csv_base, log_path):
 
     for pair in pairs:
         print("{} {}/{}".format(pair, pairs.index(pair) + 1, len(pairs)))
-        
+
         res = run_single_backtest(csv_path, strategy)
         print(json.dumps(res, indent=4))
     run_stop = datetime.datetime.utcnow()

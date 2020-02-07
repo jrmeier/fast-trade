@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
 def load_ohlcv_file(pair):
     csv_filename = f"{pair}.csv.zip"
     csv_base = f"{pair}.csv"
@@ -19,7 +20,8 @@ def load_ohlcv_file(pair):
             with zipfile.ZipFile("{}.zip".format(csv_path), "r") as zip_file:
                 zip_file.extractall(csv_base)
             remove_csv = True
-    return 
+    return
+
 
 def create_run_summary_file(log_path, strategy, run_start, run_stop):
     run_sum = {

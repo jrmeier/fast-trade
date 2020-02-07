@@ -69,7 +69,7 @@ def run_single_backtest(csv_path, strategy, starting_aux_bal=0):
     # if not os.path.isfile(csv_path):
     #     print(f"{csv_path} is not a file")
     #     return
-    
+
     start = datetime.datetime.utcnow()
     df = build_data_frame(csv_path, strategy.get("indicators"))
 
