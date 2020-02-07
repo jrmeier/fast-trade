@@ -6,13 +6,57 @@ import requests
 import pandas as pd
 from dotenv import load_dotenv
 
+load_dotenv()
 
-def save_summary_file(summary, log_path):
-    summary_filename = "{}_sum.json".format(pair)
-    summary_path = os.path.join(log_path, summary_filename)
+def load_ohlcv_file(pair):
+    csv_filename = f"{pair}.csv.zip"
+    csv_base = f"{pair}.csv"
+    csv_path = os.path.join(os.getenv("CSV_PATH"), csv_filename)
+    remove_csv = False
+    if not os.path.isfile(csv_path):
+        # check for a zip
+        if os.path.isfile("{}.zip".format(csv_path)):
+            with zipfile.ZipFile("{}.zip".format(csv_path), "r") as zip_file:
+                zip_file.extractall(csv_base)
+            remove_csv = True
+    return 
 
-    with open(summary_path, "w+") as summary_file:
-        summary_file.write(json.dumps(summary, indent=2))
+def create_run_summary_file(log_path, strategy, run_start, run_stop):
+    run_sum = {
+        "total_time": str(run_stop - run_start),
+        "start": run_start.strftime("%m/%d/%Y %H:%M:%S"),
+        "stop": run_stop.strftime("%m/%d/%Y %H:%M:%S"),
+        "strategy": strategy,
+        "pairs": pairs,
+    }
+
+    run_sum_path = os.path.join(log_path, "RunSummary.json")
+    with open(run_sum_path, "w+") as new_run_log:
+        new_run_log.write(json.dumps(run_sum, indent=2))
+
+
+def create_status_file(pair, run_start, pairs):
+    csv_filename = "{}.csv".format(pair)
+    time_elapsed = datetime.datetime.utcnow() - run_start
+
+    status = {
+        "current_pair": pair,
+        "current_location": pairs.index(pair) + 1,
+        "total_pairs": len(pairs),
+        "time_elapsed": str(time_elapsed),
+    }
+
+    status_path = os.path.join(log_path, "status.json")
+    with open(status_path, "w+") as status_file:
+        status_file.write(json.dumps(status))
+
+
+def create_log_dir():
+    run_dir_name = "run_{}".format(run_start.strftime("%m_%d_%Y_%H_%M_%S"))
+    log_path = os.path.join(log_path, run_dir_name)
+    if not os.path.isdir(log_path):
+        os.mkdir(log_path)
+    return True
 
 
 def save_log_file(df, pair, log_path):
