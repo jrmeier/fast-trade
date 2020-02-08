@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 # flake8: noqa
-# this is a mess 
+# this is a mess
 
 
 def load_ohlcv_file(pair):

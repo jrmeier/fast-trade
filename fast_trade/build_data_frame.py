@@ -46,7 +46,7 @@ indicator_map = {
     "ta.vama": TA.VAMA,
     "ta.er": TA.ER,
     "ta.kama": TA.KAMA,
-    "ta.zelma": TA.ZLEMA,
+    "ta.zlema": TA.ZLEMA,
     "ta.wma": TA.WMA,
     "ta.hma": TA.HMA,
     "ta.evwma": TA.EVWMA,

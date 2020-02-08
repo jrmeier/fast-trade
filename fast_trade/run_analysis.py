@@ -11,7 +11,6 @@ def analyze_df(df, base_balance):
     for row in df.values:
         close = row[close_column_idx]
         if row[action_col_idx] == "e" and not in_trade:
-            # enter the trade
             aux_balance = enter_trade(close, base_balance)
             base_balance = 0
             in_trade = True
@@ -34,7 +33,7 @@ def enter_trade(close, base_balance):
 
 
 def exit_trade(close, aux_balance):
-    """ return new base balance """
+    """ returns new base balance """
     if aux_balance:
         return round(float(aux_balance) * float(close), 8)
     return 0.0

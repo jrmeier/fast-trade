@@ -1,4 +1,5 @@
 import random
+
 nouns = [
     "territory",
     "skin",

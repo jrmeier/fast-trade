@@ -1,9 +1,13 @@
 import pytest
 import pandas as pd
 from pandas.core import series
-
+from finta import TA
 import os
-from fast_trade.build_data_frame import determine_timeperiod, build_data_frame
+from fast_trade.build_data_frame import (
+    determine_timeperiod,
+    build_data_frame,
+    indicator_map,
+)
 
 
 def test_determine_timeperiod_min():
@@ -106,3 +110,11 @@ def test_build_data_frame_with_indicators():
 
     assert "short" in list(res.columns)
     assert "mid" in list(res.columns)
+
+
+def test_indicator_map():
+    """ makes sure the functions are mapped correctly"""
+    for func_name in indicator_map:
+        method_name = func_name.split(".").pop().upper()
+
+        assert indicator_map[func_name].__name__ == method_name
