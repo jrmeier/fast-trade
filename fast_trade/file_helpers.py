@@ -14,7 +14,7 @@ load_dotenv()
 def load_ohlcv_file(pair):
     csv_filename = f"{pair}.csv.zip"
     csv_base = f"{pair}.csv"
-    csv_path = os.path.join(os.getenv("CSV_PATH"), csv_filename)
+    # csv_path = os.path.join(os.getenv("CSV_PATH"), csv_filename)
     remove_csv = False
     if not os.path.isfile(csv_path):
         # check for a zip

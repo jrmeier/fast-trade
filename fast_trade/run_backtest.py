@@ -2,27 +2,6 @@ import datetime
 from .build_data_frame import build_data_frame
 from .run_analysis import analyze_df
 
-
-def determine_action(frame, strategy, df_col_map):
-    """
-    Params:
-        frame: current row of the dataframe
-        strategy: object with the logic of how to trade
-        df_col_map: dictionary with the column name and index
-        of the dataframe
-    Returns:
-        string, "e" (enter), "x" (exit), "h" (hold) of what
-        the strategy would do
-    """
-    if take_action(frame, strategy["enter"], df_col_map):
-        return "e"
-
-    if take_action(frame, strategy["exit"], df_col_map):
-        return "x"
-
-    return "h"
-
-
 def take_action(row, strategy, columns):
     """
     Params:
@@ -53,6 +32,25 @@ def take_action(row, strategy, columns):
     return False
 
 
+def determine_action(frame, strategy, df_col_map):
+    """
+    Params:
+        frame: current row of the dataframe
+        strategy: object with the logic of how to trade
+        df_col_map: dictionary with the column name and index
+        of the dataframe
+    Returns:
+        string, "e" (enter), "x" (exit), "h" (hold) of what
+        the strategy would do
+    """
+    if take_action(frame, strategy["enter"], df_col_map):
+        return "e"
+
+    if take_action(frame, strategy["exit"], df_col_map):
+        return "x"
+
+    return "h"
+
 def run_backtest(csv_path, strategy, starting_aux_bal=1000):
     """
     Params:
@@ -60,8 +58,7 @@ def run_backtest(csv_path, strategy, starting_aux_bal=1000):
         strategy: required, object containing the logic to test
         starting_aux_balance: optional, default 1000 how much of the aux coin to
         the backtest
-    Returns:
-        tuple
+    Returns: tuple
             object 1 is a dict summary of the performace of backtest
             object 2 is a pandas dataframe object used in the backtest
     """
