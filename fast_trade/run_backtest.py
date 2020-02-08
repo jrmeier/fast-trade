@@ -25,6 +25,8 @@ def take_action(row, strategy, columns):
             results.append(bool(df_col_map[each[0]] < df_col_map[each[2]]))
         if each[1] == "=":
             results.append(bool(df_col_map[each[0]] == df_col_map[each[2]]))
+        if each[1] == "!=":
+            results.append(bool(df_col_map[each[0]] != df_col_map[each[2]]))
 
     if len(results):
         return all(results)
