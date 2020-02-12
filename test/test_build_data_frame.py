@@ -4,36 +4,36 @@ from pandas.core import series
 from finta import TA
 import os
 from fast_trade.build_data_frame import (
-    determine_timeperiod,
+    determine_chart_period,
     build_data_frame,
     indicator_map,
 )
 
 
-def test_determine_timeperiod_min():
+def test_determine_chart_period_min():
     mock_time_str = "10m"
-    res = determine_timeperiod(mock_time_str)
+    res = determine_chart_period(mock_time_str)
 
     assert res == 10
 
 
-def test_determine_timeperiod_hour():
+def test_determine_chart_period_hour():
     mock_time_str = "3h"
-    res = determine_timeperiod(mock_time_str)
+    res = determine_chart_period(mock_time_str)
 
     assert res == 180
 
 
-def test_determine_timeperiod_day():
+def test_determine_chart_period_day():
     mock_time_str = "3d"
-    res = determine_timeperiod(mock_time_str)
+    res = determine_chart_period(mock_time_str)
 
     assert res == 4320
 
 
-def test_determine_timeperiod_int():
+def test_determine_chart_period_int():
     mock_time_str = "77"
-    res = determine_timeperiod(mock_time_str)
+    res = determine_chart_period(mock_time_str)
 
     assert res == 77
 
@@ -118,3 +118,44 @@ def test_indicator_map():
         method_name = func_name.split(".").pop().upper()
 
         assert indicator_map[func_name].__name__ == method_name
+
+
+def test_build_data_frame_timerange():
+    this_path = os.path.abspath(__file__).split("/")
+    this_path.pop()
+
+    this_path = "/".join(this_path)
+    mock_csv_path = f"{this_path}/ohlcv_data.csv.txt"
+    mock_indicators = [
+        {"name": "short", "func": "ta.ema", "timeperiod": "1m", "df": "close"}
+    ]
+
+    timerange = {
+        "start": "2018-04-17 04:04:04",
+        "stop": "2018-04-17 04:06:30"
+    }
+
+    df = build_data_frame(mock_csv_path, mock_indicators, timerange)
+
+    assert str(df.index.values[0]) == '2018-04-17T04:04:04.000000000'
+    assert str(df.index.values[1]) == '2018-04-17T04:05:03.000000000'
+    assert str(df.index.values[2]) == '2018-04-17T04:06:03.000000000'
+    
+
+def test_build_data_frame_timerange_not_set():
+    this_path = os.path.abspath(__file__).split("/")
+    this_path.pop()
+
+    this_path = "/".join(this_path)
+    mock_csv_path = f"{this_path}/ohlcv_data.csv.txt"
+    mock_indicators = [
+        {"name": "short", "func": "ta.ema", "timeperiod": "1m", "df": "close"}
+    ]
+
+
+    df = build_data_frame(mock_csv_path, mock_indicators)
+
+    assert str(df.index.values[0]) == '2018-04-17T04:03:04.000000000'
+    assert str(df.index.values[1]) == '2018-04-17T04:04:04.000000000'
+    assert str(df.index.values[2]) == '2018-04-17T04:05:03.000000000'
+    assert str(df.index.values[3]) == '2018-04-17T04:06:03.000000000'
