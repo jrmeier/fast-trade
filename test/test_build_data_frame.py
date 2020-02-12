@@ -130,17 +130,14 @@ def test_build_data_frame_timerange():
         {"name": "short", "func": "ta.ema", "timeperiod": "1m", "df": "close"}
     ]
 
-    timerange = {
-        "start": "2018-04-17 04:04:04",
-        "stop": "2018-04-17 04:06:30"
-    }
+    timerange = {"start": "2018-04-17 04:04:04", "stop": "2018-04-17 04:06:30"}
 
     df = build_data_frame(mock_csv_path, mock_indicators, timerange)
 
-    assert str(df.index.values[0]) == '2018-04-17T04:04:04.000000000'
-    assert str(df.index.values[1]) == '2018-04-17T04:05:03.000000000'
-    assert str(df.index.values[2]) == '2018-04-17T04:06:03.000000000'
-    
+    assert str(df.index.values[0]) == "2018-04-17T04:04:04.000000000"
+    assert str(df.index.values[1]) == "2018-04-17T04:05:03.000000000"
+    assert str(df.index.values[2]) == "2018-04-17T04:06:03.000000000"
+
 
 def test_build_data_frame_timerange_not_set():
     this_path = os.path.abspath(__file__).split("/")
@@ -152,10 +149,9 @@ def test_build_data_frame_timerange_not_set():
         {"name": "short", "func": "ta.ema", "timeperiod": "1m", "df": "close"}
     ]
 
-
     df = build_data_frame(mock_csv_path, mock_indicators)
 
-    assert str(df.index.values[0]) == '2018-04-17T04:03:04.000000000'
-    assert str(df.index.values[1]) == '2018-04-17T04:04:04.000000000'
-    assert str(df.index.values[2]) == '2018-04-17T04:05:03.000000000'
-    assert str(df.index.values[3]) == '2018-04-17T04:06:03.000000000'
+    assert str(df.index.values[0]) == "2018-04-17T04:03:04.000000000"
+    assert str(df.index.values[1]) == "2018-04-17T04:04:04.000000000"
+    assert str(df.index.values[2]) == "2018-04-17T04:05:03.000000000"
+    assert str(df.index.values[3]) == "2018-04-17T04:06:03.000000000"

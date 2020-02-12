@@ -1,9 +1,7 @@
 import pandas as pd
 from finta import TA
 import os
-import re
-from datetime import datetime
-import time
+
 
 def build_data_frame(ohlcv_path, indicators=[], timerange={}):
     """
@@ -17,17 +15,16 @@ def build_data_frame(ohlcv_path, indicators=[], timerange={}):
     df = pd.read_csv(ohlcv_path)
 
     df = df[df.close != 0]
-    
-    df['Datetime'] = pd.to_datetime(df['date'], unit='s')
-    df.set_index(['Datetime'], inplace=True )
+
+    df["Datetime"] = pd.to_datetime(df["date"], unit="s")
+    df.set_index(["Datetime"], inplace=True)
     df.sort_index(inplace=True)
 
     if len(timerange.keys()):
-        start_dt = timerange['start']
-        stop_dt = timerange['stop']
-        
-        df = df.loc[start_dt:stop_dt]
+        start_dt = timerange["start"]
+        stop_dt = timerange["stop"]
 
+        df = df.loc[start_dt:stop_dt]
 
     for ind in indicators:
         timeperiod = determine_chart_period(str(ind.get("timeperiod")))
@@ -35,19 +32,8 @@ def build_data_frame(ohlcv_path, indicators=[], timerange={}):
         field_name = ind.get("name")
         df[field_name] = indicator_map[func](df, timeperiod)
 
-    # df = df[df.close != 0]
-    
-    # df['Datetime'] = pd.to_datetime(df['date'], unit='s')
-    # df.set_index(['Datetime'], inplace=True )
-    # df.sort_index(inplace=True)
-
-    # if len(timerange.keys()):
-    #     start_dt = timerange['start']
-    #     stop_dt = timerange['stop']
-        
-    #     return df.loc[start_dt:stop_dt]
-
     return df
+
 
 def determine_chart_period(chartperiod_str):
     if "m" in chartperiod_str:
@@ -62,8 +48,6 @@ def determine_chart_period(chartperiod_str):
         return int(clean_chartperiod) * 1440
 
     return int(chartperiod_str)
-
-
 
 
 indicator_map = {

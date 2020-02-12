@@ -2,6 +2,7 @@ import datetime
 from .build_data_frame import build_data_frame
 from .run_analysis import analyze_df
 
+
 def take_action(row, strategy, columns):
     """
     Params:
@@ -52,6 +53,7 @@ def determine_action(frame, strategy, df_col_map):
         return "x"
 
     return "h"
+
 
 def run_backtest(csv_path, strategy, starting_aux_bal=1000):
     """
