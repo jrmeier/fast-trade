@@ -2,23 +2,42 @@ import pandas as pd
 from finta import TA
 import os
 
+MIN = 1
+HOUR = 60
+DAY = 1440
 
-def build_data_frame(ohlcv_path, indicators=[], timerange={}):
+
+def build_data_frame(ohlcv_path, strategy, timerange={}):
     """
     Params:
         ohlcv_path: string, absolute path of where to find the data file
-        indicators: list of objects, assembles and calulates all the data
+        strategy: assembles and calulates all the data, designed by user
     """
     if not os.path.isfile(ohlcv_path):
         raise Exception(f"File doesn't exist: {ohlcv_path}")
 
-    df = pd.read_csv(ohlcv_path)
+    df = pd.read_csv(ohlcv_path, parse_dates=True)
+    indicators = strategy.get("indicators", [])
+
+    for ind in indicators:
+        func = ind.get("func")
+        field_name = ind.get("name")
+        if ind.get("args"):
+            args = ind.get("args", [])
+            df[field_name] = indicator_map[func](df, *args)
+        else:
+
+            df[field_name] = indicator_map[func](df)
+
+    s_chart_period = strategy.get("chart_period", 1)
+    chart_period = determine_chart_period(s_chart_period)
 
     df = df[df.close != 0]
 
     df["Datetime"] = pd.to_datetime(df["date"], unit="s")
     df.set_index(["Datetime"], inplace=True)
-    df.sort_index(inplace=True)
+    df = df.iloc[::chart_period, :]
+    # print(df)
 
     if len(timerange.keys()):
         start_dt = timerange["start"]
@@ -26,28 +45,36 @@ def build_data_frame(ohlcv_path, indicators=[], timerange={}):
 
         df = df.loc[start_dt:stop_dt]
 
-    for ind in indicators:
-        timeperiod = determine_chart_period(str(ind.get("timeperiod")))
-        func = ind.get("func")
-        field_name = ind.get("name")
-        df[field_name] = indicator_map[func](df, timeperiod)
-
     return df
 
 
-def determine_chart_period(chartperiod_str):
-    if "m" in chartperiod_str:
-        return int(chartperiod_str.replace("m", ""))
+def determine_chart_period(chart_period):
+    multiplyer = MIN
 
-    if "h" in chartperiod_str:
-        clean_chartperiod = chartperiod_str.replace("h", "")
-        return int(clean_chartperiod) * 60
+    chart_period = str(chart_period)
 
-    if "d" in chartperiod_str:
-        clean_chartperiod = chartperiod_str.replace("d", "")
-        return int(clean_chartperiod) * 1440
+    if chart_period.isnumeric():
+        clean_chart_period = int(chart_period)
 
-    return int(chartperiod_str)
+    clean_chart_period = chart_period
+    if type(chart_period) == str:
+        if "m" in chart_period:
+            multiplyer = MIN
+            replace_char = "m"
+
+        if "h" in chart_period:
+            multiplyer = HOUR
+            replace_char = "h"
+
+        if "d" in chart_period:
+            replace_char = "d"
+            multiplyer = DAY
+        if not chart_period.isnumeric():
+            clean_chart_period = int(chart_period.replace(replace_char, ""))
+        else:
+            clean_chart_period = int(chart_period)
+
+    return int(clean_chart_period * multiplyer)
 
 
 indicator_map = {

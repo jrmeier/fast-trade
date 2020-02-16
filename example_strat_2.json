@@ -1,41 +1,55 @@
 {
    "name": "example",
+   "chart_period": "45m",
+   "start": "",
+   "stop": "",
    "enter": [
       [
          "close",
          ">",
-         "mid"
+         "short"
       ],
       [
-         "close",
+        "rsi",
          ">",
-         "long"
+         30
       ]
    ],
    "exit": [
       [
          "close",
          "<",
-         "mid"
+         "long"
+      ],
+      [
+         "rsi",
+         "<",
+         60
       ]
    ],
    "indicators": [
       {
          "name": "short",
-         "func": "ta.ema",
-         "timeperiod": "15m",
+         "func": "ta.sma",
+         "args": [7],
          "df": "close"
       },
       {
          "name": "mid",
-         "func": "ta.ema",
-         "timeperiod": "1h",
+         "func": "ta.sma",
+         "args": [21],
          "df": "close"
       },
       {
          "name": "long",
-         "func": "ta.ema",
-         "timeperiod": "4h",
+         "func": "ta.sma",
+         "args": [150],
+         "df": "close"
+      },
+      {
+         "name": "rsi",
+         "func": "ta.rsi",
+         "args": [14],
          "df": "close"
       }
    ]

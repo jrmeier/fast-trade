@@ -20,14 +20,17 @@ def take_action(row, strategy, columns):
         df_col_map[each] = row[idx]
 
     for each in strategy:
+        check1 = each[0] if type(each[0]) == int else df_col_map[each[0]]
+        check2 = each[2] if type(each[2]) == int else df_col_map[each[2]]
+
         if each[1] == ">":
-            results.append(bool(df_col_map[each[0]] > df_col_map[each[2]]))
+            results.append(bool(check1 > check2))
         if each[1] == "<":
-            results.append(bool(df_col_map[each[0]] < df_col_map[each[2]]))
+            results.append(bool(check1 < check2))
         if each[1] == "=":
-            results.append(bool(df_col_map[each[0]] == df_col_map[each[2]]))
+            results.append(bool(check1 == check2))
         if each[1] == "!=":
-            results.append(bool(df_col_map[each[0]] != df_col_map[each[2]]))
+            results.append(bool(check1 != check2))
 
     if len(results):
         return all(results)
@@ -55,7 +58,7 @@ def determine_action(frame, strategy, df_col_map):
     return "h"
 
 
-def run_backtest(csv_path, strategy, starting_aux_bal=1000):
+def run_backtest(csv_path, strategy, timerange={}, starting_aux_bal=1000):
     """
     Params:
         csv_path: required, where to find the csv file of the ohlcv data
@@ -68,42 +71,49 @@ def run_backtest(csv_path, strategy, starting_aux_bal=1000):
     """
 
     start = datetime.datetime.utcnow()
-    df = build_data_frame(csv_path, strategy.get("indicators"))
+    # print("df: ",strategy)
+    try:
+        df = build_data_frame(csv_path, strategy, timerange)
+    except Exception:
+        return "Data frame creation fail"
 
     df["actions"] = [
         determine_action(frame, strategy, list(df.columns)) for frame in df.values
     ]
 
-    base, aux = analyze_df(df, starting_aux_bal)
+    base, aux, total_trades = analyze_df(df, starting_aux_bal)
 
     df["base_balance"] = base
     df["aux_balance"] = aux
 
     aux_sum = {
-        "start_balance": starting_aux_bal,
-        "end_balance": round(df.iloc[-1]["aux_balance"], 8),
+        "start": starting_aux_bal,
+        "end": round(df.iloc[-1]["aux_balance"], 8),
         "max": round(df["aux_balance"].max(), 8),
         "mean": round(df["aux_balance"].mean(), 8),
-        "median": round(df["aux_balance"].median(), 8),
     }
 
     base_sum = {
-        "start_balance": 0,
-        "end_balance": round(df.iloc[-1]["base_balance"], 8),
+        "start": 0,
+        "end": round(df.iloc[-1]["base_balance"], 8),
         "max": round(df["base_balance"].max(), 8),
         "mean": round(df["base_balance"].mean(), 8),
-        "median": round(df["base_balance"].median(), 8),
     }
 
     max_gain_perc = round((1 - (starting_aux_bal / df["aux_balance"].max())) * 100, 3)
 
     stop = datetime.datetime.utcnow()
 
+    del df["base_balance"]
+    del df["aux_balance"]
+
     return (
         {
-            "start": start.strftime("%m/%d/%Y %H:%M:%S"),
-            "stop": stop.strftime("%m/%d/%Y %H:%M:%S"),
-            "total_time": str(stop - start),
+            "start_time": df.index[0],
+            "time_time": df.index[-1],
+            "time_spent": str(stop - start),
+            "total_trades": total_trades,
+            "total_tics": len(df.index),
             "max_gain_perc": max_gain_perc,
             "strategy": strategy,
             "base_sum": base_sum,
