@@ -12,6 +12,12 @@ If you're looking for some data, here is almost every minute of 2018 of every pa
 - headless
 - extensible
 
+## Features
+- Extremely fast backtesting
+- ability to build complex strategies
+- ability to reproduce strategies since they are just a json file
+- can interface easily as an API, ex. put a web server in front and its an API
+
 ## Install
 
 ```bash
@@ -30,11 +36,12 @@ Available Indicators (graciously stolen from https://github.com/peerchemist/fint
 
 ## Output
 
-The output its a tuple. The first object is a summary all the inputs and a summary of a performace of the model. It's all the information to run the simulation again. The second object is a Pandas Dataframe, which contains all of the data used in the simulation.
+The output its a tuple. The first object is a summary all the inputs and a summary of a performace of the model. It's all the information to run the simulation again. The second object is a Pandas Dataframe, which contains all of the data used in the simulation. This can be used to chart store.
 
 Example output:
 
 ```python
+(
 {
   "start_time": "2018-02-06 00:03:03",
   "time_time": "2018-02-06 23:59:03",
@@ -116,7 +123,9 @@ Example output:
     "end": 0.0,
     "max": 1070.53608431
   }
-}
+},
+DataFrame(...)
+)
 ```
 
 ## Strategy
