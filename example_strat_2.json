@@ -1,5 +1,8 @@
 {
-   "name": "fluttering-ice",
+   "name": "example",
+   "chart_period": "5m",
+   "start": "",
+   "stop": "",
    "enter": [
       [
          "close",
@@ -7,35 +10,46 @@
          "short"
       ],
       [
-         "close",
+        "rsi",
          ">",
-         "long"
+         30
       ]
    ],
    "exit": [
       [
          "close",
          "<",
-         "mid"
+         "long"
+      ],
+      [
+         "rsi",
+         "<",
+         70
       ]
    ],
    "indicators": [
       {
          "name": "short",
          "func": "ta.ema",
-         "timeperiod": "70m",
+         "args": [7],
          "df": "close"
       },
       {
          "name": "mid",
          "func": "ta.ema",
-         "timeperiod": "102m",
+         "args": [21],
          "df": "close"
       },
       {
          "name": "long",
          "func": "ta.ema",
-         "timeperiod": "151m",
+         "args": [150],
+         "df": "close"
+      },
+      {
+         "name": "rsi",
+         "func": "ta.rsi",
+         "args": [14],
          "df": "close"
       }
    ]
