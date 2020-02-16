@@ -6,3 +6,4 @@ logs/
 .env
 .DS_Store
 .coverage
+.pypirc

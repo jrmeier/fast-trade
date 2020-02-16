@@ -1,7 +1,6 @@
 import datetime
 from .build_data_frame import build_data_frame
 from .run_analysis import analyze_df
-import pandas as pd
 
 
 def take_action(row, strategy, columns):
@@ -82,7 +81,7 @@ def run_backtest(csv_path, strategy, timerange={}, starting_aux_bal=1000):
         determine_action(frame, strategy, list(df.columns)) for frame in df.values
     ]
 
-    base, aux, total_trades = analyze_df(df, starting_aux_bal)    
+    base, aux, total_trades = analyze_df(df, starting_aux_bal)
 
     df["base_balance"] = base
     df["aux_balance"] = aux
@@ -96,7 +95,7 @@ def run_backtest(csv_path, strategy, timerange={}, starting_aux_bal=1000):
     base_sum = {
         "start": 0,
         "end": round(df.iloc[-1]["base_balance"], 8),
-        "max": round(df.iloc[-1]["aux_balance"].max(), 8)
+        "max": round(df.iloc[-1]["aux_balance"].max(), 8),
     }
 
     max_gain_perc = round((1 - (starting_aux_bal / df["aux_balance"].max())) * 100, 3)

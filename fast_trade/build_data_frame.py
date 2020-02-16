@@ -43,7 +43,7 @@ def build_data_frame(ohlcv_path, strategy, timerange={}):
         start_dt = timerange["start"]
         stop_dt = timerange["stop"]
 
-        df = df.loc[start_dt : stop_dt]
+        df = df.loc[start_dt:stop_dt]
 
     return df
 
