@@ -63,19 +63,16 @@ def run_backtest(csv_path, strategy, timerange={}, starting_aux_bal=1000):
     Params:
         csv_path: required, where to find the csv file of the ohlcv data
         strategy: required, object containing the logic to test
-        starting_aux_balance: optional, default 1000 how much of the aux coin to
-        the backtest
+        timerange: optional, start and stop keys must be in the format %Y-%m-%d %H:%M:%S ex. 2018-01-05 12:01:00
+        starting_aux_bal: optional, how many units to trade on the aux coin
     Returns: tuple
             object 1 is a dict summary of the performace of backtest
             object 2 is a pandas dataframe object used in the backtest
     """
 
     start = datetime.datetime.utcnow()
-    # print("df: ",strategy)
-    try:
-        df = build_data_frame(csv_path, strategy, timerange)
-    except Exception:
-        return "Data frame creation fail"
+
+    df = build_data_frame(csv_path, strategy, timerange)
 
     df["actions"] = [
         determine_action(frame, strategy, list(df.columns)) for frame in df.values

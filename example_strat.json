@@ -1,5 +1,6 @@
 {
    "name": "fluttering-ice",
+   "chart_period": "15m",
    "enter": [
       [
          "close",
@@ -23,19 +24,19 @@
       {
          "name": "short",
          "func": "ta.ema",
-         "timeperiod": "70m",
+         "args": [70],
          "df": "close"
       },
       {
          "name": "mid",
          "func": "ta.ema",
-         "timeperiod": "102m",
+         "args": [102],
          "df": "close"
       },
       {
          "name": "long",
          "func": "ta.ema",
-         "timeperiod": "151m",
+         "args": [151],
          "df": "close"
       }
    ]
