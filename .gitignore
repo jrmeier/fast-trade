@@ -7,3 +7,6 @@ logs/
 .DS_Store
 .coverage
 .pypirc
+build/
+dist/
+*.egg-info
