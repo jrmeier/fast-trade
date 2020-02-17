@@ -19,6 +19,10 @@ If you're looking for some data, here is almost every minute of 2018 of every pa
 - can interface easily as an API, ex. put a web server in front and its an API
 
 ## Install
+```bash
+pip install fast-trade
+```
+Or
 
 ```bash
 python -m venv .fast_trade
