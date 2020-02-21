@@ -28,7 +28,7 @@ def build_data_frame(ohlcv_path, strategy, timerange={}):
         else:
 
             df[field_name] = indicator_map[func](df)
-
+    
     s_chart_period = strategy.get("chart_period", 1)
     chart_period = determine_chart_period(s_chart_period)
 
@@ -37,7 +37,6 @@ def build_data_frame(ohlcv_path, strategy, timerange={}):
     df["Datetime"] = pd.to_datetime(df["date"], unit="s")
     df.set_index(["Datetime"], inplace=True)
     df = df.iloc[::chart_period, :]
-    # print(df)
 
     if len(timerange.keys()):
         start_dt = timerange["start"]
@@ -75,6 +74,11 @@ def determine_chart_period(chart_period):
             clean_chart_period = int(chart_period)
 
     return int(clean_chart_period * multiplyer)
+
+
+def wto_helper(df, channel_length=10, average_length=21, adjust=True):    
+    wto = TA.WTO(df, channel_length, average_length, adjust)
+    return wto["WT1."] - wto["WT2."]
 
 
 indicator_map = {
@@ -144,7 +148,6 @@ indicator_map = {
     "ta.chandelier": TA.CHANDELIER,
     "ta.qstick": TA.QSTICK,
     "ta.tmf": TA.TMF,
-    "ta.wto": TA.WTO,
     "ta.fish": TA.FISH,
     "ta.ichimoku": TA.ICHIMOKU,
     "ta.apz": TA.APZ,
@@ -154,4 +157,5 @@ indicator_map = {
     "ta.fve": TA.FVE,
     "ta.vfi": TA.VFI,
     "ta.msd": TA.MSD,
+    "ta.wto": wto_helper,
 }

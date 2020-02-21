@@ -85,14 +85,14 @@ def run_backtest(csv_path, strategy, timerange={}, starting_aux_bal=1000):
 
     aux_sum = {
         "start": starting_aux_bal,
-        "end": round(df.iloc[-1]["aux_balance"], 8),
-        "max": round(df["aux_balance"].max(), 8),
+        "end": round(float(df.iloc[-1]["aux_balance"]), 8),
+        "max": round(float(df["aux_balance"].max()), 8),
     }
 
     base_sum = {
         "start": 0,
-        "end": round(df.iloc[-1]["base_balance"], 8),
-        "max": round(df.iloc[-1]["aux_balance"].max(), 8),
+        "end": round(float(df.iloc[-1]["base_balance"]), 8),
+        "max": round(df.iloc[-1]["base_balance"].max(), 8),
     }
 
     max_gain_perc = round((1 - (starting_aux_bal / df["aux_balance"].max())) * 100, 3)
