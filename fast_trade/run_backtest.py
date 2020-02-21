@@ -63,7 +63,8 @@ def run_backtest(csv_path, strategy, timerange={}, starting_aux_bal=1000):
     Params:
         csv_path: required, where to find the csv file of the ohlcv data
         strategy: required, object containing the logic to test
-        timerange: optional, start and stop keys must be in the format %Y-%m-%d %H:%M:%S ex. 2018-01-05 12:01:00
+        timerange: optional, start and stop keys must be in the format %Y-%m-%d %H:%M:%S
+            ex. 2018-01-05 12:01:00
         starting_aux_bal: optional, how many units to trade on the aux coin
     Returns: tuple
             object 1 is a dict summary of the performace of backtest

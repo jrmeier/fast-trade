@@ -17,8 +17,9 @@ def prep_ohlcv_from_zip(pair, base_csv_path=""):
         if os.path.isfile("{}.zip".format(csv_path)):
             with zipfile.ZipFile("{}.zip".format(csv_path), "r") as zip_file:
                 zip_file.extract(csv_filename, base_csv_path)
-    
+
     return csv_path
+
 
 def create_run_summary_file(log_path, strategy, run_start, run_stop, pairs):
     run_sum = {
@@ -151,6 +152,5 @@ def get_log_files(log_path):
 
 if __name__ == "__main__":
     csv_path = "/Users/jedmeier/2017_standard"
-    res = prep_ohlcv_from_zip("BTCUSDT",csv_path)
-    print("res: ",res)
-
+    res = prep_ohlcv_from_zip("BTCUSDT", csv_path)
+    print("res: ", res)

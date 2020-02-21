@@ -11,7 +11,6 @@ if __name__ == "__main__":
     with open("./example_strat.json", "r") as strat_file:
         strategy = json.load(strat_file)
 
-
     res, df = run_backtest(csv_path, strategy)
     # print(res)
-    print(json.dumps(res,indent=2))
+    print(json.dumps(res, indent=2))
