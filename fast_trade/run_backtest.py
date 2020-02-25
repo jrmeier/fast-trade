@@ -1,6 +1,7 @@
 import datetime
 from .build_data_frame import build_data_frame
 from .run_analysis import analyze_df
+from .build_summary import build_summary
 import pandas as pd
 
 
@@ -84,35 +85,28 @@ def run_backtest(csv_path, strategy, timerange={}, starting_aux_bal=1000):
 
     base, aux, total_trades = analyze_df(df, starting_aux_bal)    
 
-    df["base_balance"] = base
-    df["aux_balance"] = aux
+    # df["base_balance"] = base
+    # df["aux_balance"] = aux
 
-    aux_sum = {
-        "start": starting_aux_bal,
-        "end": round(df.iloc[-1]["aux_balance"], 8),
-        "max": round(df["aux_balance"].max(), 8),
-    }
+    # aux_sum = {
+    #     "start": starting_aux_bal,
+    #     "end": round(df.iloc[-1]["aux_balance"], 8),
+    #     "max": round(df["aux_balance"].max(), 8),
+    # }
 
-    base_sum = {
-        "start": 0,
-        "end": round(df.iloc[-1]["base_balance"], 8),
-        "max": round(df.iloc[-1]["aux_balance"].max(), 8)
-    }
+    # base_sum = {
+    #     "start": 0,
+    #     "end": round(df.iloc[-1]["base_balance"], 8),
+    #     "max": round(df.iloc[-1]["aux_balance"].max(), 8)
+    # }
 
-    max_gain_perc = round((1 - (starting_aux_bal / df["aux_balance"].max())) * 100, 3)
-    stop = datetime.datetime.utcnow()
+    # max_gain_perc = round((1 - (starting_aux_bal / df["aux_balance"].max())) * 100, 3)
+    # stop = datetime.datetime.utcnow()
+
+
+    summary = build_summary(df, aux, base, starting_aux_bal, start)
 
     return (
-        {
-            "start_tic": df.index[0].strftime("%Y-%m-%d %H:%M:%S"),
-            "time_tic": df.index[-1].strftime("%Y-%m-%d %H:%M:%S"),
-            "time_spent": str(stop - start),
-            "total_trades": total_trades,
-            "total_tics": len(df.index),
-            "max_gain_perc": max_gain_perc,
-            "strategy": strategy,
-            "base_sum": base_sum,
-            "aux_sum": aux_sum,
-        },
+        summary,
         df,
     )

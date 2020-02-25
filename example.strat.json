@@ -1,0 +1,26 @@
+{
+   "name": "fluttering-ice",
+   "chart_period": "30d",
+   "enter": [
+      [
+         "wto",
+         ">",
+         17
+      ]
+   ],
+   "exit": [
+      [
+         "wto",
+         "<",
+         -17
+      ]
+   ],
+   "indicators": [
+      {
+         "name": "wto",
+         "func": "ta.wto",
+         "args": [],
+         "df": "close"
+      }
+   ]
+}
