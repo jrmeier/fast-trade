@@ -9,43 +9,6 @@ from fast_trade.build_data_frame import (
     indicator_map,
 )
 
-
-# def test_determine_chart_period_min():
-#     mock_time_str = "10m"
-#     res = determine_chart_period(mock_time_str)
-
-#     assert res == 10
-
-
-# def test_determine_chart_period_hour():
-#     mock_time_str = "3h"
-#     res = determine_chart_period(mock_time_str)
-
-#     assert res == 180
-
-
-# def test_determine_chart_period_day():
-#     mock_time_str = "3d"
-#     res = determine_chart_period(mock_time_str)
-
-#     assert res == 4320
-
-
-# def test_determine_chart_period_int():
-#     mock_time_str = "77"
-#     res = determine_chart_period(mock_time_str)
-
-#     assert res == 77
-
-
-# def test_build_data_frame_no_csv():
-#     mock_csv_path = "./ohlcv.csv"
-#     with pytest.raises(Exception) as excinfo:
-#         build_data_frame(mock_csv_path, {})
-
-#     assert "File doesn't exist: ./ohlcv.csv" == str(excinfo.value)
-
-
 def test_build_data_frame_no_indicators():
     this_path = os.path.abspath(__file__).split("/")
     this_path.pop()

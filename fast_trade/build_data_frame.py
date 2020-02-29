@@ -34,8 +34,8 @@ def build_data_frame(ohlcv_path, strategy, timerange={}):
 
     df = df[df.close != 0]
 
-    df["Datetime"] = pd.to_datetime(df["date"], unit="s")
-    df.set_index(["Datetime"], inplace=True)
+    df["datetime"] = pd.to_datetime(df["date"], unit="s")
+    df.set_index(['datetime'], inplace=True)
     df = df.iloc[::chart_period, :]
     # print(df)
 

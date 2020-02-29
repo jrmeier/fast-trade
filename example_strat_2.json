@@ -1,6 +1,6 @@
 {
    "name": "example",
-   "chart_period": "11h",
+   "chart_period": "6h",
    "start": "",
    "stop": "",
    "enter": [

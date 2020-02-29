@@ -25,6 +25,7 @@ def analyze_df(df, base_balance):
 
         aux_log.append(aux_balance)
         base_log.append(base_balance)
+    
     return aux_log, base_log, total_trades
 
 

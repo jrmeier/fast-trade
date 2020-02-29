@@ -76,7 +76,8 @@ def run_backtest(csv_path, strategy, timerange={}, starting_aux_bal=1000):
     # print("df: ",strategy)
     try:
         df = build_data_frame(csv_path, strategy, timerange)
-    except Exception:
+    except Exception as e:
+        print(e)
         return "Data frame creation fail"
 
     df["actions"] = [
@@ -85,28 +86,13 @@ def run_backtest(csv_path, strategy, timerange={}, starting_aux_bal=1000):
 
     base, aux, total_trades = analyze_df(df, starting_aux_bal)    
 
-    # df["base_balance"] = base
-    # df["aux_balance"] = aux
-
-    # aux_sum = {
-    #     "start": starting_aux_bal,
-    #     "end": round(df.iloc[-1]["aux_balance"], 8),
-    #     "max": round(df["aux_balance"].max(), 8),
-    # }
-
-    # base_sum = {
-    #     "start": 0,
-    #     "end": round(df.iloc[-1]["base_balance"], 8),
-    #     "max": round(df.iloc[-1]["aux_balance"].max(), 8)
-    # }
-
-    # max_gain_perc = round((1 - (starting_aux_bal / df["aux_balance"].max())) * 100, 3)
-    # stop = datetime.datetime.utcnow()
+    df["base_balance"] = base
+    df["aux_balance"] = aux
 
 
-    summary = build_summary(df, aux, base, starting_aux_bal, start)
+    summary = build_summary(df, starting_aux_bal, start)
 
     return (
         summary,
-        df,
+        df
     )

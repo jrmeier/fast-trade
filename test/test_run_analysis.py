@@ -65,3 +65,14 @@ def test_exit_trade_4():
 
     res = enter_trade(mock_close, mock_base_balance)
     assert res == 0
+
+
+def test_get_last_value():
+    mock_df = pd.DataFrame([
+        ["date", "close", "open", "high", "low", "volume"],
+        [1523938023.0, 0.02247, 0.01, 0.025, 0.01, 109548.0],
+        [1523938023.0, 0.02247, 0.01, 0.025, 0.04, 0.0],
+        [1523938023.0, 0.02247, 0.01, 0.025, 0.01, 119548.0],
+    ])
+
+    assert True == True
