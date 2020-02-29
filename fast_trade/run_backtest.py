@@ -89,7 +89,6 @@ def run_backtest(csv_path, strategy, timerange={}, starting_aux_bal=1000):
     df["base_balance"] = base
     df["aux_balance"] = aux
 
-
     summary = build_summary(df, starting_aux_bal, start)
 
     return (

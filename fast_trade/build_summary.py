@@ -35,13 +35,13 @@ def build_summary(df, starting_aux_bal, perf_start_time):
     win_trades = trade_perc_series[trade_perc_series > 0 ]
     loss_trades = trade_perc_series[trade_perc_series < 0]
     total_trades = len(aux)
-    win_perc =  len(win_trades) / total_trades
-    loss_perc =  len(loss_trades) / total_trades
+    win_perc =  (len(win_trades) / total_trades) * 100
+    loss_perc =  (len(loss_trades) / total_trades) * 100
 
     equity_peak_unit = df["aux_balance"].max()
     equity_final = df.iloc[-1]["aux_balance"]
-    perf_stop_time = datetime.datetime.utcnow()
 
+    perf_stop_time = datetime.datetime.utcnow()
     start_date = df.index[0]
     end_date = df.index[-1]
 
@@ -55,6 +55,8 @@ def build_summary(df, starting_aux_bal, perf_start_time):
         "num_trades": len(aux),
         "win_perc": round(win_perc, 3),
         "loss_perc": round(loss_perc, 3),
+        "equity_peak": df["aux_balance"].max(),
+        "equity_final": equity_final,
     }
 
     perf_summary = {

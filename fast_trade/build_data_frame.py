@@ -11,7 +11,8 @@ def build_data_frame(ohlcv_path, strategy, timerange={}):
     """
     Params:
         ohlcv_path: string, absolute path of where to find the data file
-        strategy: assembles and calulates all the data, designed by user
+        strategy: dict, assembles and calulates all the data, designed by user
+        timerange: dict, start/stop keys of datetime in string format, ex: 2018-01-01 00:00:00
     """
     if not os.path.isfile(ohlcv_path):
         raise Exception(f"File doesn't exist: {ohlcv_path}")
@@ -37,7 +38,6 @@ def build_data_frame(ohlcv_path, strategy, timerange={}):
     df["datetime"] = pd.to_datetime(df["date"], unit="s")
     df.set_index(['datetime'], inplace=True)
     df = df.iloc[::chart_period, :]
-    # print(df)
 
     if len(timerange.keys()):
         start_dt = timerange["start"]
