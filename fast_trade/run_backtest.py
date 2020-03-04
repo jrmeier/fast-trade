@@ -60,22 +60,26 @@ def determine_action(frame, strategy, df_col_map):
     return "h"
 
 
-def run_backtest(csv_path, strategy, timerange={}, starting_aux_bal=1000):
+def run_backtest(
+    csv_path, strategy, commission=1, starting_aux_bal=1000, exit_on_end=True
+):
     """
     Params:
         csv_path: required, where to find the csv file of the ohlcv data
         strategy: required, object containing the logic to test
-        starting_aux_balance: optional, default 1000 how much of the aux coin to
-        the backtest
+        starting_aux_balance: optional, int default 1000 how much of the aux coin to
+            the backtest
+        exit_on_end: optional, boolean, if the last trade is still open,
+            this will close the positions
+
     Returns: tuple
             object 1 is a dict summary of the performace of backtest
             object 2 is a pandas dataframe object used in the backtest
     """
 
     start = datetime.datetime.utcnow()
-    # print("df: ",strategy)
     try:
-        df = build_data_frame(csv_path, strategy, timerange)
+        df = build_data_frame(csv_path, strategy)
     except Exception as e:
         print(e)
         return "Data frame creation fail"
@@ -84,14 +88,18 @@ def run_backtest(csv_path, strategy, timerange={}, starting_aux_bal=1000):
         determine_action(frame, strategy, list(df.columns)) for frame in df.values
     ]
 
-    base, aux, total_trades = analyze_df(df, starting_aux_bal)    
+    base, aux = analyze_df(df, commission, starting_aux_bal, exit_on_end)
+
+    if len(base) != len(df.index) and strategy.get("exit_on_end", True):
+        new_row = pd.DataFrame(
+            df[-1:].values,
+            index=[df.index[-1] + pd.Timedelta(minutes=1)],
+            columns=df.columns,
+        )
+        df = df.append(new_row)
 
     df["base_balance"] = base
     df["aux_balance"] = aux
-
     summary = build_summary(df, starting_aux_bal, start)
-
-    return (
-        summary,
-        df
-    )
+    # print(summary, df)
+    return (summary, df)

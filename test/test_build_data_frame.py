@@ -9,6 +9,7 @@ from fast_trade.build_data_frame import (
     indicator_map,
 )
 
+
 def test_build_data_frame_no_indicators():
     this_path = os.path.abspath(__file__).split("/")
     this_path.pop()
@@ -102,9 +103,10 @@ def test_build_data_frame_timerange():
         ]
     }
 
-    timerange = {"start": "2018-04-17 04:04:04", "stop": "2018-04-17 04:06:30"}
+    mock_strat["start"] = "2018-04-17 04:04:04"
+    mock_strat["stop"] = "2018-04-17 04:06:30"
 
-    df = build_data_frame(mock_csv_path, mock_strat, timerange)
+    df = build_data_frame(mock_csv_path, mock_strat)
 
     assert str(df.index.values[0]) == "2018-04-17T04:04:04.000000000"
     assert str(df.index.values[1]) == "2018-04-17T04:05:03.000000000"

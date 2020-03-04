@@ -7,12 +7,13 @@ HOUR = 60
 DAY = 1440
 
 
-def build_data_frame(ohlcv_path, strategy, timerange={}):
+def build_data_frame(ohlcv_path, strategy):
     """
     Params:
         ohlcv_path: string, absolute path of where to find the data file
         strategy: dict, assembles and calulates all the data, designed by user
-        timerange: dict, start/stop keys of datetime in string format, ex: 2018-01-01 00:00:00
+        timerange: dict, start/stop keys of datetime in string format
+            ex: 2018-01-01 00:00:00
     """
     if not os.path.isfile(ohlcv_path):
         raise Exception(f"File doesn't exist: {ohlcv_path}")
@@ -36,14 +37,18 @@ def build_data_frame(ohlcv_path, strategy, timerange={}):
     df = df[df.close != 0]
 
     df["datetime"] = pd.to_datetime(df["date"], unit="s")
-    df.set_index(['datetime'], inplace=True)
+    df.set_index(["datetime"], inplace=True)
     df = df.iloc[::chart_period, :]
 
-    if len(timerange.keys()):
-        start_dt = timerange["start"]
-        stop_dt = timerange["stop"]
+    start_time = strategy.get("start")
+    stop_time = strategy.get("stop")
 
-        df = df.loc[start_dt : stop_dt]
+    if start_time and stop_time:
+        df = df[start_time:stop_time]  # noqa
+    elif start_time and not stop_time:
+        df = df[start_time:]  # noqa
+    elif not start_time and stop_time:
+        df = df[:stop_time]  # noqa
 
     return df
 
