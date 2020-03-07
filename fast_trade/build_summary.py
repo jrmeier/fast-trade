@@ -4,6 +4,7 @@ import pandas as pd
 
 def build_summary(df, starting_aux_bal, perf_start_time):
 
+    # Not yet implimented
     # Exposure [%]                            94.29
     # Return [%]                             596.65
     # Buy & Hold Return [%]                  703.46

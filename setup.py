@@ -7,14 +7,14 @@ README = (HERE / "README.md").read_text()
 
 setup(
     name="fast-trade",
-    version="0.0.01",
+    version="0.1.0",
     description="Automate and backtest on ohlcv data quickly",
     long_description=README,
     long_description_content_type="text/markdown",
     url="https://github.com/jrmeier/fast-trade",
     keywords=[
         "backtesting",
-        "fast trade",
+        "currency"
         "ta",
         "pandas",
         "finance",
