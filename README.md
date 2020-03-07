@@ -4,7 +4,7 @@ A library to do back-testing on currency data with generated strategies quickly 
 
 ## Data
 
-If you're looking for some data, here is almost every minute of 2018 of every pair from binance. Here is the each file [individually zipped](https://drive.google.com/file/d/16eoeNLTUVC9ydoMfVtjxxfLPKurGW05M/view?usp=sharing) and here is the [entire directory zipped, with each file as a zip](https://drive.google.com/file/d/16eoeNLTUVC9ydoMfVtjxxfLPKurGW05M/view?usp=sharing). If you have any questions, please email me at fast_trade (at) jedm.dev.
+If you're looking for some data, here is roughly every minute of 2018 of every pair from binance. Here is the each file [individually zipped](https://drive.google.com/file/d/16eoeNLTUVC9ydoMfVtjxxfLPKurGW05M/view?usp=sharing) and here is the [entire directory zipped, with each file as a zip](https://drive.google.com/file/d/16eoeNLTUVC9ydoMfVtjxxfLPKurGW05M/view?usp=sharing). If you have any questions, please email me at fast_trade (at) jedm.dev. I also have data every minute since December 2019 to now, shoot me an email if you'd like access.
 
 ## Goals
 
@@ -13,6 +13,7 @@ If you're looking for some data, here is almost every minute of 2018 of every pa
 - extensible
 
 ## Features
+
 - Extremely fast backtesting
 - ability to build complex strategies
 - ability to reproduce strategies since they are just a json file
@@ -41,88 +42,24 @@ The output its a tuple. The first object is a summary all the inputs and a summa
 Example output:
 
 ```python
-(
 {
-  "start_time": "2018-02-06 00:03:03",
-  "time_time": "2018-02-06 23:59:03",
-  "time_spent": "0:00:00.506799",
-  "total_trades": 73,
-  "total_tics": 288,
-  "max_gain_perc": 6.589,
-  "strategy": {
-    "name": "example",
-    "chart_period": "5m",
-    "start": "",
-    "stop": "",
-    "enter": [
-      [
-        "close",
-        ">",
-        "short"
-      ],
-      [
-        "rsi",
-        ">",
-        30
-      ]
-    ],
-    "exit": [
-      [
-        "close",
-        "<",
-        "long"
-      ],
-      [
-        "rsi",
-        "<",
-        70
-      ]
-    ],
-    "indicators": [
-      {
-        "name": "short",
-        "func": "ta.ema",
-        "args": [
-          7
-        ],
-        "df": "close"
-      },
-      {
-        "name": "mid",
-        "func": "ta.ema",
-        "args": [
-          21
-        ],
-        "df": "close"
-      },
-      {
-        "name": "long",
-        "func": "ta.ema",
-        "args": [
-          150
-        ],
-        "df": "close"
-      },
-      {
-        "name": "rsi",
-        "func": "ta.rsi",
-        "args": [
-          14
-        ],
-        "df": "close"
-      }
-    ]
-  },
-  "base_sum": {
-    "start": 0,
-    "end": 0.1392501,
-    "max": 0.0
-  },
-  "aux_sum": {
-    "start": 1000,
-    "end": 0.0,
-    "max": 1070.53608431
-  }
+  "return_perc": 3.935,
+  "mean_trade_len": "0 days 01:13:07.368421",
+  "max_trade_held": "0 days 07:55:59",
+  "min_trade_len": "0 days 00:07:59",
+  "best_trade_perc": 5.979,
+  "min_trade_perc": -3.144,
+  "mean": 0.074,
+  "num_trades": 58,
+  "win_perc": 63.793,
+  "loss_perc": 34.483,
+  "equity_peak": 1098.39686619,
+  "equity_final": 1044.52219673,
+  "equity_peak_unit": 1098.39686619,
+  "first_tic": "2018-05-01 00:00:03",
+  "last_tic": "2018-05-03 23:57:03",
+  "total_tics": 1081,
+  "test_duration": "0:00:00.406570"
 },
 DataFrame(...)
 )
@@ -135,83 +72,84 @@ The real goal of this project is to get to the point where these strategies can 
 Below is an example of a very simple strategey. Basically, indicators are used to build a list of indicators to look at which must all be true to produce an enter or exit status for that tick. This can use any of the indicators [build_data_frame.py](/fast_trade/build_data_frame.py)
 
 
-```javascript
+```python
 {
-   "name": "example", // name or identifier of strategy
-   "chart_period": "15m", // charting period
-   "enter": [ // conditions required to ENTER a trade, all must be true
-      [
-         "close",
-         ">",
-         "short"
-      ],
-      [
-        "rsi",
-         ">",
-         30
-      ]
+   "name": "example",
+   "chart_period": "4m",
+   "start": "2018-05-01 00:00:00",
+   "stop": "2018-05-04 00:00:00",
+   "enter": [
+     [
+       "close",
+       ">",
+       "short"
+     ],
+     [
+       "rsi",
+       ">",
+       30
+     ]
    ],
-   "exit": [ // conditions required to EXIT a trade, all must be true
-      [
-         "close",
-         "<",
-         "mid"
-      ],
-      [
-         "rsi",
-         "<",
-         60
-      ]
+   "exit": [
+     [
+       "close",
+       "<",
+       "long"
+     ],
+     [
+       "rsi",
+       "<",
+       70
+     ]
    ],
-   "indicators": [ // this is what you use in the enter/exit functions
-      {
-         "name": "short",
-         "func": "ta.sma",
-         "args": [7],
-         "df": "close"
-      },
-      {
-         "name": "mid",
-         "func": "ta.sma",
-         "args": [21],
-         "df": "close"
-      },
-      {
-         "name": "long",
-         "func": "ta.sma",
-         "args": [150],
-         "df": "close"
-      },
-      {
-         "name": "rsi",
-         "func": "ta.rsi",
-         "args": [14],
-         "df": "close"
-      }
+   "indicators": [
+     {
+       "name": "short",
+       "func": "ta.zlema",
+       "args": [
+         7
+       ],
+       "df": "close"
+     },
+     {
+       "name": "long",
+       "func": "ta.zlema",
+       "args": [
+         150
+       ],
+       "df": "close"
+     },
+     {
+       "name": "rsi",
+       "func": "ta.rsi",
+       "args": [
+         14
+       ],
+       "df": "close"
+     }
    ]
 }
-
 ```
 
 ### Indicators
 
-```javascript
+```python
       {
-         "name": "short", // indicator name
-         "func": "ta.ema", // technical analysis function to be used
-         "args": [12], // arguments to pass to the function
-         "df": "close" // which column of the dataframe to look at
+         "name": "short", # indicator name
+         "func": "ta.zlema", # technical analysis function to be used
+         "args": [12], # arguments to pass to the function
+         "df": "close" # which column of the dataframe to look at
       }
 ```
 
 ### Enter / Exit
 
-```javascript
-   "enter": [
+```python
+   "enter": [ # all must be true to enter or exit
       [
-         "close", // column of the dataframe to compare to
-         ">", // logic to use to compare
-         "short" // the name from the defined indicator
+         "close", # column of the dataframe to compare to
+         ">", # logic to use to compare
+         "short" # the name from the defined indicator
       ]
    ]
 ```

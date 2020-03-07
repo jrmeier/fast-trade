@@ -71,16 +71,10 @@ def build_summary(df, starting_aux_bal, perf_start_time):
         "equity_peak": df["aux_balance"].max(),
         "equity_final": equity_final,
         "equity_peak_unit": equity_peak_unit,
-        # "max_drawdown": round(max_drawdown, 3),
-    }
-
-    perf_summary = {
         "first_tic": start_date.strftime("%Y-%m-%d %H:%M:%S"),
         "last_tic": end_date.strftime("%Y-%m-%d %H:%M:%S"),
         "total_tics": len(df.index),
         "test_duration": str(perf_stop_time - perf_start_time),
     }
-
-    summary["perforamce"] = perf_summary
 
     return summary

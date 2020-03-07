@@ -5,8 +5,6 @@ def analyze_df(df, commission, base_balance, exit_on_end):
     action_col_idx = column_map.index("actions")
 
     aux_balance = 0.0
-    # base_balance = Decimal(base_balance)
-    # commission = Decimal(1)
 
     aux_log = []
     base_log = []
@@ -17,15 +15,12 @@ def analyze_df(df, commission, base_balance, exit_on_end):
         if row[action_col_idx] == "e" and not in_trade:
             aux_balance = enter_trade(close, base_balance)
 
-            # print("t_aux: ",t_aux_balance)
-            # print("aux_balancee: ",aux_balance)
             tmp_base_balance = exit_trade(close, aux_balance)
             base_balance = 0
             in_trade = True
 
         if row[action_col_idx] == "x" and in_trade:
             base_balance = exit_trade(close, aux_balance)
-            # smooth_base_log.append(aux_balance)
             aux_balance = 0
             in_trade = False
 

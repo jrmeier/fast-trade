@@ -11,6 +11,6 @@ if __name__ == "__main__":
     strategy["start"] = "2018-05-01 00:00:00"
     strategy["stop"] = "2018-05-04 00:00:00"
     res, df = run_backtest(csv_path, strategy)
-    # print(json.dumps(res, indent=2))
+    print(json.dumps(res, indent=2))
     # print(df.tail(n=10))
     # df.to_csv("tmp.csv")
