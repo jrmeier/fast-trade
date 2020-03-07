@@ -18,7 +18,6 @@ def build_summary(df, starting_aux_bal, perf_start_time):
     # Calmar Ratio                             0.07
 
     aux = df.drop_duplicates(subset="aux_balance", keep=False, inplace=False)
-
     trade_perc_series = aux["aux_balance"].pct_change() * 100
     trade_time_held_series = pd.to_datetime(aux["date"], unit="s").diff()
 
@@ -72,6 +71,7 @@ def build_summary(df, starting_aux_bal, perf_start_time):
         "equity_peak": df["aux_balance"].max(),
         "equity_final": equity_final,
         "equity_peak_unit": equity_peak_unit,
+        # "max_drawdown": round(max_drawdown, 3),
     }
 
     perf_summary = {
