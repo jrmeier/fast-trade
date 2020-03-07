@@ -82,6 +82,11 @@ def determine_chart_period(chart_period):
     return int(clean_chart_period * multiplyer)
 
 
+def wto_helper(df, channel_length=10, average_length=21, adjust=True):
+    wto = TA.WTO(df, channel_length, average_length, adjust)
+    return wto["WT1."] - wto["WT2."]
+
+
 indicator_map = {
     "ta.sma": TA.SMA,
     "ta.smm": TA.SMM,
@@ -149,7 +154,6 @@ indicator_map = {
     "ta.chandelier": TA.CHANDELIER,
     "ta.qstick": TA.QSTICK,
     "ta.tmf": TA.TMF,
-    "ta.wto": TA.WTO,
     "ta.fish": TA.FISH,
     "ta.ichimoku": TA.ICHIMOKU,
     "ta.apz": TA.APZ,
@@ -159,4 +163,5 @@ indicator_map = {
     "ta.fve": TA.FVE,
     "ta.vfi": TA.VFI,
     "ta.msd": TA.MSD,
+    "ta.wto": wto_helper,
 }

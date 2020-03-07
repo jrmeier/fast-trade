@@ -4,28 +4,24 @@ import csv
 import json
 import requests
 import pandas as pd
-from dotenv import load_dotenv
 
-load_dotenv()
 # flake8: noqa
 # this is a mess
 
 
-def load_ohlcv_file(pair):
-    csv_filename = f"{pair}.csv.zip"
-    csv_base = f"{pair}.csv"
-    # csv_path = os.path.join(os.getenv("CSV_PATH"), csv_filename)
-    remove_csv = False
+def prep_ohlcv_from_zip(pair, base_csv_path=""):
+    csv_filename = f"{pair}.csv"
+    csv_path = f"{base_csv_path}/{csv_filename}"
     if not os.path.isfile(csv_path):
         # check for a zip
         if os.path.isfile("{}.zip".format(csv_path)):
             with zipfile.ZipFile("{}.zip".format(csv_path), "r") as zip_file:
-                zip_file.extractall(csv_base)
-            remove_csv = True
-    return
+                zip_file.extract(csv_filename, base_csv_path)
+
+    return csv_path
 
 
-def create_run_summary_file(log_path, strategy, run_start, run_stop):
+def create_run_summary_file(log_path, strategy, run_start, run_stop, pairs):
     run_sum = {
         "total_time": str(run_stop - run_start),
         "start": run_start.strftime("%m/%d/%Y %H:%M:%S"),
@@ -39,23 +35,7 @@ def create_run_summary_file(log_path, strategy, run_start, run_stop):
         new_run_log.write(json.dumps(run_sum, indent=2))
 
 
-def create_status_file(pair, run_start, pairs):
-    csv_filename = "{}.csv".format(pair)
-    time_elapsed = datetime.datetime.utcnow() - run_start
-
-    status = {
-        "current_pair": pair,
-        "current_location": pairs.index(pair) + 1,
-        "total_pairs": len(pairs),
-        "time_elapsed": str(time_elapsed),
-    }
-
-    status_path = os.path.join(log_path, "status.json")
-    with open(status_path, "w+") as status_file:
-        status_file.write(json.dumps(status))
-
-
-def create_log_dir():
+def create_log_dir(run_start):
     run_dir_name = "run_{}".format(run_start.strftime("%m_%d_%Y_%H_%M_%S"))
     log_path = os.path.join(log_path, run_dir_name)
     if not os.path.isdir(log_path):
@@ -171,27 +151,6 @@ def get_log_files(log_path):
 
 
 if __name__ == "__main__":
-    # log_filepath = "./fast_trade/logs/run_01_17_2020_21_51_35/ZRXETH_log.csv"
-    # log_path = "/Users/jedmeier/Projects/fast_trade/fast_trade/logs/"
-    # res = anaylze(log_filepath)
-
-    # res = get_log_files(log_path)
-    # print(json.dumps(res, indent=2))
-    # run_paths = [
-    #     {
-    #     "base_path": "/Users/jedmeier/Projects/fast_trade/fast_trade/logs/run_01_20_2020_22_21_27/",
-    #     "RunSummary": "RunSummary.json",
-    #     "strat": "example_strat.json",
-    #     "pairs": {
-    #     "ADABNB": {
-    #         "sum": "ADABNB_sum.json",
-    #         "log": "ADABNB_log.csv.zip"
-    #     }
-    #     }
-    #     }
-    # ]
-    # res = process_run_path(run_paths)
-    # log_file_path = "/Users/jedmeier/Projects/fast_trade/fast_trade/logs/run_01_20_2020_22_21_27/ADABNB_log.csv.zip" # noqa
-    # res = read_logfile(log_file_path)
-
-    res = build_log_dataframe("lol", "BTCUSDT")
+    csv_path = "/Users/jedmeier/2017_standard"
+    res = prep_ohlcv_from_zip("BTCUSDT", csv_path)
+    print("res: ", res)

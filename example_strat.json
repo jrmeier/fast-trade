@@ -1,41 +1,25 @@
 {
    "name": "fluttering-ice",
+   "chart_period": "1m",
    "enter": [
       [
-         "close",
+         "wto",
          ">",
-         "short"
-      ],
-      [
-         "close",
-         ">",
-         "long"
+         17
       ]
    ],
    "exit": [
       [
-         "close",
+         "wto",
          "<",
-         "mid"
+         -17
       ]
    ],
    "indicators": [
       {
-         "name": "short",
-         "func": "ta.ema",
-         "timeperiod": "70m",
-         "df": "close"
-      },
-      {
-         "name": "mid",
-         "func": "ta.ema",
-         "timeperiod": "102m",
-         "df": "close"
-      },
-      {
-         "name": "long",
-         "func": "ta.ema",
-         "timeperiod": "151m",
+         "name": "wto",
+         "func": "ta.wto",
+         "args": [],
          "df": "close"
       }
    ]

@@ -1,22 +1,44 @@
-import setuptools
+import pathlib
+from setuptools import setup, find_packages
 
-with open("README.md", "r") as fh:
-    long_description = fh.read()
+HERE = pathlib.Path(__file__).parent
 
-setuptools.setup(
-    name="fast-trade-jrmeier",  # Replace with your own username
-    version="0.0.1",
-    author="Jed Meier",
-    author_email="fast_trade@jedm.dev",
-    description="A performance focused, extensible backtesting framework for ohlcv data.",
-    long_description=long_description,
+README = (HERE / "README.md").read_text()
+
+setup(
+    name="fast-trade",
+    version="0.0.01",
+    description="Automate and backtest on ohlcv data quickly",
+    long_description=README,
     long_description_content_type="text/markdown",
     url="https://github.com/jrmeier/fast-trade",
-    packages=setuptools.find_packages(),
-    classifiers=[
-        "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: MIT License",
-        "Operating System :: OS Independent",
+    keywords=[
+        "backtesting",
+        "fast trade",
+        "ta",
+        "pandas",
+        "finance",
+        "numpy",
+        "analysis",
+        "technical analysis",
     ],
-    python_requires=">=3.6",
+    author="Jed Meier",
+    author_email="fast_trade@jedm.dev",
+    license="MIT",
+    python_requires=">=3",
+    classifiers=[
+        "License :: OSI Approved :: MIT License",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.7",
+    ],
+    packages=find_packages(include=["fast_trade"]),
+    include_package_data=True,
+    install_requires=[
+        "finta==0.4.1",
+        "numpy==1.18.1",
+        "pandas==1.0.1",
+        "python-dateutil==2.8.1",
+        "pytz==2019.3",
+        "six==1.14.0",
+    ],
 )

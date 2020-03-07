@@ -1,6 +1,10 @@
 from fast_trade import run_backtest
 import pandas as pd
 import json
+import os
+
+# def run_backtest(csv_path, strategy, timerange={}, starting_aux_bal=1000):
+
 
 if __name__ == "__main__":
     csv_path = "/Users/jedmeier/2017_standard/XLMBTC.csv"
