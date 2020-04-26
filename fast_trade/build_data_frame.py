@@ -15,10 +15,17 @@ def build_data_frame(ohlcv_path, strategy):
         timerange: dict, start/stop keys of datetime in string format
             ex: 2018-01-01 00:00:00
     """
-    if not os.path.isfile(ohlcv_path):
-        raise Exception(f"File doesn't exist: {ohlcv_path}")
+    if type(ohlcv_path) == str:
+        if not os.path.isfile(ohlcv_path):
+            raise Exception(f"File doesn't exist: {ohlcv_path}")
+    
+        df = pd.read_csv(ohlcv_path, parse_dates=True)
 
-    df = pd.read_csv(ohlcv_path, parse_dates=True)
+    if type(ohlcv_path) == list:
+        # combine the two files
+        df = pd.read_csv(ohlcv_path[0])
+        df.append(pd.read_csv(ohlcv_path[1]))
+
     indicators = strategy.get("indicators", [])
 
     for ind in indicators:
@@ -35,8 +42,7 @@ def build_data_frame(ohlcv_path, strategy):
     chart_period = determine_chart_period(s_chart_period)
 
     df = df[df.close != 0]
-
-    df["datetime"] = pd.to_datetime(df["date"], unit="s")
+    df["datetime"] = pd.to_datetime(df["date"], unit="ms")
     df.set_index(["datetime"], inplace=True)
     df = df.iloc[::chart_period, :]
 

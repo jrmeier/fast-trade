@@ -9,7 +9,7 @@ def analyze_df(df, commission, base_balance, exit_on_end):
     aux_log = []
     base_log = []
 
-    smooth_base_log = []
+    smooth_base = []
     for idx, row in enumerate(df.values):
         close = row[close_column_idx]
         if row[action_col_idx] == "e" and not in_trade:
@@ -25,9 +25,9 @@ def analyze_df(df, commission, base_balance, exit_on_end):
             in_trade = False
 
         if base_balance:
-            smooth_base_log.append(base_balance)
+            smooth_base.append(base_balance)
         else:
-            smooth_base_log.append(tmp_base_balance)
+            smooth_base.append(tmp_base_balance)
 
         aux_log.append(aux_balance)
         base_log.append(base_balance)
@@ -35,12 +35,12 @@ def analyze_df(df, commission, base_balance, exit_on_end):
     if in_trade and exit_on_end:
         close = df.values[-1][close_column_idx]
         base_balance = exit_trade(close, aux_balance)
-        smooth_base_log.append(base_balance)
+        smooth_base.append(base_balance)
         aux_balance = 0
         aux_log.append(aux_balance)
         base_log.append(base_balance)
 
-    return aux_log, base_log, smooth_base_log
+    return aux_log, base_log, smooth_base
 
 
 def enter_trade(close, base_balance):
