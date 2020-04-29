@@ -73,7 +73,7 @@ DataFrame(...)
 
 The real goal of this project is to get to the point where these strategies can be generated and tested quickly and then be easily iterated on.
 
-Below is an example of a very simple strategey. Basically, indicators are used to build a list of indicators to look at which must all be true to produce an enter or exit status for that tick. This can use any of the indicators [build_data_frame.py](/fast_trade/build_data_frame.py)
+Below is an example of a very simple strategey. Basically, indicators are used to build a list of indicators to look at which must all be true to produce an enter or exit status for that tick.
 
 
 ```python

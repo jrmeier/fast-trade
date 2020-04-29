@@ -7,7 +7,7 @@ HOUR = 60
 DAY = 1440
 
 
-def build_data_frame(ohlcv_path, strategy):
+def build_data_frame(ohlcv_path, strategy, time_unit):
     """
     Params:
         ohlcv_path: string, absolute path of where to find the data file
@@ -28,6 +28,7 @@ def build_data_frame(ohlcv_path, strategy):
 
     indicators = strategy.get("indicators", [])
 
+
     for ind in indicators:
         func = ind.get("func")
         field_name = ind.get("name")
@@ -42,7 +43,7 @@ def build_data_frame(ohlcv_path, strategy):
     chart_period = determine_chart_period(s_chart_period)
 
     df = df[df.close != 0]
-    df["datetime"] = pd.to_datetime(df["date"], unit="ms")
+    df["datetime"] = pd.to_datetime(df["date"], unit=time_unit)
     df.set_index(["datetime"], inplace=True)
     df = df.iloc[::chart_period, :]
 

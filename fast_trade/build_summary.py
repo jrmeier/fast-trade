@@ -3,7 +3,7 @@ import pandas as pd
 
 
 
-def build_summary(df, starting_aux_bal, perf_start_time):
+def build_summary(df, starting_aux_bal, perf_start_time, time_unit):
 
     # Not yet implimented
     # Exposure [%]                            94.29
@@ -20,7 +20,7 @@ def build_summary(df, starting_aux_bal, perf_start_time):
 
     aux = df.drop_duplicates(subset="aux_balance", keep=False, inplace=False)
     trade_perc_series = aux["aux_balance"].pct_change() * 100
-    trade_time_held_series = pd.to_datetime(aux["date"], unit="ms").diff()
+    trade_time_held_series = pd.to_datetime(aux["date"], unit=time_unit).diff()
 
     mean_trade_time_held = trade_time_held_series.mean()
     max_trade_time_held = trade_time_held_series.max()
