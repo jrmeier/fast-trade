@@ -88,9 +88,7 @@ def run_backtest(
         determine_action(frame, strategy, list(df.columns)) for frame in df.values
     ]
 
-    base, aux, smooth_base = analyze_df(
-        df, commission, starting_aux_bal, exit_on_end
-    )
+    base, aux, smooth_base = analyze_df(df, commission, starting_aux_bal, exit_on_end)
 
     if len(base) != len(df.index) and strategy.get("exit_on_end", True):
         new_row = pd.DataFrame(
@@ -105,7 +103,4 @@ def run_backtest(
     df["smooth_base"] = smooth_base
     summary = build_summary(df, starting_aux_bal, start)
     # print(summary, df)
-    return {
-        "summary": summary,
-        "df": df
-    }
+    return {"summary": summary, "df": df}

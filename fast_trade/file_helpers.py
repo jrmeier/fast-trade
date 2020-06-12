@@ -13,6 +13,7 @@ def determine_ms_or_s(timestamp):
 
     return "ms"
 
+
 def prep_ohlcv_from_zip(pair, base_csv_path=""):
     csv_filename = f"{pair}.csv"
     csv_path = f"{base_csv_path}/{csv_filename}"
@@ -35,7 +36,6 @@ def build_log_dataframe(log, symbol):
             zip_ref.extractall(f"{symbol}.csv")
 
     # print(csv_filename)
-
 
 
 if __name__ == "__main__":

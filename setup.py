@@ -14,8 +14,7 @@ setup(
     url="https://github.com/jrmeier/fast-trade",
     keywords=[
         "backtesting",
-        "currency"
-        "ta",
+        "currency" "ta",
         "pandas",
         "finance",
         "numpy",

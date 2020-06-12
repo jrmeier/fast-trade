@@ -18,7 +18,7 @@ def build_data_frame(ohlcv_path, strategy):
     if type(ohlcv_path) == str:
         if not os.path.isfile(ohlcv_path):
             raise Exception(f"File doesn't exist: {ohlcv_path}")
-    
+
         df = pd.read_csv(ohlcv_path, parse_dates=True)
 
     if type(ohlcv_path) == list:
@@ -27,7 +27,6 @@ def build_data_frame(ohlcv_path, strategy):
         df.append(pd.read_csv(ohlcv_path[1]))
 
     indicators = strategy.get("indicators", [])
-
 
     for ind in indicators:
         func = ind.get("func")
@@ -47,7 +46,7 @@ def build_data_frame(ohlcv_path, strategy):
     start_time = strategy.get("start")
     stop_time = strategy.get("stop")
 
-    time_unit = detect_time_unit(df['date'].iloc[0])
+    time_unit = detect_time_unit(df["date"].iloc[0])
     df["datetime"] = pd.to_datetime(df["date"], unit=time_unit)
     df.set_index(["datetime"], inplace=True)
     df = df.iloc[::chart_period, :]
@@ -60,8 +59,8 @@ def build_data_frame(ohlcv_path, strategy):
         df = df[:stop_time]  # noqa
 
     if df.empty:
-        raise Exception('Dataframe is empty. Check the start and end dates')
-    
+        raise Exception("Dataframe is empty. Check the start and end dates")
+
     return df
 
 
@@ -93,17 +92,18 @@ def determine_chart_period(chart_period):
 
     return int(clean_chart_period * multiplyer)
 
+
 def detect_time_unit(timestamp):
     """
     Params:
         timestamp, usually a np.int64
-    
     Returns: string of "s" if the string is 10 characters long, "ms" if otherwise
     """
     if len(str(timestamp)) == 10:
         return "s"
-    
+
     return "ms"
+
 
 def wto_helper(df, channel_length=10, average_length=21, adjust=True):
     wto = TA.WTO(df, channel_length, average_length, adjust)

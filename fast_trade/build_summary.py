@@ -3,7 +3,6 @@ import pandas as pd
 from .build_data_frame import detect_time_unit
 
 
-
 def build_summary(df, starting_aux_bal, perf_start_time):
 
     # Not yet implimented
@@ -18,7 +17,7 @@ def build_summary(df, starting_aux_bal, perf_start_time):
     # Sharpe Ratio                             0.22
     # Sortino Ratio                            0.54
     # Calmar Ratio                             0.07
-    time_unit = detect_time_unit(df['date'].iloc[0])
+    time_unit = detect_time_unit(df["date"].iloc[0])
     aux = df.drop_duplicates(subset="aux_balance", keep=False, inplace=False)
     trade_perc_series = aux["aux_balance"].pct_change() * 100
     trade_time_held_series = pd.to_datetime(aux["date"], unit=time_unit).diff()
@@ -69,7 +68,7 @@ def build_summary(df, starting_aux_bal, perf_start_time):
         "min_trade_len": min_trade_time_held.total_seconds(),
         "best_trade_perc": round(max_trade_perc, 3),
         "min_trade_perc": round(min_trade_perc, 3),
-        "median_trade_perc": round(median_trade_perc, 3), 
+        "median_trade_perc": round(median_trade_perc, 3),
         "mean": round(mean_trade_perc, 3),
         "num_trades": len(aux),
         "win_perc": round(win_perc, 3),
