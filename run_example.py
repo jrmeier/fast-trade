@@ -6,10 +6,6 @@ import os
 
 if __name__ == "__main__":
     # csv_path = "/Users/jedmeier/binance_2020_04_16/BTCUSDT.csv"
-    ohlcv_path = [
-        "/Users/jedmeier/BTCUSDT.csv",
-        "/Users/jedmeier/BTCUSDT_daily.csv",
-    ]
     ohlcv_path = "/Users/jedmeier/2017_standard/BTCUSDT.csv"
     # print(csv_path)
     # ~/binance_2020_04_16/BTCUSDT.csv
@@ -23,6 +19,7 @@ if __name__ == "__main__":
     # strategy["stop"] = "2017-05-04 00:00:00"
 
     res,df  = run_backtest(ohlcv_path, strategy)
+    print(res)
     # print(json.dumps(res, indent=2))
     # print(df.index)
     # print(df.tail(n=15))

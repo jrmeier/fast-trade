@@ -56,13 +56,14 @@ def build_summary(df, starting_aux_bal, perf_start_time, time_unit):
 
     perf_stop_time = datetime.datetime.utcnow()
     start_date = df.index[0]
+    print(start_date.timedelta)
     end_date = df.index[-1]
 
     summary = {
         "return_perc": round(return_perc, 3),
-        "mean_trade_len": str(mean_trade_time_held),
-        "max_trade_held": str(max_trade_time_held),
-        "min_trade_len": str(min_trade_time_held),
+        "mean_trade_len": mean_trade_time_held.total_seconds(),
+        "max_trade_held": max_trade_time_held.total_seconds(),
+        "min_trade_len": min_trade_time_held.total_seconds(),
         "best_trade_perc": round(max_trade_perc, 3),
         "min_trade_perc": round(min_trade_perc, 3),
         "mean": round(mean_trade_perc, 3),
@@ -75,7 +76,7 @@ def build_summary(df, starting_aux_bal, perf_start_time, time_unit):
         "first_tic": start_date.strftime("%Y-%m-%d %H:%M:%S"),
         "last_tic": end_date.strftime("%Y-%m-%d %H:%M:%S"),
         "total_tics": len(df.index),
-        "test_duration": str(perf_stop_time - perf_start_time),
+        "test_duration": (perf_stop_time - perf_start_time).total_seconds(),
     }
 
     return summary
