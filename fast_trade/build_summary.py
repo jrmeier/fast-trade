@@ -1,9 +1,10 @@
 import datetime
 import pandas as pd
+from .build_data_frame import detect_time_unit
 
 
 
-def build_summary(df, starting_aux_bal, perf_start_time, time_unit):
+def build_summary(df, starting_aux_bal, perf_start_time):
 
     # Not yet implimented
     # Exposure [%]                            94.29
@@ -17,7 +18,7 @@ def build_summary(df, starting_aux_bal, perf_start_time, time_unit):
     # Sharpe Ratio                             0.22
     # Sortino Ratio                            0.54
     # Calmar Ratio                             0.07
-
+    time_unit = detect_time_unit(df['date'].iloc[0])
     aux = df.drop_duplicates(subset="aux_balance", keep=False, inplace=False)
     trade_perc_series = aux["aux_balance"].pct_change() * 100
     trade_time_held_series = pd.to_datetime(aux["date"], unit=time_unit).diff()
@@ -25,10 +26,12 @@ def build_summary(df, starting_aux_bal, perf_start_time, time_unit):
     mean_trade_time_held = trade_time_held_series.mean()
     max_trade_time_held = trade_time_held_series.max()
     min_trade_time_held = trade_time_held_series.min()
+    median_time_held = trade_time_held_series.median()
 
     max_trade_perc = trade_perc_series.max()
     min_trade_perc = trade_perc_series.min()
     mean_trade_perc = trade_perc_series.mean()
+    median_trade_perc = trade_perc_series.median()
 
     win_trades = trade_perc_series[trade_perc_series > 0]
     loss_trades = trade_perc_series[trade_perc_series < 0]
@@ -56,16 +59,17 @@ def build_summary(df, starting_aux_bal, perf_start_time, time_unit):
 
     perf_stop_time = datetime.datetime.utcnow()
     start_date = df.index[0]
-    print(start_date.timedelta)
     end_date = df.index[-1]
 
     summary = {
         "return_perc": round(return_perc, 3),
+        "median_trade_len": median_time_held.total_seconds(),
         "mean_trade_len": mean_trade_time_held.total_seconds(),
         "max_trade_held": max_trade_time_held.total_seconds(),
         "min_trade_len": min_trade_time_held.total_seconds(),
         "best_trade_perc": round(max_trade_perc, 3),
         "min_trade_perc": round(min_trade_perc, 3),
+        "median_trade_perc": round(median_trade_perc, 3), 
         "mean": round(mean_trade_perc, 3),
         "num_trades": len(aux),
         "win_perc": round(win_perc, 3),

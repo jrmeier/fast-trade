@@ -7,7 +7,7 @@ README = (HERE / "README.md").read_text()
 
 setup(
     name="fast-trade",
-    version="0.1.1",
+    version="0.1.2",
     description="Automate and backtest on ohlcv data quickly",
     long_description=README,
     long_description_content_type="text/markdown",

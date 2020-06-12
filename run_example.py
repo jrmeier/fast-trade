@@ -14,13 +14,10 @@ if __name__ == "__main__":
 
     # 1514771281
     # 1575150241610
-    strategy["chart_period"] = "4m"
-    # strategy["start"] = "2017-01-01 00:00:00"
-    # strategy["stop"] = "2017-05-04 00:00:00"
+    strategy["chart_period"] = "7h"
+    strategy["start"] = "2018-01-01 00:00:00"
+    strategy["stop"] = "2018-05-04 00:00:00"
 
-    res,df  = run_backtest(ohlcv_path, strategy)
-    print(res)
-    # print(json.dumps(res, indent=2))
-    # print(df.index)
-    # print(df.tail(n=15))
-    # df.to_csv("tmp.csv")
+    res = run_backtest(ohlcv_path, strategy)
+    # print(res['summary'])
+    print(json.dumps(res['summary'], indent=2))

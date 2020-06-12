@@ -41,32 +41,35 @@ Available Indicators (graciously stolen from https://github.com/peerchemist/fint
 
 ## Output
 
-The output its a tuple. The first object is a summary all the inputs and a summary of a performace of the model. It's all the information to run the simulation again. The second object is a Pandas Dataframe, which contains all of the data used in the simulation. This can be used to chart store.
+The output its a dictionary. The summary is a summary all the inputs and of the performace of the model. It's all the information to run the simulation again. The df is a Pandas Dataframe, which contains all of the data used in the simulation.
 
 Example output:
 
 ```python
 {
-  "return_perc": 3.935,
-  "mean_trade_len": "0 days 01:13:07.368421",
-  "max_trade_held": "0 days 07:55:59",
-  "min_trade_len": "0 days 00:07:59",
-  "best_trade_perc": 5.979,
-  "min_trade_perc": -3.144,
-  "mean": 0.074,
-  "num_trades": 58,
-  "win_perc": 63.793,
-  "loss_perc": 34.483,
-  "equity_peak": 1098.39686619,
-  "equity_final": 1044.52219673,
-  "equity_peak_unit": 1098.39686619,
-  "first_tic": "2018-05-01 00:00:03",
-  "last_tic": "2018-05-03 23:57:03",
-  "total_tics": 1081,
-  "test_duration": "0:00:00.406570"
-},
-DataFrame(...)
-)
+  "summary":
+    {
+      "return_perc": -6.478, # total return percentage
+      "meadian_trade_len: ""
+      "mean_trade_len": 147445.013888888, # mean trade length, in seconds
+      "max_trade_held": 619920.0, # longest trade held length, in seconds
+      "min_trade_len": 28799.0, # shortest trade held length, in seconds
+      "best_trade_perc": 13.611,
+      "min_trade_perc": -18.355,
+      "mean": 0.083,
+      "num_trades": 73,
+      "win_perc": 58.904,
+      "loss_perc": 39.726,
+      "equity_peak": 1117.3126272,
+      "equity_final": 935.2209955,
+      "equity_peak_unit": 1117.3126272,
+      "first_tic": "2018-01-01 01:48:01",
+      "last_tic": "2018-05-03 22:43:02",
+      "total_tics": 720,
+      "test_duration": 0.420136
+    },
+    "df": DataFrame(...)
+}
 ```
 
 ## Strategy

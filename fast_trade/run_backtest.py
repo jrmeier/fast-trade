@@ -61,7 +61,7 @@ def determine_action(frame, strategy, df_col_map):
 
 
 def run_backtest(
-    ohlcv_path, strategy, commission=1, starting_aux_bal=1000, exit_on_end=True, time_unit="ms"
+    ohlcv_path, strategy, commission=1, starting_aux_bal=1000, exit_on_end=True
 ):
     """
     Params:
@@ -79,7 +79,7 @@ def run_backtest(
 
     start = datetime.datetime.utcnow()
     try:
-        df = build_data_frame(ohlcv_path, strategy, time_unit)
+        df = build_data_frame(ohlcv_path, strategy)
     except Exception as e:
         print(e)
         return "Data frame creation fail"
@@ -103,6 +103,9 @@ def run_backtest(
     df["base_balance"] = base
     df["aux_balance"] = aux
     df["smooth_base"] = smooth_base
-    summary = build_summary(df, starting_aux_bal, start, time_unit=time_unit)
+    summary = build_summary(df, starting_aux_bal, start)
     # print(summary, df)
-    return (summary, df)
+    return {
+        "summary": summary,
+        "df": df
+    }

@@ -7,7 +7,7 @@ HOUR = 60
 DAY = 1440
 
 
-def build_data_frame(ohlcv_path, strategy, time_unit):
+def build_data_frame(ohlcv_path, strategy):
     """
     Params:
         ohlcv_path: string, absolute path of where to find the data file
@@ -43,12 +43,14 @@ def build_data_frame(ohlcv_path, strategy, time_unit):
     chart_period = determine_chart_period(s_chart_period)
 
     df = df[df.close != 0]
-    df["datetime"] = pd.to_datetime(df["date"], unit=time_unit)
-    df.set_index(["datetime"], inplace=True)
-    df = df.iloc[::chart_period, :]
 
     start_time = strategy.get("start")
     stop_time = strategy.get("stop")
+
+    time_unit = detect_time_unit(df['date'].iloc[0])
+    df["datetime"] = pd.to_datetime(df["date"], unit=time_unit)
+    df.set_index(["datetime"], inplace=True)
+    df = df.iloc[::chart_period, :]
 
     if start_time and stop_time:
         df = df[start_time:stop_time]  # noqa
@@ -57,6 +59,9 @@ def build_data_frame(ohlcv_path, strategy, time_unit):
     elif not start_time and stop_time:
         df = df[:stop_time]  # noqa
 
+    if df.empty:
+        raise Exception('Dataframe is empty. Check the start and end dates')
+    
     return df
 
 
@@ -88,6 +93,17 @@ def determine_chart_period(chart_period):
 
     return int(clean_chart_period * multiplyer)
 
+def detect_time_unit(timestamp):
+    """
+    Params:
+        timestamp, usually a np.int64
+    
+    Returns: string of "s" if the string is 10 characters long, "ms" if otherwise
+    """
+    if len(str(timestamp)) == 10:
+        return "s"
+    
+    return "ms"
 
 def wto_helper(df, channel_length=10, average_length=21, adjust=True):
     wto = TA.WTO(df, channel_length, average_length, adjust)
