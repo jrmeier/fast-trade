@@ -28,6 +28,8 @@ def build_data_frame(ohlcv_path, strategy):
 
     indicators = strategy.get("indicators", [])
 
+    # cleanup_indicators
+
     for ind in indicators:
         func = ind.get("func")
         field_name = ind.get("name")
@@ -35,7 +37,6 @@ def build_data_frame(ohlcv_path, strategy):
             args = ind.get("args", [])
             df[field_name] = indicator_map[func](df, *args)
         else:
-
             df[field_name] = indicator_map[func](df)
 
     s_chart_period = strategy.get("chart_period", 1)

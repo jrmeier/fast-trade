@@ -2,6 +2,7 @@ import datetime
 from .build_data_frame import build_data_frame
 from .run_analysis import analyze_df
 from .build_summary import build_summary
+from .run_cleanup import run_cleanup
 import pandas as pd
 
 
@@ -60,6 +61,7 @@ def determine_action(frame, strategy, df_col_map):
     return "h"
 
 
+
 def run_backtest(
     ohlcv_path, strategy, commission=1, starting_aux_bal=1000, exit_on_end=True
 ):
@@ -72,9 +74,9 @@ def run_backtest(
         exit_on_end: optional, boolean, if the last trade is still open,
             this will close the positions
 
-    Returns: tuple
-            object 1 is a dict summary of the performace of backtest
-            object 2 is a pandas dataframe object used in the backtest
+    Returns: dictionary
+            summary is a dict summary of the performace of backtest
+            df is a pandas dataframe object used in the backtest
     """
 
     start = datetime.datetime.utcnow()
@@ -84,13 +86,31 @@ def run_backtest(
         print(e)
         return "Data frame creation fail"
 
+    df = process_dataframe(df, strategy, commission, starting_aux_bal, exit_on_end)
+
+    if False:
+        # # reprocess data frame
+        strategy['exit'].append([
+            "aux_perc_change",
+            ">",
+            5
+        ])
+        df = process_dataframe(df, strategy, commission, starting_aux_bal, exit_on_end)
+
+    summary = build_summary(df, starting_aux_bal, start)
+
+
+    return {"summary": summary, "df": df}
+
+
+def process_dataframe(df, strategy, commission, starting_aux_bal, exit_on_end):
     df["actions"] = [
         determine_action(frame, strategy, list(df.columns)) for frame in df.values
     ]
 
     base, aux, smooth_base = analyze_df(df, commission, starting_aux_bal, exit_on_end)
 
-    if len(base) != len(df.index) and strategy.get("exit_on_end", True):
+    if len(base) != len(df.index):
         new_row = pd.DataFrame(
             df[-1:].values,
             index=[df.index[-1] + pd.Timedelta(minutes=1)],
@@ -101,6 +121,6 @@ def run_backtest(
     df["base_balance"] = base
     df["aux_balance"] = aux
     df["smooth_base"] = smooth_base
-    summary = build_summary(df, starting_aux_bal, start)
-    # print(summary, df)
-    return {"summary": summary, "df": df}
+    df['aux_perc_change'] = df['smooth_base'].pct_change()
+
+    return df

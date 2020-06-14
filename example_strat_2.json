@@ -3,6 +3,12 @@
    "chart_period": "1h",
    "start": "",
    "stop": "",
+   "exit_on_end": true,
+   "hard_exit": [
+       "aux_perc_change",
+       ">",
+       ".03"
+   ],
    "enter": [
      [
        "close",
