@@ -46,7 +46,7 @@ def format_all_help_text():
     formated_string = "\nFast Trade Help\n\nCommands\n\n"
 
     for command in help_file.keys():
-        formated_string = formated_string + format_command(command, help_file[command])
+        formated_string = formated_string + format_command(command)
 
     return formated_string
 
