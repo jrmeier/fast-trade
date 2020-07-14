@@ -1,5 +1,4 @@
-import pytest
-from fast_trade import run_backtest, determine_action, take_action
+from fast_trade import take_action
 
 
 def test_take_action_greater_than():

@@ -1,9 +1,9 @@
 import datetime
+import pandas as pd
+
 from .build_data_frame import build_data_frame
 from .run_analysis import analyze_df
 from .build_summary import build_summary
-from .run_cleanup import run_cleanup
-import pandas as pd
 
 
 def take_action(row, strategy, columns):
@@ -11,7 +11,7 @@ def take_action(row, strategy, columns):
     Params:
         row: data row to operate on
         strategy: dictionary of logic and how to impliment it
-        columns: list of data points describing the row
+        columns: list of data points describing th row
     Returns:
         boolean, True if row meets the criteria of given strategy,
         False if otherwise
@@ -61,7 +61,6 @@ def determine_action(frame, strategy, df_col_map):
     return "h"
 
 
-
 def run_backtest(
     ohlcv_path, strategy, commission=1, starting_aux_bal=1000, exit_on_end=True
 ):
@@ -86,21 +85,47 @@ def run_backtest(
         print(e)
         return "Data frame creation fail"
 
+    flagged_enter, flagged_exit, strategy = get_flagged_logiz(strategy)
+
     df = process_dataframe(df, strategy, commission, starting_aux_bal, exit_on_end)
 
-    if False:
-        # # reprocess data frame
-        strategy['exit'].append([
-            "aux_perc_change",
-            ">",
-            5
-        ])
+    if flagged_enter or flagged_exit:
+        strategy["enter"].extend(flagged_enter)
+        strategy["exit"].extend(flagged_exit)
+
         df = process_dataframe(df, strategy, commission, starting_aux_bal, exit_on_end)
 
     summary = build_summary(df, starting_aux_bal, start)
 
-
     return {"summary": summary, "df": df}
+
+
+def get_flagged_logiz(strategy):
+    """
+    removes logiz that need to be processed after the initial run
+    """
+    to_flag = ["aux_perc_change"]
+    flagged_exit_idx = []
+    flagged_enter_idx = []
+
+    flagged_enter = []
+    flagged_exit = []
+
+    for idx, ex in enumerate(strategy["exit"]):
+        if ex[0] in to_flag or ex[2] in to_flag:
+            flagged_exit_idx.append(idx)
+
+    for e_ex in flagged_exit_idx:
+        flagged_exit.append(strategy["exit"].pop(e_ex))
+
+    for idx, en in enumerate(strategy["enter"]):
+        if en[0] in to_flag or en[2] in to_flag:
+            flagged_enter_idx.append(idx)
+
+    for e_en in flagged_enter:
+        flagged_enter.append(strategy["enter"].pop(e_en))
+
+    return flagged_enter, flagged_exit, strategy
 
 
 def process_dataframe(df, strategy, commission, starting_aux_bal, exit_on_end):
@@ -121,6 +146,8 @@ def process_dataframe(df, strategy, commission, starting_aux_bal, exit_on_end):
     df["base_balance"] = base
     df["aux_balance"] = aux
     df["smooth_base"] = smooth_base
-    df['aux_perc_change'] = df['smooth_base'].pct_change()
+    
+    df["aux_perc_change"] = df["smooth_base"].pct_change() * 100
+    df["aux_change"] = df["smooth_base"].diff()
 
     return df

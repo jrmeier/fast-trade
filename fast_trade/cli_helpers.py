@@ -58,6 +58,7 @@ def create_plot(df):
 
     return plot_df.plot(x="Date", y=["Portfolio_Value"])
 
+
 def save(result, strat_obj):
     """
     Save the dataframe, strategy, and plot into the specified path

@@ -1,3 +1,4 @@
+# flake8: noqa
 from fast_trade import run_backtest
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -16,7 +17,7 @@ if __name__ == "__main__":
 
     # 1514771281
     # 1575150241610
-    strategy["chart_period"] = "2h"
+    strategy["chart_period"] = "1h"
     strategy["start"] = "2019-01-01 00:00:00"
     strategy["stop"] = "2020-05-09 00:00:00"
 
@@ -26,4 +27,7 @@ if __name__ == "__main__":
     print(df.tail(n=20))
     print(json.dumps(res["summary"], indent=2))
     # print(df)
+    # plt.figure()
+    # print(res)
+
 
