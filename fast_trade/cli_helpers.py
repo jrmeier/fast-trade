@@ -56,7 +56,7 @@ def create_plot(df):
 
 
     # plt.show()
-def save(save_path, result):
+def save(save_path, result, strat_obj):
     """
     Save the dataframe, strategy, and plot into the specified path
     """
@@ -70,6 +70,10 @@ def save(save_path, result):
 
     new_save_dir = f"{save_path}/{new_dir}"
     os.mkdir(new_save_dir)
+
+    # save the strat args
+    with open(f"{new_save_dir}/strategy.json","w") as summary_file:
+        summary_file.write(json.dumps(strat_obj, indent=2))
 
     #summary file
     with open(f"{new_save_dir}/summary.json","w") as summary_file:

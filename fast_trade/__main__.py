@@ -42,7 +42,7 @@ def main():
         pprint(res['summary'])
 
         if args.get('save'):
-            save(args['save'], res)
+            save(args['save'], res, strat_obj)
 
         if args.get('plot'):
             plot = create_plot(res['df'])
