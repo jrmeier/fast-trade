@@ -20,9 +20,11 @@ If you're looking for some data, here is roughly every minute of 2018 of every p
 - can interface easily as an API, ex. put a web server in front and its an API
 
 ## Install
+
 ```bash
 pip install fast-trade
 ```
+
 Or
 
 ```bash
@@ -30,6 +32,20 @@ python -m venv .fast_trade
 source .fast_trade/bin/activate
 pip install -r requirements.txt
 ```
+
+## CLI
+
+You can also use the package from the cli.
+
+```python -m fast_trade <<command>>```
+
+or as an alias
+
+```alias ft="python -m fast_trade"```
+
+For help
+
+```ft help```
 
 ## Testing
 
