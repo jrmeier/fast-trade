@@ -21,10 +21,3 @@ if __name__ == "__main__":
     res = run_backtest(ohlcv_path, strategy)
     # print(res['summary'])
     print(json.dumps(res["summary"], indent=2))
-
-
-df = df.cumsum()
-
-In [8]: plt.figure();
-
-In [9]: df.plot();

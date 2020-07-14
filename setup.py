@@ -12,6 +12,7 @@ setup(
     long_description=README,
     long_description_content_type="text/markdown",
     url="https://github.com/jrmeier/fast-trade",
+    py_modules=["fast_trade"],
     keywords=[
         "backtesting",
         "currency",
@@ -26,6 +27,7 @@ setup(
     author_email="fast_trade@jedm.dev",
     license="MIT",
     python_requires=">=3",
+    entry_points={"console_scripts": ["ft = fast_trade.cli:main"]},
     classifiers=[
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",
@@ -42,3 +44,16 @@ setup(
         "six==1.14.0",
     ],
 )
+
+# setup(
+#     name='yourscript',
+#     version='0.1',
+#     py_modules=['yourscript'],
+#     install_requires=[
+#         'Click',
+#     ],
+#     entry_points='''
+#         [console_scripts]
+#         yourscript=yourscript:cli
+#     ''',
+# )
