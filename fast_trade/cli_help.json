@@ -10,6 +10,14 @@
                 "--strat": {
                     "desc": "path to strategy file, must json format",
                     "required": true
+                },
+                "--plot": {
+                        "desc": "opens a basic plot using matlib.plot",
+                        "required": false
+                },
+                "--save": {
+                    "desc": "saves the dataframe, strategy, and plot in to the path",
+                    "required": false
                 }
         }
     }

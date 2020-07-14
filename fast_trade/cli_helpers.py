@@ -1,6 +1,8 @@
 import json
-
-import json
+import os
+import datetime
+import pandas as pd
+import matplotlib.pyplot as plt
 
 def open_strat_file(fp):
     
@@ -40,3 +42,45 @@ def format_all_help_text():
         formated_string = formated_string+format_command(command, help_file[command])
 
     return formated_string
+
+def create_plot(df):
+    plot_df = pd.DataFrame(data={
+            "Date": df.index,
+            "Portfolio_Value": df['smooth_base'],
+
+            }
+    )
+    # plot = df.reset_index().plot(x='index', y='smooth_base')
+    # print(plot_df)
+    return plot_df.plot(x='Date', y=['Portfolio_Value'])
+
+
+    # plt.show()
+def save(save_path, result):
+    """
+    Save the dataframe, strategy, and plot into the specified path
+    """
+
+    if not os.path.exists(save_path):
+        print("making the dir")
+        os.mkdir(save_path)
+    
+    # dir exists, now make a new dir with the files
+    new_dir = datetime.datetime.strftime(datetime.datetime.now(), "%Y_%m_%d_%H_%M_%S")
+
+    new_save_dir = f"{save_path}/{new_dir}"
+    os.mkdir(new_save_dir)
+
+    #summary file
+    with open(f"{new_save_dir}/summary.json","w") as summary_file:
+        summary_file.write(json.dumps(result['summary'], indent=2))
+    
+    # dataframe
+    result['df'].to_csv(f"{new_save_dir}/dataframe.csv")
+
+    # plot
+    plot = create_plot(result['df'])
+    plt.savefig(f'{new_save_dir}/plot.png')
+    
+
+    

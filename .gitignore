@@ -11,3 +11,4 @@ logs/
 build/
 dist/
 *.egg-info
+saved_backtests/*

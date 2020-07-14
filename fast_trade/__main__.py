@@ -1,9 +1,10 @@
 import sys
 import json
 from pprint import pprint
-from .cli_helpers import open_strat_file, format_all_help_text
+from .cli_helpers import open_strat_file, format_all_help_text, save, create_plot
 from .run_backtest import run_backtest
-
+import matplotlib.pyplot as plt
+import pandas as pd
 
 def parse_args(raw_args):
     """
@@ -15,7 +16,11 @@ def parse_args(raw_args):
     for raw_arg in raw_args:
         arg = raw_arg.split("=")
         arg_key = arg[0].split("--").pop()
-        arg_dict[arg_key]=arg[1]
+        # print(arg)
+        if len(arg) > 1:
+            arg_dict[arg_key]=arg[1]
+        else:
+            arg_dict[arg_key]=True
     
     return arg_dict
 
@@ -30,9 +35,20 @@ def main():
 
     if command == "backtest":
         strat_obj = open_strat_file(args['strat'])
-        res = run_backtest(args['csv'], {**strat_obj, **args})
+        strat_obj = {**strat_obj, **args}
+
+        res = run_backtest(args['csv'], strat_obj)
         
         pprint(res['summary'])
+
+        if args.get('save'):
+            save(args['save'], res)
+
+        if args.get('plot'):
+            plot = create_plot(res['df'])
+
+            plt.show()
+    
         return
 
     if command == "help":
