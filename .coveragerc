@@ -1,0 +1,5 @@
+[run]
+source=
+    ./fast_trade
+omit=
+    ./fast-trade/.fast_trade/*
