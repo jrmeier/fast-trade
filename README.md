@@ -37,15 +37,26 @@ pip install -r requirements.txt
 
 You can also use the package from the cli.
 
-```python -m fast_trade <<command>>```
-
-or as an alias
-
-```alias ft="python -m fast_trade"```
-
-For help
-
 ```ft help```
+
+To run a backtest, the csv datafile needs to be passed in, along with the strategy file. On the command line, anything passed in can be overwritten with an argument and value. For example, the chart_period can be overwritten from the strat file by just passing it in. This will print out a summary of the backtest
+
+Basic usage
+
+```ft backtest --csv=./path/to/datafile --strat=./path/to/strat.json```
+
+Modifying the ```chart_period```
+
+```ft backtest --csv=./datafile.csv --strat=./strat.json --chart_period=1h```
+
+Saving a test result
+This generates creates the `saved_backtest` directory (if it doesn't exist), then inside of there, is another directory with a timestamp, with a chart, the strategy file, the summary, and the raw dataframe as a csv.
+
+```ft backtest --csv=./datafile.csv --strat=./strat.json --save```
+
+Viewing a plot of the result
+
+```ft backtest --csv=./datafile.csv --strat=./strat.json --plot```
 
 ## Testing
 
