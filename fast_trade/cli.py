@@ -22,9 +22,15 @@ def parse_args(raw_args):
     for raw_arg in raw_args:
         arg = raw_arg.split("=")
         arg_key = arg[0].split("--").pop()
-        # print(arg)
+        print(arg[1])
         if len(arg) > 1:
-            arg_dict[arg_key] = arg[1]
+            if arg[1] == "false":
+                arg_dict[arg_key] = False
+            elif arg[1] == "true":
+                arg_dict[arg_key] == True
+                # flake8: noqa
+            elif arg[1] != "false" or arg[1] != "true":
+                arg_dict[arg_key] = arg[1]
         else:
             arg_dict[arg_key] = True
 
@@ -40,7 +46,7 @@ def main():
 
     args = parse_args(sys.argv[2:])
 
-    # print(args)
+    print(args)
 
     if command == "backtest":
         # check for help
@@ -51,7 +57,7 @@ def main():
         strat_obj = open_strat_file(args["strat"])
         strat_obj = {**strat_obj, **args}
 
-        res = run_backtest(args["csv"], strat_obj)
+        res = run_backtest(strat_obj, args["csv"])
 
         print(json.dumps((res["summary"]), indent=2))
 

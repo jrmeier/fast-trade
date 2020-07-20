@@ -35,7 +35,7 @@ pip install -r requirements.txt
 
 ## CLI
 
-You can also use the package from the cli.
+You can also use the package from the command line.
 
 ```ft help```
 

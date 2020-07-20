@@ -18,9 +18,7 @@ def take_action(row, strategy, columns):
     """
     results = []
 
-    df_col_map = {}
-    for idx, each in enumerate(columns):
-        df_col_map[each] = row[idx]
+    df_col_map = dict(zip(columns, row))
 
     for each in strategy:
         check1 = each[0] if type(each[0]) == int else df_col_map[each[0]]
@@ -35,10 +33,7 @@ def take_action(row, strategy, columns):
         if each[1] == "!=":
             results.append(bool(check1 != check2))
 
-    if len(results):
-        return all(results)
-
-    return False
+    return all(results)
 
 
 def determine_action(frame, strategy, df_col_map):
@@ -52,26 +47,23 @@ def determine_action(frame, strategy, df_col_map):
         string, "e" (enter), "x" (exit), "h" (hold) of what
         the strategy would do
     """
+
+    action = "h"
+
     if take_action(frame, strategy["enter"], df_col_map):
-        return "e"
+        action = "e"
 
     if take_action(frame, strategy["exit"], df_col_map):
-        return "x"
+        action = "x"
 
-    return "h"
+    return action
 
 
-def run_backtest(
-    ohlcv_path, strategy, commission=1, starting_aux_bal=1000, exit_on_end=True
-):
+def run_backtest(strategy, ohlcv_path=None, df=None):
     """
     Params:
-        csv_path: required, where to find the csv file of the ohlcv data
         strategy: required, object containing the logic to test
-        starting_aux_balance: optional, int default 1000 how much of the aux coin to
-            the backtest
-        exit_on_end: optional, boolean, if the last trade is still open,
-            this will close the positions
+        csv_path: required, where to find the csv file of the ohlcv data
 
     Returns: dictionary
             summary is a dict summary of the performace of backtest
@@ -79,23 +71,22 @@ def run_backtest(
     """
 
     start = datetime.datetime.utcnow()
-    try:
-        df = build_data_frame(ohlcv_path, strategy)
-    except Exception as e:
-        print(e)
-        return "Data frame creation fail"
+    df = build_data_frame(ohlcv_path, strategy)
 
     flagged_enter, flagged_exit, strategy = get_flagged_logiz(strategy)
 
-    df = process_dataframe(df, strategy, commission, starting_aux_bal, exit_on_end)
+    strategy["base_balance"] = strategy.get("base_balance", 1000)
+    strategy["exit_on_end"] = strategy.get("exit_on_end", True)
+
+    df = process_dataframe(df, strategy)
 
     if flagged_enter or flagged_exit:
         strategy["enter"].extend(flagged_enter)
         strategy["exit"].extend(flagged_exit)
 
-        df = process_dataframe(df, strategy, commission, starting_aux_bal, exit_on_end)
+        df = process_dataframe(df, strategy)
 
-    summary = build_summary(df, starting_aux_bal, start)
+    summary = build_summary(df, strategy["base_balance"], start)
 
     return {"summary": summary, "df": df}
 
@@ -128,12 +119,14 @@ def get_flagged_logiz(strategy):
     return flagged_enter, flagged_exit, strategy
 
 
-def process_dataframe(df, strategy, commission, starting_aux_bal, exit_on_end):
+def process_dataframe(df, strategy):
+    """
+    Processes the frame and adds the resultant rows
+    """
     df["actions"] = [
         determine_action(frame, strategy, list(df.columns)) for frame in df.values
     ]
-
-    base, aux, smooth_base = analyze_df(df, commission, starting_aux_bal, exit_on_end)
+    base, aux, smooth_base = analyze_df(df, strategy)
 
     if len(base) != len(df.index):
         new_row = pd.DataFrame(
@@ -146,7 +139,7 @@ def process_dataframe(df, strategy, commission, starting_aux_bal, exit_on_end):
     df["base_balance"] = base
     df["aux_balance"] = aux
     df["smooth_base"] = smooth_base
-    
+
     df["aux_perc_change"] = df["smooth_base"].pct_change() * 100
     df["aux_change"] = df["smooth_base"].diff()
 

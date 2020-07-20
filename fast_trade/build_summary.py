@@ -53,7 +53,8 @@ def build_summary(df, starting_aux_bal, perf_start_time):
     except ZeroDivisionError:
         return_perc = 0
 
-    equity_peak_unit = df["aux_balance"].max()
+    equity_peak = df["aux_balance"].max()
+
     equity_final = df.iloc[-1]["aux_balance"]
 
     perf_stop_time = datetime.datetime.utcnow()
@@ -73,9 +74,8 @@ def build_summary(df, starting_aux_bal, perf_start_time):
         "num_trades": len(aux),
         "win_perc": round(win_perc, 3),
         "loss_perc": round(loss_perc, 3),
-        "equity_peak": df["aux_balance"].max(),
-        "equity_final": equity_final,
-        "equity_peak_unit": equity_peak_unit,
+        "equity_peak": float(equity_peak),
+        "equity_final": float(equity_final),
         "first_tic": start_date.strftime("%Y-%m-%d %H:%M:%S"),
         "last_tic": end_date.strftime("%Y-%m-%d %H:%M:%S"),
         "total_tics": len(df.index),

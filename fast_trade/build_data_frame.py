@@ -41,7 +41,7 @@ def build_data_frame(ohlcv_path, strategy):
 
     s_chart_period = strategy.get("chart_period", 1)
     chart_period = determine_chart_period(s_chart_period)
-
+    print("chart_period: ", chart_period)
     df = df[df.close != 0]
 
     start_time = strategy.get("start")
@@ -50,6 +50,7 @@ def build_data_frame(ohlcv_path, strategy):
     time_unit = detect_time_unit(df["date"].iloc[0])
     df["datetime"] = pd.to_datetime(df["date"], unit=time_unit)
     df.set_index(["datetime"], inplace=True)
+
     df = df.iloc[::chart_period, :]
 
     if start_time and stop_time:
@@ -59,6 +60,7 @@ def build_data_frame(ohlcv_path, strategy):
     elif not start_time and stop_time:
         df = df[:stop_time]  # noqa
 
+    print(df.size)
     if df.empty:
         raise Exception("Dataframe is empty. Check the start and end dates")
 

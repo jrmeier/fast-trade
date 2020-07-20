@@ -1,8 +1,10 @@
-def analyze_df(df, commission, base_balance, exit_on_end):
+def analyze_df(df, strategy):
     in_trade = False
     column_map = list(df.columns)
     close_column_idx = column_map.index("close")
     action_col_idx = column_map.index("actions")
+
+    base_balance = strategy["base_balance"]
 
     aux_balance = 0.0
 
@@ -32,7 +34,7 @@ def analyze_df(df, commission, base_balance, exit_on_end):
         aux_log.append(aux_balance)
         base_log.append(base_balance)
 
-    if in_trade and exit_on_end:
+    if in_trade and strategy["exit_on_end"]:
         close = df.values[-1][close_column_idx]
         base_balance = exit_trade(close, aux_balance)
         smooth_base.append(base_balance)
