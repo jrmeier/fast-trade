@@ -18,11 +18,11 @@ def build_data_frame(ohlcv_path, strategy):
     indicators = strategy.get("indicators", [])
 
     df = apply_indicators_to_dataframe(df, indicators)
-    
+
     s_chart_period = strategy.get("chart_period", 1)
     chart_period = determine_chart_period(s_chart_period)
 
-    start_time = strategy.get("start") 
+    start_time = strategy.get("start")
     stop_time = strategy.get("stop")
 
     df = apply_charting_to_df(df, chart_period, start_time, stop_time)
@@ -32,11 +32,11 @@ def build_data_frame(ohlcv_path, strategy):
 
     return df
 
+
 def apply_charting_to_df(df, chart_period, start_time, stop_time):
     """
     Args
         df: dataframe with data loaded
-    
     Returns:
         a sorted dataframe with the appropriate time frames
     """
@@ -55,8 +55,9 @@ def apply_charting_to_df(df, chart_period, start_time, stop_time):
         df = df[start_time:]  # noqa
     elif not start_time and stop_time:
         df = df[:stop_time]  # noqa
-    
+
     return df
+
 
 def apply_indicators_to_dataframe(df, indicators):
     for ind in indicators:
@@ -69,6 +70,7 @@ def apply_indicators_to_dataframe(df, indicators):
             df[field_name] = indicator_map[func](df)
 
     return df
+
 
 def load_basic_df_from_csv(ohlcv_path):
     """
@@ -93,6 +95,7 @@ def load_basic_df_from_csv(ohlcv_path):
 
     df.set_index(["date"], inplace=True)
     return df
+
 
 def determine_chart_period(chart_period):
     multiplyer = MIN
@@ -133,7 +136,6 @@ def detect_time_unit(timestamp):
         return "s"
 
     return "ms"
-
 
 
 indicator_map = {
@@ -212,5 +214,5 @@ indicator_map = {
     "ta.fve": TA.FVE,
     "ta.vfi": TA.VFI,
     "ta.msd": TA.MSD,
-    "ta.wto": TA.WTO
+    "ta.wto": TA.WTO,
 }
