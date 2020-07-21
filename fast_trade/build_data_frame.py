@@ -12,43 +12,39 @@ def build_data_frame(ohlcv_path, strategy):
     Params:
         ohlcv_path: string, absolute path of where to find the data file
         strategy: dict, assembles and calulates all the data, designed by user
-        timerange: dict, start/stop keys of datetime in string format
-            ex: 2018-01-01 00:00:00
     """
-    if type(ohlcv_path) == str:
-        if not os.path.isfile(ohlcv_path):
-            raise Exception(f"File doesn't exist: {ohlcv_path}")
-
-        df = pd.read_csv(ohlcv_path, parse_dates=True)
-
-    if type(ohlcv_path) == list:
-        # combine the two files
-        df = pd.read_csv(ohlcv_path[0])
-        df.append(pd.read_csv(ohlcv_path[1]))
+    df = load_basic_df_from_csv(ohlcv_path)
 
     indicators = strategy.get("indicators", [])
 
-    # cleanup_indicators
-
-    for ind in indicators:
-        func = ind.get("func")
-        field_name = ind.get("name")
-        if ind.get("args"):
-            args = ind.get("args", [])
-            df[field_name] = indicator_map[func](df, *args)
-        else:
-            df[field_name] = indicator_map[func](df)
-
+    df = apply_indicators_to_dataframe(df, indicators)
+    
     s_chart_period = strategy.get("chart_period", 1)
     chart_period = determine_chart_period(s_chart_period)
-    print("chart_period: ", chart_period)
-    df = df[df.close != 0]
 
-    start_time = strategy.get("start")
+    start_time = strategy.get("start") 
     stop_time = strategy.get("stop")
 
-    time_unit = detect_time_unit(df["date"].iloc[0])
-    df["datetime"] = pd.to_datetime(df["date"], unit=time_unit)
+    df = apply_charting_to_df(df, chart_period, start_time, stop_time)
+
+    if df.empty:
+        raise Exception("Dataframe is empty. Check the start and end dates")
+
+    return df
+
+def apply_charting_to_df(df, chart_period, start_time, stop_time):
+    """
+    Args
+        df: dataframe with data loaded
+    
+    Returns:
+        a sorted dataframe with the appropriate time frames
+    """
+
+    # print("hmm:", df.index[0])
+    time_unit = detect_time_unit(df.index[0])
+
+    df["datetime"] = pd.to_datetime(df.index, unit=time_unit)
     df.set_index(["datetime"], inplace=True)
 
     df = df.iloc[::chart_period, :]
@@ -59,13 +55,44 @@ def build_data_frame(ohlcv_path, strategy):
         df = df[start_time:]  # noqa
     elif not start_time and stop_time:
         df = df[:stop_time]  # noqa
+    
+    return df
 
-    print(df.size)
-    if df.empty:
-        raise Exception("Dataframe is empty. Check the start and end dates")
+def apply_indicators_to_dataframe(df, indicators):
+    for ind in indicators:
+        func = ind.get("func")
+        field_name = ind.get("name")
+        if ind.get("args"):
+            args = ind.get("args", [])
+            df[field_name] = indicator_map[func](df, *args)
+        else:
+            df[field_name] = indicator_map[func](df)
 
     return df
 
+def load_basic_df_from_csv(ohlcv_path):
+    """
+    ohlcv_path: string or list of file paths
+    """
+    if type(ohlcv_path) == str:
+        if not os.path.isfile(ohlcv_path):
+            raise Exception(f"File not found: {ohlcv_path}")
+
+        df = pd.read_csv(ohlcv_path, parse_dates=True)
+
+    if type(ohlcv_path) == list:
+        for idx, new_file_path in enumerate(ohlcv_path):
+            if not os.path.isfile(new_file_path):
+                raise Exception(f"File not found: {new_file_path}")
+
+            if idx == 0:
+                df = pd.read_csv(new_file_path, parse_dates=True)
+            else:
+
+                df = df.merge(pd.read_csv(new_file_path, parse_dates=True))
+
+    df.set_index(["date"], inplace=True)
+    return df
 
 def determine_chart_period(chart_period):
     multiplyer = MIN
@@ -107,10 +134,6 @@ def detect_time_unit(timestamp):
 
     return "ms"
 
-
-def wto_helper(df, channel_length=10, average_length=21, adjust=True):
-    wto = TA.WTO(df, channel_length, average_length, adjust)
-    return wto["WT1."] - wto["WT2."]
 
 
 indicator_map = {
@@ -189,5 +212,5 @@ indicator_map = {
     "ta.fve": TA.FVE,
     "ta.vfi": TA.VFI,
     "ta.msd": TA.MSD,
-    "ta.wto": wto_helper,
+    "ta.wto": TA.WTO
 }

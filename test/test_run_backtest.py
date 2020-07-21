@@ -1,4 +1,4 @@
-from fast_trade import take_action
+from fast_trade import take_action, determine_action
 
 
 def test_take_action_greater_than():

@@ -3,3 +3,6 @@ source=
     ./fast_trade
 omit=
     ./fast-trade/.fast_trade/*
+    ./fast_trade/__main__.py
+    ./fast_trade/__init__.py
+    ./fast_trade/file_helpers.py

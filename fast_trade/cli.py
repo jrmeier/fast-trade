@@ -22,7 +22,6 @@ def parse_args(raw_args):
     for raw_arg in raw_args:
         arg = raw_arg.split("=")
         arg_key = arg[0].split("--").pop()
-        print(arg[1])
         if len(arg) > 1:
             if arg[1] == "false":
                 arg_dict[arg_key] = False
@@ -45,8 +44,6 @@ def main():
     command = sys.argv[1]
 
     args = parse_args(sys.argv[2:])
-
-    print(args)
 
     if command == "backtest":
         # check for help

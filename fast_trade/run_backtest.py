@@ -19,7 +19,6 @@ def take_action(row, strategy, columns):
     results = []
 
     df_col_map = dict(zip(columns, row))
-
     for each in strategy:
         check1 = each[0] if type(each[0]) == int else df_col_map[each[0]]
         check2 = each[2] if type(each[2]) == int else df_col_map[each[2]]
@@ -59,7 +58,7 @@ def determine_action(frame, strategy, df_col_map):
     return action
 
 
-def run_backtest(strategy, ohlcv_path=None, df=None):
+def run_backtest(strategy, ohlcv_path=[]):
     """
     Params:
         strategy: required, object containing the logic to test
@@ -86,7 +85,7 @@ def run_backtest(strategy, ohlcv_path=None, df=None):
 
         df = process_dataframe(df, strategy)
 
-    summary = build_summary(df, strategy["base_balance"], start)
+    summary = build_summary(df, start)
 
     return {"summary": summary, "df": df}
 
