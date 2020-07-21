@@ -58,19 +58,21 @@ def determine_action(frame, strategy, df_col_map):
     return action
 
 
-def run_backtest(strategy, ohlcv_path=[]):
+def run_backtest(strategy, ohlcv_path=[], df=None):
     """
     Params:
-        strategy: required, object containing the logic to test
-        csv_path: required, where to find the csv file of the ohlcv data
-
+        strategy: dict, required, object containing the logic to test
+        ohlcv_path: list or  string, required, where to find the csv file of the ohlcv data
+        df
     Returns: dictionary
             summary is a dict summary of the performace of backtest
             df is a pandas dataframe object used in the backtest
     """
 
     start = datetime.datetime.utcnow()
-    df = build_data_frame(ohlcv_path, strategy)
+
+    if not df:
+        df = build_data_frame(strategy, ohlcv_path)
 
     flagged_enter, flagged_exit, strategy = get_flagged_logiz(strategy)
 

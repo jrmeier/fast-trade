@@ -1,7 +1,7 @@
 import pytest
 import pandas as pd
 import datetime
-from fast_trade.build_data_frame import detect_time_unit, determine_chart_period, build_data_frame, load_basic_df_from_csv, apply_indicators_to_dataframe, apply_charting_to_df
+from fast_trade.build_data_frame import detect_time_unit, determine_chart_period, load_basic_df_from_csv, apply_indicators_to_dataframe, apply_charting_to_df
 from unittest import mock, TestCase
 
 
