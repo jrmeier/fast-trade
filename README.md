@@ -1,10 +1,10 @@
 # Fast Trade
 
-[![License: LGPL v3](https://img.shields.io/github/license/jrmeier/fast-trade)](https://img.shields.io/github/license/jrmeier/fast-trade)
-[![PyPI](https://img.shields.io/pypi/v/fast-trade.svg?style=flat-square)](https://img.shields.io/pypi/v/fast-trade.svg?style=flat-square)
+[![License: LGPL v3](https://img.shields.io/github/license/jrmeier/fast-trade)](LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/fast-trade.svg?style=flat-square)](https://pypi.org/project/fast-trade/)
 [![](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/download/releases/3.7.0/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
-![Python application](https://github.com/jrmeier/fast-trade/workflows/Python%20application/badge.svg)
+[![Python application](https://github.com/jrmeier/fast-trade/workflows/Python%20application/badge.svg)](https://github.com/jrmeier/fast-trade/actions)
 
 A library built with strategy portability and performance in mind for back-test trading strategies.
 
