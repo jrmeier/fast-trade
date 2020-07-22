@@ -1,21 +1,53 @@
 # flake8: noqa
-from fast_trade import run_backtest, build_data_frame
-import matplotlib.pyplot as plt
-import pandas as pd
+from fast_trade import run_backtest
 import json
-import os
 
+strategy = {
+   "name": "example",
+   "chart_period": "6h",
+   "start": "",
+   "stop": "",
+   "exit_on_end": False,
+   "enter": [
+     [
+       "close",
+       ">",
+       "short"
+     ]
+   ],
+   "exit": [
+     [
+       "close",
+       "<",
+       "long"
+     ],
+   ],
+   "indicators": [
+     {
+       "name": "short",
+       "func": "ta.ema",
+       "args": [
+         21
+       ],
+       "df": "close"
+     },
+     {
+       "name": "long",
+       "func": "ta.ema",
+       "args": [
+         21
+       ],
+       "df": "close"
+     },
+
+   ]
+}
 
 if __name__ == "__main__":
-    ohlcv_path = ["/Users/jedmeier/Projects/fast-trade/BTCUSDT.csv"]
+  datafile_path = "./BTCUSDT.csv.txt"
+  
+  result = run_backtest(strategy, datafile_path)
 
-    with open("./example_strat_2.json", "r") as json_file:
-        strategy = json.load(json_file)
+  summary = result["summary"]
+  df = result["df"]
 
-
-    strategy['chart_period'] = "1h"
-    res = run_backtest(strategy, ohlcv_path)
-
-    summary = res['summary']
-
-    print(json.dumps(summary, indent=2))

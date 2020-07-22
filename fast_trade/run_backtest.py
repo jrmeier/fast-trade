@@ -58,11 +58,11 @@ def determine_action(frame, strategy, df_col_map):
     return action
 
 
-def run_backtest(strategy, ohlcv_path=[], df=None):
+def run_backtest(strategy, ohlcv_path="", df=None):
     """
     Params:
         strategy: dict, required, object containing the logic to test
-        ohlcv_path: list or  string, required, where to find the csv file of the ohlcv data
+        ohlcv_path: string or list, required, where to find the csv file of the ohlcv data
         df
     Returns: dictionary
             summary is a dict summary of the performace of backtest

@@ -53,10 +53,16 @@ def format_all_help_text():
 
 def create_plot(df):
     plot_df = pd.DataFrame(
-        data={"Date": df.index, "Portfolio_Value": df["smooth_base"]}
+        data={
+            "Date": df.index,
+            "Portfolio_Value": df["smooth_base"],
+            "Close": df["close"],
+        }
     )
 
-    return plot_df.plot(x="Date", y=["Portfolio_Value"])
+    plot_df.plot(x="Date", y=["Portfolio_Value", "Close"])
+
+    return plot_df
 
 
 def save(result, strat_obj):

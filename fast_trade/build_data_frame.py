@@ -7,7 +7,7 @@ HOUR = 60
 DAY = 1440
 
 
-def build_data_frame(ohlcv_path, strategy):
+def build_data_frame(strategy, ohlcv_path):
     """
     Params:
         ohlcv_path: string, absolute path of where to find the data file

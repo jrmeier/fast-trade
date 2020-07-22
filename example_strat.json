@@ -1,26 +1,39 @@
 {
-   "name": "fluttering-ice",
-   "chart_period": "1m",
-   "enter": [
-      [
-         "wto",
-         ">",
-         17
-      ]
-   ],
-   "exit": [
-      [
-         "wto",
-         "<",
-         -17
-      ]
-   ],
-   "indicators": [
-      {
-         "name": "wto",
-         "func": "ta.wto",
-         "args": [],
-         "df": "close"
-      }
-   ]
+  "name": "example",
+  "chart_period": "1h",
+  "start": "",
+  "stop": "",
+  "exit_on_end": true,
+  "enter": [
+    [
+      "close",
+      "<",
+      "short"
+    ]
+  ],
+  "exit": [
+    [
+      "close",
+      "<",
+      "long"
+    ]
+  ],
+  "indicators": [
+    {
+      "name": "short",
+      "func": "ta.zlema",
+      "args": [
+        7
+      ],
+      "df": "close"
+    },
+    {
+      "name": "long",
+      "func": "ta.zlema",
+      "args": [
+        -500
+      ],
+      "df": "close"
+    }
+  ]
 }

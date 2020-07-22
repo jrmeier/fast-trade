@@ -1,23 +1,20 @@
-# Fast Trade ![Python application](https://github.com/jrmeier/fast-trade/workflows/Python%20application/badge.svg)
+# Fast Trade
 
-A library to do back-testing on currency data with generated strategies quickly and easily. The data comes from this project [crypto-data](https://github.com/jrmeier/crypto-data). 
+[![License: LGPL v3](https://img.shields.io/github/license/jrmeier/fast-trade)](https://img.shields.io/github/license/jrmeier/fast-trade)
+[![PyPI](https://img.shields.io/pypi/v/fast-trade.svg?style=flat-square)](https://img.shields.io/pypi/v/fast-trade.svg?style=flat-square)
+[![](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/download/releases/3.7.0/)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
+![Python application](https://github.com/jrmeier/fast-trade/workflows/Python%20application/badge.svg)
+
+A library built with strategy portability and performance in mind for back-test trading strategies.
+
+## Motivations
+
+Strategies are cheap. This is the main motivation behind fast-trade. Since a strategy is just a JSON object, strategies can be created, stored, modified, versioned, and re-run easily. 
 
 ## Data
 
-If you're looking for some data, here is roughly every minute of 2018 of every pair from binance. Here is the each file [individually zipped](https://drive.google.com/file/d/16eoeNLTUVC9ydoMfVtjxxfLPKurGW05M/view?usp=sharing) and here is the [entire directory zipped, with each file as a zip](https://drive.google.com/file/d/16eoeNLTUVC9ydoMfVtjxxfLPKurGW05M/view?usp=sharing). If you have any questions, please email me at fast_trade (at) jedm.dev. I also have data every minute since December 2019 to now, shoot me an email if you'd like access.
-
-## Goals
-
-- run in less than 30s on average hardware
-- headless
-- extensible
-
-## Features
-
-- Extremely fast backtesting
-- ability to build complex strategies
-- ability to reproduce strategies since they are just a json file
-- can interface easily as an API, ex. put a web server in front and its an API
+The data comes from this project [crypto-data](https://github.com/jrmeier/crypto-data).
 
 ## Install
 
@@ -33,6 +30,64 @@ source .fast_trade/bin/activate
 pip install -r requirements.txt
 ```
 
+## Usage
+
+```python
+from fast_trade import run_backtest
+
+strategy = {
+   "name": "example",
+   "chart_period": "1h",
+   "start": "",
+   "stop": "",
+   "exit_on_end": False,
+   "enter": [
+     [
+       "close",
+       ">",
+       "short"
+     ]
+   ],
+   "exit": [
+     [
+       "close",
+       "",
+       "long"
+     ],
+   ],
+   "indicators": [
+     {
+       "name": "short",
+       "func": "ta.ema",
+       "args": [
+         21
+       ],
+       "df": "close"
+     },
+     {
+       "name": "long",
+       "func": "ta.ema",
+       "args": [
+         50
+       ],
+       "df": "close"
+     },
+
+   ]
+}
+
+datafile_path = "./BTCUSDT.csv.txt"
+
+# returns the summary object and the dataframe
+result = run_backtest(strategy, datafile_path)
+
+summary = result["summaray"]
+df = result["df"]
+
+print(summary)
+print(df.head())
+```
+
 ## CLI
 
 You can also use the package from the command line.
@@ -43,7 +98,7 @@ To run a backtest, the csv datafile needs to be passed in, along with the strate
 
 Basic usage
 
-```ft backtest --csv=./path/to/datafile --strat=./path/to/strat.json```
+```ft backtest --csv=./BTCUSDT.csv --strat=./example_strat.json```
 
 Modifying the ```chart_period```
 
