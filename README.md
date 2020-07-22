@@ -104,7 +104,7 @@ datafile_path = "./BTCUSDT.csv.txt"
 # returns the summary object and the dataframe
 result = run_backtest(strategy, datafile_path)
 
-summary = result["summaray"]
+summary = result["summary"]
 df = result["df"]
 
 print(summary)
