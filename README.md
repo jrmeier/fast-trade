@@ -10,11 +10,31 @@ A library built with strategy portability and performance in mind for back-test 
 
 ## Motivations
 
-Strategies are cheap. This is the main motivation behind fast-trade. Since a strategy is just a JSON object, strategies can be created, stored, modified, versioned, and re-run easily. 
+Strategies are cheap. This is the main motivation behind fast-trade. Since a strategy is just a JSON object, strategies can be created, stored, modified, versioned, and re-run easily. Ideally, a strategy could be generated and tested quickly; fast-trade is just the library to handle that.
+
+## Indicators
+Available Indicators (https://github.com/peerchemist/finta)
 
 ## Data
+Data is expected to come with `ohlc` candlestick data in a csv file.
 
-The data comes from this project [crypto-data](https://github.com/jrmeier/crypto-data).
+Example file format
+```csv
+date,close,open,high,low,volume
+1575150241610,7525.50000000,7699.25000000,7810.00000000,7441.00000000,46477.74085300
+1575150301160,7529.99000000,7693.41000000,7810.00000000,7441.00000000,46475.81690400
+1575150361151,7528.93000000,7693.12000000,7810.00000000,7441.00000000,46473.78656500
+1575150421124,7532.01000000,7696.08000000,7810.00000000,7441.00000000,46466.46236100
+1575150481623,7530.04000000,7710.00000000,7810.00000000,7441.00000000,46455.85758200
+1575150541200,7532.07000000,7720.16000000,7810.00000000,7441.00000000,46448.47469000
+1575150601026,7533.69000000,7723.27000000,7810.00000000,7441.00000000,46432.03855300
+1575150661595,7533.06000000,7714.92000000,7810.00000000,7441.00000000,46407.97286100
+1575150721337,7529.04000000,7708.14000000,7810.00000000,7441.00000000,46409.79564500
+```
+
+A dataframe can also be passed to `run_backtest(...)` function such as `run_backtest(strategy, df=<your data frame>)`.
+
+I've been using this project to collect and store tick data [crypto-data](https://github.com/jrmeier/crypto-data).
 
 ## Install
 
@@ -118,8 +138,6 @@ Viewing a plot of the result
 ```bash
 python -m pytest
 ```
-
-Available Indicators (graciously stolen from https://github.com/peerchemist/finta)
 
 ## Output
 
