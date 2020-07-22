@@ -74,7 +74,7 @@ strategy = {
    "exit": [
      [
        "close",
-       "",
+       "<",
        "long"
      ],
    ],
