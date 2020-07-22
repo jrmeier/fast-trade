@@ -13,7 +13,10 @@ A library built with strategy portability and performance in mind for back-test 
 Strategies are cheap. This is the main motivation behind fast-trade. Since a strategy is just a JSON object, strategies can be created, stored, modified, versioned, and re-run easily. Ideally, a strategy could be generated and tested quickly; fast-trade is just the library to handle that.
 
 ## Indicators
+
 Available Indicators (https://github.com/peerchemist/finta)
+
+Custom indicators can be added by setting a function name in the [indicator_map](https://github.com/jrmeier/fast-trade/blob/master/fast_trade/build_data_frame.py#L141), then setting that equal to a function that takes in a dataframe as the first argument and whatever arguments passed in.
 
 ## Data
 Data is expected to come with `ohlc` candlestick data in a csv file.
