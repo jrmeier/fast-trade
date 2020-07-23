@@ -17,10 +17,8 @@ def open_strat_file(fp):
 
 
 def format_command(command):
-    with open("./fast_trade/cli_help.json", "r") as help_file:
-        help_file = json.load(help_file)
 
-    command_obj = help_file[command]
+    command_obj = help_dict[command]
     ret_str = f"\t{command}"
     ret_str += f"\n\t\t\t{command_obj['description']}"
 
@@ -40,12 +38,10 @@ def format_command(command):
 
 
 def format_all_help_text():
-    with open("./fast_trade/cli_help.json", "r") as help_file:
-        help_file = json.load(help_file)
 
     formated_string = "\nFast Trade Help\n\nCommands\n\n"
 
-    for command in help_file.keys():
+    for command in help_dict.keys():
         formated_string = formated_string + format_command(command)
 
     return formated_string
@@ -93,3 +89,29 @@ def save(result, strat_obj):
     # plot
     create_plot(result["df"])
     plt.savefig(f"{new_save_dir}/plot.png")
+
+
+help_dict = {
+    "backtest": {
+        "description": "Runs a backtest with the given parameters. Any strat modifications can be passed at the end of the command.",
+        "examples": ["python -m fast_trade backtest --csv=./datafile.csv/ --strat=./strat.json"],
+        "args": {
+                "--csv": {
+                    "desc": "path or paths to csv_file seperated by commands",
+                    "required": True
+                },
+                "--strat": {
+                    "desc": "path to strategy file, must json format",
+                    "required": True
+                },
+                "--plot": {
+                        "desc": "opens a basic plot using matlib.plot",
+                        "required": False
+                },
+                "--save": {
+                    "desc": "saves the dataframe, strategy, and plot in to the path",
+                    "required": False
+                }
+        }
+    }
+}

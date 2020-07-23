@@ -28,7 +28,6 @@ setup(
     license="MIT",
     python_requires=">=3",
     entry_points={"console_scripts": ["ft = fast_trade.cli:main"]},
-    data_files=[('fast_trade', ['fast_trade/cli_help.json'])],
     classifiers=[
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3.7",
