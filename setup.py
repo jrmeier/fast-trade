@@ -7,7 +7,7 @@ README = (HERE / "README.md").read_text()
 
 setup(
     name="fast-trade",
-    version="0.1.5",
+    version="0.1.5.1",
     description="Automate and backtest on ohlcv data quickly",
     long_description=README,
     long_description_content_type="text/markdown",
@@ -41,5 +41,6 @@ setup(
         "python-dateutil==2.8.1",
         "pytz==2019.3",
         "six==1.14.0",
+        "matplotlib==3.2.1"
     ],
 )
