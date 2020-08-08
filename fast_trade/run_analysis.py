@@ -4,7 +4,7 @@ def analyze_df(df, strategy):
     close_column_idx = column_map.index("close")
     action_col_idx = column_map.index("actions")
 
-    base_balance = strategy["base_balance"]
+    base_balance = float(strategy["base_balance"])
 
     aux_balance = 0.0
 

@@ -19,7 +19,9 @@ Available Indicators (https://github.com/peerchemist/finta)
 Custom indicators can be added by setting a function name in the [indicator_map](https://github.com/jrmeier/fast-trade/blob/master/fast_trade/build_data_frame.py#L141), then setting that equal to a function that takes in a dataframe as the first argument and whatever arguments passed in.
 
 ## Data
-Data is expected to come with `ohlc` candlestick data in a csv file.
+Data must be minute tick data. Indicators will give false results if the data isn't once a minute.
+
+Datafiles are expected but come with `ohlc` candlestick minute data in a csv file, but will not work as expected. Please open an issue if this is a problem for you.
 
 Example file format
 ```csv
@@ -181,6 +183,54 @@ The real goal of this project is to get to the point where these strategies can 
 
 Below is an example of a very simple strategey. Basically, indicators are used to build a list of indicators to look at which must all be true to produce an enter or exit status for that tick.
 
+Strategies include all the instructions needed to run the backtest minus the data.
+
+### Strategy Requirements
+
++ name:
+  + string, optional
+  + default: `None`
+  + description: a string for quick reference of the strategy
++ chart_period:
+  + string, optional
+  + default: `"1m"`
+  + description: a charting period string. Any number can be in the front, only `m` (minute),`h` (hour), `d` (day) are accepted. This value is turned into the minutes equivelent (1h = 60 minutes) and is based data granularity of 1 minute.
+  + Ex.
+    + "1m" is 1 minute
+    + "2h" is 2 hours
+    + "5d" is 5 days
++ start: string
+  + optional,
+  + default: `""`
+  + description: The time string of when to start the backtest with `%Y-%m-%d %H:%M:%S` date format.
+  + Ex.
+    + `"2018-05-01 00:00:00"` May 1st, 2018 at midnight
++ stop: string
+  + optional
+  + default: `""`
+  + description: The time string of when to stop the backtest with `%Y-%m-%d %H:%M:%S` date format.
+  + Ex.
+    + `"2020-12-28 00:08:00"` December 28th, 2020 at 8am.
++ base_balance: float
+  + optional
+  + default: 1000
+  + description: The starting balance of trade account. Usually $ or "base" coins for cryptocurrencies.
+
++ enter: list,
+  + required
+  + default: `None`
+  + description: This describes requirements the send a buy signal ("enter" a trade). There can be any number of items (what I'm calling "logiz") in here. Each `logiz` is contains a single `if` statement. The two variables are the first and last items in the list, with the operator to compare them `>`, `<` `=`.
+
++ exit: list,
+  + required
+  + default: `None`
+  + description: This describes requirements the send a sell signal ("exit" a trade). There can be any number of items (what I'm calling "logiz") in here. Each `logiz` is contains a single `if` statement. The two variables are the first and last items in the list, with the operator to compare them `>`, `<` `=`.
+
++ indicators: list,
+  + optional
+  + default: `None`
+  + description: This describes how to create the indicators. Each individual indicator has name that can be referenced in either the `enter` or `exit` logizs. For more information, see ([Indicators Detail](###IndicatorsDetail))
+
 
 ```python
 {
@@ -241,7 +291,7 @@ Below is an example of a very simple strategey. Basically, indicators are used t
 }
 ```
 
-### Indicators
+### IndicatorsDetail
 
 ```python
       {
