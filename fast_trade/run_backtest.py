@@ -71,7 +71,7 @@ def run_backtest(strategy, ohlcv_path="", df=None):
 
     start = datetime.datetime.utcnow()
 
-    if not df:
+    if ohlcv_path:
         df = build_data_frame(strategy, ohlcv_path)
 
     flagged_enter, flagged_exit, strategy = get_flagged_logiz(strategy)

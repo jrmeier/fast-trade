@@ -1,3 +1,6 @@
+import pandas as pd
+from math import copysign
+
 def analyze_df(df, strategy):
     in_trade = False
     column_map = list(df.columns)
@@ -15,9 +18,9 @@ def analyze_df(df, strategy):
     for idx, row in enumerate(df.values):
         close = row[close_column_idx]
         if row[action_col_idx] == "e" and not in_trade:
-            aux_balance = enter_trade(close, base_balance)
-
-            tmp_base_balance = exit_trade(close, aux_balance)
+            aux_balance, commission = enter_trade(close, base_balance)
+            # tmp_base_balance = exit_trade(close, aux_balance)
+            tmp_base_balance = 0
             base_balance = 0
             in_trade = True
 
@@ -47,13 +50,31 @@ def analyze_df(df, strategy):
 
 def enter_trade(close, base_balance):
     """ returns new aux balance """
+    commission = 0.001
+
     if base_balance:
-        return round(base_balance / close, 8)
-    return 0.0
+        new_aux_balance = base_balance / close
+
+        # fee = (new_aux_balance/100) * commission
+        if commission:
+            fee = close * (1 + copysign(commission, new_aux_balance))
+        return round(new_aux_balance, 8), commission
+
+    return 0.0, commission
 
 
 def exit_trade(close, aux_balance):
     """ returns new base balance """
+    commission = 00.1
+
+    new_base_balance = 0
     if aux_balance:
-        return round(aux_balance * close, 8)
-    return 0.0
+        new_base_balance = aux_balance * close
+
+        fee = (new_base_balance/10000) * commission
+        
+        if fee:
+            new_base_balance = new_base_balance - fee
+
+
+    return round(new_base_balance, 8)

@@ -6,7 +6,6 @@ MIN = 1
 HOUR = 60
 DAY = 1440
 
-
 def build_data_frame(strategy, ohlcv_path):
     """
     Params:
@@ -15,6 +14,14 @@ def build_data_frame(strategy, ohlcv_path):
     """
     df = load_basic_df_from_csv(ohlcv_path)
 
+    df = prepare_df(df, strategy)
+
+    if df.empty:
+        raise Exception("Dataframe is empty. Check the start and end dates")
+
+    return df
+
+def prepare_df(df, strategy):
     indicators = strategy.get("indicators", [])
 
     df = apply_indicators_to_dataframe(df, indicators)
@@ -27,9 +34,6 @@ def build_data_frame(strategy, ohlcv_path):
 
     df = apply_charting_to_df(df, chart_period, start_time, stop_time)
 
-    if df.empty:
-        raise Exception("Dataframe is empty. Check the start and end dates")
-
     return df
 
 
@@ -41,11 +45,10 @@ def apply_charting_to_df(df, chart_period, start_time, stop_time):
         a sorted dataframe with the appropriate time frames
     """
 
-    # print("hmm:", df.index[0])
-    time_unit = detect_time_unit(df.index[0])
-
-    df["datetime"] = pd.to_datetime(df.index, unit=time_unit)
-    df.set_index(["datetime"], inplace=True)
+    if not df.index.is_all_dates:
+        df.set_index("date", inplace=True)
+        time_unit = detect_time_unit(df.index[0])
+        df.index = pd.to_datetime(df.index, unit=time_unit)
 
     df = df.iloc[::chart_period, :]
 
@@ -54,12 +57,13 @@ def apply_charting_to_df(df, chart_period, start_time, stop_time):
     elif start_time and not stop_time:
         df = df[start_time:]  # noqa
     elif not start_time and stop_time:
-        df = df[:stop_time]  # noqa
+        df = df
 
     return df
 
 
 def apply_indicators_to_dataframe(df, indicators):
+    # set the index
     for ind in indicators:
         func = ind.get("func")
         field_name = ind.get("name")

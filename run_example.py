@@ -1,53 +1,66 @@
 # flake8: noqa
-from fast_trade import run_backtest
+from fast_trade import run_backtest, prepare_df
+import pandas as pd
 import json
 
 strategy = {
-   "name": "example",
-   "chart_period": "6h",
-   "start": "",
-   "stop": "",
-   "exit_on_end": False,
-   "enter": [
-     [
-       "close",
-       ">",
-       "short"
-     ]
-   ],
-   "exit": [
-     [
-       "close",
-       "<",
-       "long"
-     ],
-   ],
-   "indicators": [
-     {
-       "name": "short",
-       "func": "ta.ema",
-       "args": [
-         21
-       ],
-       "df": "close"
-     },
-     {
-       "name": "long",
-       "func": "ta.ema",
-       "args": [
-         21
-       ],
-       "df": "close"
-     },
-
-   ]
+  "chart_period": "5m",
+  "enter": [
+    [
+      "close",
+      ">",
+      "mid"
+    ]
+  ],
+  "exit": [
+    [
+      "close",
+      "<",
+      "short"
+    ]
+  ],
+  "exit_on_end": True,
+  "id": "b25101fa-636d-4537-aa9c-b62bb9fd5c13",
+  "indicators": [
+    {
+      "args": [
+        12
+      ],
+      "df": "close",
+      "func": "ta.zlema",
+      "name": "short"
+    },
+    {
+      "args": [
+        14
+      ],
+      "df": "close",
+      "func": "ta.zlema",
+      "name": "mid"
+    },
+    {
+      "args": [
+        28
+      ],
+      "df": "close",
+      "func": "ta.zlema",
+      "name": "long"
+    }
+  ],
+  "name": "generated"
 }
 
 if __name__ == "__main__":
-  datafile_path = "./BTCUSDT.csv.txt"
+  datafile = "./BTCUSDT.csv.txt"
+  df = pd.read_csv(datafile, parse_dates=True)
+  df = prepare_df(df, strategy)
   
-  result = run_backtest(strategy, datafile_path)
+  test1 = run_backtest(strategy, df=df)
+  # test2 = run_backtest(strategy, ohlcv_path=datafile)
 
-  summary = result["summary"]
-  df = result["df"]
 
+
+  print("test1: ",test1["summary"])
+  # print("test2: ",test2["summary"])
+
+  # print(df)
