@@ -2,9 +2,10 @@
 from fast_trade import run_backtest, prepare_df
 import pandas as pd
 import json
+import datetime
 
 strategy = {
-  "chart_period": "3m",
+  "chart_period": "1m",
   "enter": [
     [
       "close",
@@ -54,15 +55,9 @@ strategy = {
 
 if __name__ == "__main__":
   datafile = "./BTCUSDT.csv.txt"
-  # df = pd.read_csv(datafile)
-  # df = prepare_df(df, strategy)
+
+  test = run_backtest(strategy, ohlcv_path=datafile)
+
+  df = test['trade_log']
   
-  # test1 = run_backtest(strategy, df=df)
-  test2 = run_backtest(strategy, ohlcv_path=datafile)
-
-  # print(df)
-  # print(test1['summary'])
-  # print("test1: ",test1["summary"])
-  print("test2: ",test2["summary"])
-
-  # print(test2["df"])
+  print(test['summary'])

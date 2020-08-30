@@ -95,9 +95,9 @@ def run_backtest(strategy, ohlcv_path="", df=None):
         df = process_dataframe(df, strategy)
 
 
-    summary = build_summary(df, start)
+    summary, trade_log = build_summary(df, start, strategy)
 
-    return {"summary": summary, "df": df}
+    return {"summary": summary, "df": df, "trade_log": trade_log}
 
 
 def get_flagged_logiz(strategy):

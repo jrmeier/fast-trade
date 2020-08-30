@@ -1,6 +1,7 @@
 import pandas as pd
 from finta import TA
 import os
+from datetime import timedelta
 
 MIN = 1
 HOUR = 60

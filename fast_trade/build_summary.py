@@ -3,7 +3,7 @@ import pandas as pd
 from .build_data_frame import detect_time_unit
 
 
-def build_summary(df, perf_start_time):
+def build_summary(df, perf_start_time, strategy):
 
     # Not yet implimented
     # Exposure [%]                            94.29
@@ -19,9 +19,12 @@ def build_summary(df, perf_start_time):
     # Calmar Ratio                             0.07
     time_unit = detect_time_unit(df.index[0])
     trade_perc_series = df.aux.pct_change() * 100
-    trade_time_held_series = df.aux
-    # return {}
+    beg_balance = strategy.get('base_balance')
 
+    trade_log = df.reset_index()
+    trade_log = trade_log.groupby((trade_log["in_trade"] != trade_log["in_trade"].shift()).cumsum()).first().set_index("date")
+
+    trade_time_held_series = trade_log.index.to_series().diff()
     mean_trade_time_held = trade_time_held_series.mean()
     max_trade_time_held = trade_time_held_series.max()
     min_trade_time_held = trade_time_held_series.min()
@@ -40,19 +43,16 @@ def build_summary(df, perf_start_time):
         win_perc = (len(win_trades) / total_trades) * 100
     except ZeroDivisionError:
         win_perc = 0
-
     try:
         loss_perc = (len(loss_trades) / total_trades) * 100
     except ZeroDivisionError:
         loss_perc = 0
     # print(tot/)
-    try:
-        # print(df.iloc[-1].aux)
-        # print(df.iloc[0].aux)
-        return_perc = (df.iloc[-1].aux / df.iloc[0].aux) * 100 - 100
-    except IndexError:
-        return_perc = 0
-    except ZeroDivisionError:
+
+    if trade_log.iloc[0].total_value and trade_log.iloc[-1].total_value:
+        # return_perc = (trade_log.iloc[0].total_value / trade_log.iloc[-1].total_value) * 100 - 100
+        return_perc = (trade_log.iloc[0].total_value / trade_log.iloc[-1].total_value) * 100 - 100
+    else:
         return_perc = 0
 
     equity_peak = df["aux"].max()
@@ -63,17 +63,22 @@ def build_summary(df, perf_start_time):
     start_date = df.index[0]
     end_date = df.index[-1]
 
+    first_price = round(beg_balance / trade_log.iloc[0].close, 8)
+    last_price = round(beg_balance/ trade_log.iloc[-1].close, 8)
+    buy_and_hold_perc = (abs(first_price / last_price) * 100 - 100) * 100
+
     summary = {
         "return_perc": round(return_perc, 3),
-        # "median_trade_len": median_time_held.total_seconds(),
-        # "mean_trade_len": mean_trade_time_held.total_seconds(),
-        # "max_trade_held": max_trade_time_held.total_seconds(),
-        # "min_trade_len": min_trade_time_held.total_seconds(),
+        "buy_and_hold_perc": round(buy_and_hold_perc, 3),
+        "median_trade_len": median_time_held.total_seconds(),
+        "mean_trade_len": mean_trade_time_held.total_seconds(),
+        "max_trade_held": max_trade_time_held.total_seconds(),
+        "min_trade_len": min_trade_time_held.total_seconds(),
         "best_trade_perc": round(max_trade_perc, 3),
         "min_trade_perc": round(min_trade_perc, 3),
         "median_trade_perc": round(median_trade_perc, 3),
         "mean": round(mean_trade_perc, 3),
-        # "num_trades": l0en(df.aux.size),
+        "num_trades": trade_log.size,
         "win_perc": round(win_perc, 3),
         "loss_perc": round(loss_perc, 3),
         "equity_peak": float(equity_peak),
@@ -84,4 +89,4 @@ def build_summary(df, perf_start_time):
         "test_duration": (perf_stop_time - perf_start_time).total_seconds(),
     }
 
-    return summary
+    return summary, trade_log
