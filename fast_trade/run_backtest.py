@@ -6,6 +6,51 @@ from .run_analysis import analyze_df
 from .build_summary import build_summary
 
 
+def take_action_tup(row, strategy):
+    """
+    Params:
+        row: data row to operate on
+        strategy: dictionary of logic and how to impliment it
+        columns: list of data points describing th row
+    Returns:
+        boolean, True if row meets the criteria of given strategy,
+        False if otherwise
+    """
+    results = []
+    row = row._asdict()
+    for each in strategy:
+        val0 = row[each[0]]
+        val1 = row[each[2]]
+        # val0 = (
+        #     each[0]
+        #     if isinstance(each[0], int) or isinstance(each[0], float)
+        #     else row[each[0]]
+        # )
+        # val1 = (
+        #     each[2]
+        #     if isinstance(each[2], int) or isinstance(each[2], float)
+        #     else row[each[2]]
+        # )
+
+        # # print("val0: ",val0)
+        # if isinstance(val0, pd.Series):
+        #     val0 = row[each[0]].values[0]
+
+        # if isinstance(val1, pd.Series):
+        #     val1 = row[each[2]].values[0]
+
+        if each[1] == ">":
+            results.append(bool(val0 > val1))
+        if each[1] == "<":
+            results.append(bool(val0 < val1))
+        if each[1] == "=":
+            results.append(bool(val0 == val1))
+        if each[1] == "!=":
+            results.append(bool(val0 != val1))
+
+    return all(results)
+
+
 def take_action(row, strategy):
     """
     Params:
@@ -60,15 +105,13 @@ def determine_action(frame, strategy):
         the strategy would do
     """
 
-    action = "h"
+    if take_action_tup(frame, strategy["enter"]):
+        return "e"
 
-    if take_action(frame, strategy["enter"]):
-        action = "e"
+    if take_action_tup(frame, strategy["exit"]):
+        return "x"
 
-    if take_action(frame, strategy["exit"]):
-        action = "x"
-
-    return action
+    return "h"
 
 
 def run_backtest(strategy, ohlcv_path="", df=None):
@@ -141,8 +184,8 @@ def process_dataframe(df, strategy):
     # for idx, row in df.iterrows():
     print("processing the dataframe")
 
-    # df["action"] = [determine_action(frame, strategy) for frame in df.itertuples()]
-    df["action"] = df.apply(lambda frame: determine_action(frame, strategy), axis=1)
+    df["action"] = [determine_action(frame, strategy) for frame in df.itertuples()]
+    # df["action"] = df.apply(lambda frame: determine_action(frame, strategy), axis=1)
 
     print("analyzing the dataframe")
     df = analyze_df(df, strategy)
