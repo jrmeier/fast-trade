@@ -1,39 +1,46 @@
 {
-  "name": "example",
-  "chart_period": "1h",
-  "start": "",
-  "stop": "",
-  "exit_on_end": true,
+  "chart_period": "1m",
   "enter": [
     [
       "close",
-      "<",
-      "short"
+      ">",
+      "mid"
     ]
   ],
   "exit": [
     [
       "close",
       "<",
-      "long"
+      "short"
     ]
   ],
+  "exit_on_end": false,
+  "id": "b25101fa-636d-4537-aa9c-b62bb9fd5c13",
   "indicators": [
     {
-      "name": "short",
-      "func": "ta.zlema",
       "args": [
-        7
+        12
       ],
-      "df": "close"
+      "df": "close",
+      "func": "ta.zlema",
+      "name": "short"
     },
     {
-      "name": "long",
-      "func": "ta.zlema",
       "args": [
-        16
+        14
       ],
-      "df": "close"
+      "df": "close",
+      "func": "ta.zlema",
+      "name": "mid"
+    },
+    {
+      "args": [
+        28
+      ],
+      "df": "close",
+      "func": "ta.zlema",
+      "name": "long"
     }
-  ]
+  ],
+  "name": "generated"
 }

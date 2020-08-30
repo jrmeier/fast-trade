@@ -45,11 +45,13 @@ def apply_charting_to_df(df, chart_period, start_time, stop_time):
         a sorted dataframe with the appropriate time frames
     """
 
-    if not df.index.is_all_dates:
-        df.set_index("date", inplace=True)
-        time_unit = detect_time_unit(df.index[0])
-        df.index = pd.to_datetime(df.index, unit=time_unit)
+    if 'date' in df.columns:
+        df = df.set_index("date")
 
+    if not isinstance(df.index, pd.DatetimeIndex):
+        time_unit = detect_time_unit(df.iloc[-1].values[0])
+        df.index = pd.to_datetime(df.index, unit=time_unit)
+    
     df = df.iloc[::chart_period, :]
 
     if start_time and stop_time:
@@ -57,7 +59,7 @@ def apply_charting_to_df(df, chart_period, start_time, stop_time):
     elif start_time and not stop_time:
         df = df[start_time:]  # noqa
     elif not start_time and stop_time:
-        df = df
+        df = df[:stop_time]
 
     return df
 
@@ -97,8 +99,7 @@ def load_basic_df_from_csv(ohlcv_path):
 
                 df = df.merge(pd.read_csv(new_file_path, parse_dates=True))
 
-    df.set_index(["date"], inplace=True)
-    return df
+    return df.set_index("date")
 
 
 def determine_chart_period(chart_period):

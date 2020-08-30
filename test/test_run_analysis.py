@@ -1,54 +1,54 @@
 import pytest
 import pandas as pd
 import random
-from fast_trade import enter_trade, exit_trade, analyze_df
+from fast_trade import convert_base_to_aux, convert_aux_to_base, analyze_df
 
 
-def test_enter_trade_1():
+def test_convert_base_to_aux_1():
     mock_close = 10
     mock_aux_balance = 100
-    res = enter_trade(mock_close, mock_aux_balance)
+    res = convert_base_to_aux(mock_close, mock_aux_balance)
 
     assert res == 10
 
 
-def test_enter_trade_2():
+def test_convert_base_to_aux_2():
     mock_close = 0.025
     mock_aux_balance = 60
 
-    res = enter_trade(mock_close, mock_aux_balance)
+    res = convert_base_to_aux(mock_close, mock_aux_balance)
     assert res == 2400.0
 
 
-def test_enter_trade_3():
+def test_convert_base_to_aux_3():
     mock_close = 0.3123
     mock_aux_balance = 212.2333
 
-    res = enter_trade(mock_close, mock_aux_balance)
+    res = convert_base_to_aux(mock_close, mock_aux_balance)
     assert res == 679.58149215
 
 
-def test_enter_trade_4():
+def test_convert_base_to_aux_4():
     mock_close = 0.3123
     mock_aux_balance = 0
 
-    res = enter_trade(mock_close, mock_aux_balance)
+    res = convert_base_to_aux(mock_close, mock_aux_balance)
     assert res == 0
 
 
-def test_exit_trade_1():
+def test_convert_aux_to_base_1():
     mock_close = 0.99992
     mock_base_balance = 133.22
 
-    aux = exit_trade(mock_close, mock_base_balance)
+    aux = convert_aux_to_base(mock_close, mock_base_balance)
 
     assert aux == 133.2093424
 
-def test_exit_trade_2():
+def test_convert_aux_to_base_2():
     mock_close = 0.99992
     mock_base_balance = 0
 
-    aux = exit_trade(mock_close, mock_base_balance)
+    aux = convert_aux_to_base(mock_close, mock_base_balance)
 
     assert aux == 0.0
 

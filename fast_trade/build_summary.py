@@ -18,9 +18,8 @@ def build_summary(df, perf_start_time):
     # Sortino Ratio                            0.54
     # Calmar Ratio                             0.07
     time_unit = detect_time_unit(df.index[0])
-    aux = df.drop_duplicates(subset="aux_balance", keep=False, inplace=False)
-    trade_perc_series = aux.aux_balance.pct_change() * 100
-    trade_time_held_series = pd.to_datetime(aux.aux_balance, unit=time_unit).diff()
+    trade_perc_series = df.aux.pct_change() * 100
+    trade_time_held_series = df.aux
     # return {}
 
     mean_trade_time_held = trade_time_held_series.mean()
@@ -35,7 +34,7 @@ def build_summary(df, perf_start_time):
 
     win_trades = trade_perc_series[trade_perc_series > 0]
     loss_trades = trade_perc_series[trade_perc_series < 0]
-    total_trades = len(aux)
+    total_trades = df.aux.size
 
     try:
         win_perc = (len(win_trades) / total_trades) * 100
@@ -46,17 +45,19 @@ def build_summary(df, perf_start_time):
         loss_perc = (len(loss_trades) / total_trades) * 100
     except ZeroDivisionError:
         loss_perc = 0
-
+    # print(tot/)
     try:
-        return_perc = (aux.iloc[-1].aux_balance / aux.iloc[0].aux_balance) * 100 - 100
+        # print(df.iloc[-1].aux)
+        # print(df.iloc[0].aux)
+        return_perc = (df.iloc[-1].aux / df.iloc[0].aux) * 100 - 100
     except IndexError:
         return_perc = 0
     except ZeroDivisionError:
         return_perc = 0
 
-    equity_peak = df["aux_balance"].max()
+    equity_peak = df["aux"].max()
 
-    equity_final = df.iloc[-1]["aux_balance"]
+    equity_final = df.iloc[-1]["aux"]
 
     perf_stop_time = datetime.datetime.utcnow()
     start_date = df.index[0]
@@ -64,15 +65,15 @@ def build_summary(df, perf_start_time):
 
     summary = {
         "return_perc": round(return_perc, 3),
-        "median_trade_len": median_time_held.total_seconds(),
-        "mean_trade_len": mean_trade_time_held.total_seconds(),
-        "max_trade_held": max_trade_time_held.total_seconds(),
-        "min_trade_len": min_trade_time_held.total_seconds(),
+        # "median_trade_len": median_time_held.total_seconds(),
+        # "mean_trade_len": mean_trade_time_held.total_seconds(),
+        # "max_trade_held": max_trade_time_held.total_seconds(),
+        # "min_trade_len": min_trade_time_held.total_seconds(),
         "best_trade_perc": round(max_trade_perc, 3),
         "min_trade_perc": round(min_trade_perc, 3),
         "median_trade_perc": round(median_trade_perc, 3),
         "mean": round(mean_trade_perc, 3),
-        "num_trades": len(aux),
+        # "num_trades": l0en(df.aux.size),
         "win_perc": round(win_perc, 3),
         "loss_perc": round(loss_perc, 3),
         "equity_peak": float(equity_peak),

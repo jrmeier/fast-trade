@@ -6,7 +6,7 @@ from .run_analysis import analyze_df
 from .build_summary import build_summary
 
 
-def take_action(row, strategy, columns):
+def take_action(row, strategy):
     """
     Params:
         row: data row to operate on
@@ -17,25 +17,30 @@ def take_action(row, strategy, columns):
         False if otherwise
     """
     results = []
-
-    df_col_map = dict(zip(columns, row))
     for each in strategy:
-        check1 = each[0] if type(each[0]) == int else df_col_map[each[0]]
-        check2 = each[2] if type(each[2]) == int else df_col_map[each[2]]
+        val0 = each[0] if isinstance(each[0], int) or isinstance(each[0], float) else row[each[0]]
+        val1 = each[2] if isinstance(each[2], int) or isinstance(each[2], float) else row[each[2]]
+
+        # print("val0: ",val0)
+        if isinstance(val0, pd.Series):
+            val0 = row[each[0]].values[0]
+        
+        if isinstance(val1, pd.Series):
+            val1 = row[each[2]].values[0]
 
         if each[1] == ">":
-            results.append(bool(check1 > check2))
+            results.append(bool(val0 > val1))
         if each[1] == "<":
-            results.append(bool(check1 < check2))
+            results.append(bool(val0 < val1))
         if each[1] == "=":
-            results.append(bool(check1 == check2))
+            results.append(bool(val0 == val1))
         if each[1] == "!=":
-            results.append(bool(check1 != check2))
+            results.append(bool(val0 != val1))
 
     return all(results)
 
 
-def determine_action(frame, strategy, df_col_map):
+def determine_action(frame, strategy):
     """
     Params:
         frame: current row of the dataframe
@@ -49,10 +54,10 @@ def determine_action(frame, strategy, df_col_map):
 
     action = "h"
 
-    if take_action(frame, strategy["enter"], df_col_map):
+    if take_action(frame, strategy["enter"]):
         action = "e"
 
-    if take_action(frame, strategy["exit"], df_col_map):
+    if take_action(frame, strategy["exit"]):
         action = "x"
 
     return action
@@ -78,14 +83,17 @@ def run_backtest(strategy, ohlcv_path="", df=None):
 
     strategy["base_balance"] = strategy.get("base_balance", 1000)
     strategy["exit_on_end"] = strategy.get("exit_on_end", True)
+    strategy["commission"] = strategy.get("commission", 0)
 
     df = process_dataframe(df, strategy)
+
 
     if flagged_enter or flagged_exit:
         strategy["enter"].extend(flagged_enter)
         strategy["exit"].extend(flagged_exit)
 
         df = process_dataframe(df, strategy)
+
 
     summary = build_summary(df, start)
 
@@ -124,24 +132,14 @@ def process_dataframe(df, strategy):
     """
     Processes the frame and adds the resultant rows
     """
-    df["actions"] = [
-        determine_action(frame, strategy, list(df.columns)) for frame in df.values
+    # for idx, row in df.iterrows():
+    df["action"] = [
+        determine_action(frame, strategy) for idx, frame in df.iterrows()
     ]
-    base, aux, smooth_base = analyze_df(df, strategy)
 
-    if len(base) != len(df.index):
-        new_row = pd.DataFrame(
-            df[-1:].values,
-            index=[df.index[-1] + pd.Timedelta(minutes=1)],
-            columns=df.columns,
-        )
-        df = df.append(new_row)
+    df = analyze_df(df, strategy)
 
-    df["base_balance"] = base
-    df["aux_balance"] = aux
-    df["smooth_base"] = smooth_base
-
-    df["aux_perc_change"] = df["smooth_base"].pct_change() * 100
-    df["aux_change"] = df["smooth_base"].diff()
+    df["aux_perc_change"] = df["total_value"].pct_change() * 100
+    df["aux_change"] = df["total_value"].diff()
 
     return df
