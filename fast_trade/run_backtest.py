@@ -18,13 +18,21 @@ def take_action(row, strategy):
     """
     results = []
     for each in strategy:
-        val0 = each[0] if isinstance(each[0], int) or isinstance(each[0], float) else row[each[0]]
-        val1 = each[2] if isinstance(each[2], int) or isinstance(each[2], float) else row[each[2]]
+        val0 = (
+            each[0]
+            if isinstance(each[0], int) or isinstance(each[0], float)
+            else row[each[0]]
+        )
+        val1 = (
+            each[2]
+            if isinstance(each[2], int) or isinstance(each[2], float)
+            else row[each[2]]
+        )
 
         # print("val0: ",val0)
         if isinstance(val0, pd.Series):
             val0 = row[each[0]].values[0]
-        
+
         if isinstance(val1, pd.Series):
             val1 = row[each[2]].values[0]
 
@@ -87,17 +95,15 @@ def run_backtest(strategy, ohlcv_path="", df=None):
 
     df = process_dataframe(df, strategy)
 
-
     if flagged_enter or flagged_exit:
         strategy["enter"].extend(flagged_enter)
         strategy["exit"].extend(flagged_exit)
 
         df = process_dataframe(df, strategy)
 
-
     summary, trade_log = build_summary(df, start, strategy)
 
-    return {"summary": summary, "df": df, "trade_log": trade_log}
+    return {"summary": summary, "df": df, "trade_log": trade_log, "strategy": strategy}
 
 
 def get_flagged_logiz(strategy):
@@ -133,9 +139,7 @@ def process_dataframe(df, strategy):
     Processes the frame and adds the resultant rows
     """
     # for idx, row in df.iterrows():
-    df["action"] = [
-        determine_action(frame, strategy) for idx, frame in df.iterrows()
-    ]
+    df["action"] = [determine_action(frame, strategy) for idx, frame in df.iterrows()]
 
     df = analyze_df(df, strategy)
 

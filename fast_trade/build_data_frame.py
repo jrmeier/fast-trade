@@ -1,11 +1,11 @@
 import pandas as pd
 from finta import TA
 import os
-from datetime import timedelta
 
 MIN = 1
 HOUR = 60
 DAY = 1440
+
 
 def build_data_frame(strategy, ohlcv_path):
     """
@@ -21,6 +21,7 @@ def build_data_frame(strategy, ohlcv_path):
         raise Exception("Dataframe is empty. Check the start and end dates")
 
     return df
+
 
 def prepare_df(df, strategy):
     indicators = strategy.get("indicators", [])
@@ -46,13 +47,13 @@ def apply_charting_to_df(df, chart_period, start_time, stop_time):
         a sorted dataframe with the appropriate time frames
     """
 
-    if 'date' in df.columns:
+    if "date" in df.columns:
         df = df.set_index("date")
 
     if not isinstance(df.index, pd.DatetimeIndex):
         time_unit = detect_time_unit(df.iloc[-1].values[0])
         df.index = pd.to_datetime(df.index, unit=time_unit)
-    
+
     df = df.iloc[::chart_period, :]
 
     if start_time and stop_time:

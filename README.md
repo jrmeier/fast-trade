@@ -19,11 +19,13 @@ Available Indicators (https://github.com/peerchemist/finta)
 Custom indicators can be added by setting a function name in the [indicator_map](https://github.com/jrmeier/fast-trade/blob/master/fast_trade/build_data_frame.py#L141), then setting that equal to a function that takes in a dataframe as the first argument and whatever arguments passed in.
 
 ## Data
+
 Data must be minute tick data. Indicators will give false results if the data isn't once a minute.
 
 Datafiles are expected but come with `ohlc` candlestick minute data in a csv file, but will not work as expected. Please open an issue if this is a problem for you.
 
 Example file format
+
 ```csv
 date,close,open,high,low,volume
 1575150241610,7525.50000000,7699.25000000,7810.00000000,7441.00000000,46477.74085300
@@ -117,26 +119,26 @@ print(df.head())
 
 You can also use the package from the command line.
 
-```ft help```
+`ft help`
 
 To run a backtest, the csv datafile needs to be passed in, along with the strategy file. On the command line, anything passed in can be overwritten with an argument and value. For example, the chart_period can be overwritten from the strat file by just passing it in. This will print out a summary of the backtest
 
 Basic usage
 
-```ft backtest --csv=./BTCUSDT.csv --strat=./example_strat.json```
+`ft backtest --csv=./BTCUSDT.csv --strat=./example_strat.json`
 
-Modifying the ```chart_period```
+Modifying the `chart_period`
 
-```ft backtest --csv=./datafile.csv --strat=./strat.json --chart_period=1h```
+`ft backtest --csv=./datafile.csv --strat=./strat.json --chart_period=1h`
 
 Saving a test result
 This generates creates the `saved_backtest` directory (if it doesn't exist), then inside of there, is another directory with a timestamp, with a chart, the strategy file, the summary, and the raw dataframe as a csv.
 
-```ft backtest --csv=./datafile.csv --strat=./strat.json --save```
+`ft backtest --csv=./datafile.csv --strat=./strat.json --save`
 
 Viewing a plot of the result
 
-```ft backtest --csv=./datafile.csv --strat=./strat.json --plot```
+`ft backtest --csv=./datafile.csv --strat=./strat.json --plot`
 
 ## Testing
 
@@ -146,7 +148,7 @@ python -m pytest
 
 ## Output
 
-The output its a dictionary. The summary is a summary all the inputs and of the performace of the model. It's all the information to run the simulation again. The df is a Pandas Dataframe, which contains all of the data used in the simulation.
+The output its a dictionary. The summary is a summary all the inputs and of the performace of the model. The df is a Pandas Dataframe, which contains all of the data used in the simulation. And the `trade_df` is a subset of the `df` frame which just has all the rows when there was an event. The `strategy` object is also returned, with the details of how the backtest was run.
 
 Example output:
 
@@ -155,13 +157,14 @@ Example output:
   "summary":
     {
       "return_perc": -6.478, # total return percentage
-      "meadian_trade_len: ""
+      "buy_and_hold_perc": 14.699, # the return perc if comparing the first price to the last price
+      "median_trade_len": 29999.00115, # median length of trade, in seconds
       "mean_trade_len": 147445.013888888, # mean trade length, in seconds
       "max_trade_held": 619920.0, # longest trade held length, in seconds
       "min_trade_len": 28799.0, # shortest trade held length, in seconds
       "best_trade_perc": 13.611,
       "min_trade_perc": -18.355,
-      "mean": 0.083,
+      "mean_trade_perc": 0.083,
       "num_trades": 73,
       "win_perc": 58.904,
       "loss_perc": 39.726,
@@ -173,7 +176,9 @@ Example output:
       "total_tics": 720,
       "test_duration": 0.420136
     },
-    "df": DataFrame(...)
+    "df": DataFrame(...),
+    "trade_df": DateFrame(...),
+    "strategy": {...},
 }
 ```
 
@@ -187,50 +192,62 @@ Strategies include all the instructions needed to run the backtest minus the dat
 
 ### Strategy Requirements
 
-+ name:
-  + string, optional
-  + default: `None`
-  + description: a string for quick reference of the strategy
-+ chart_period:
-  + string, optional
-  + default: `"1m"`
-  + description: a charting period string. Any number can be in the front, only `m` (minute),`h` (hour), `d` (day) are accepted. This value is turned into the minutes equivelent (1h = 60 minutes) and is based data granularity of 1 minute.
-  + Ex.
-    + "1m" is 1 minute
-    + "2h" is 2 hours
-    + "5d" is 5 days
-+ start: string
-  + optional,
-  + default: `""`
-  + description: The time string of when to start the backtest with `%Y-%m-%d %H:%M:%S` date format.
-  + Ex.
-    + `"2018-05-01 00:00:00"` May 1st, 2018 at midnight
-+ stop: string
-  + optional
-  + default: `""`
-  + description: The time string of when to stop the backtest with `%Y-%m-%d %H:%M:%S` date format.
-  + Ex.
-    + `"2020-12-28 00:08:00"` December 28th, 2020 at 8am.
-+ base_balance: float
-  + optional
-  + default: 1000
-  + description: The starting balance of trade account. Usually $ or "base" coins for cryptocurrencies.
+- name:
+  - string, optional
+  - default: `None`
+  - description: a string for quick reference of the strategy
+- chart_period:
+  - string, optional
+  - default: `"1m"`
+  - description: a charting period string. Any number can be in the front, only `m` (minute),`h` (hour), `d` (day) are accepted. This value is turned into the minutes equivelent (1h = 60 minutes) and is based data granularity of 1 minute.
+  - Ex.
+    - "1m" is 1 minute
+    - "2h" is 2 hours
+    - "5d" is 5 days
+- start: string
 
-+ enter: list,
-  + required
-  + default: `None`
-  + description: This describes requirements the send a buy signal ("enter" a trade). There can be any number of items (what I'm calling "logiz") in here. Each `logiz` is contains a single `if` statement. The two variables are the first and last items in the list, with the operator to compare them `>`, `<` `=`.
+  - optional,
+  - default: `""`
+  - description: The time string of when to start the backtest with `%Y-%m-%d %H:%M:%S` date format.
+  - Ex.
+    - `"2018-05-01 00:00:00"` May 1st, 2018 at midnight
 
-+ exit: list,
-  + required
-  + default: `None`
-  + description: This describes requirements the send a sell signal ("exit" a trade). There can be any number of items (what I'm calling "logiz") in here. Each `logiz` is contains a single `if` statement. The two variables are the first and last items in the list, with the operator to compare them `>`, `<` `=`.
+- stop: string
 
-+ indicators: list,
-  + optional
-  + default: `None`
-  + description: This describes how to create the indicators. Each individual indicator has name that can be referenced in either the `enter` or `exit` logizs. For more information, see ([Indicators Detail](###IndicatorsDetail))
+  - optional
+  - default: `""`
+  - description: The time string of when to stop the backtest with `%Y-%m-%d %H:%M:%S` date format.
+  - Ex.
+    - `"2020-12-28 00:08:00"` December 28th, 2020 at 8am.
 
+- base_balance: float
+
+  - optional
+  - default: 1000
+  - description: The starting balance of trade account. Usually \$ or "base" coins for cryptocurrencies.
+
+- commission: float
+
+  - optional
+  - defaut: 0.0
+  - description: The "trading fee" per trade. This is subtracted per trade.
+
+- enter: list,
+
+  - required
+  - default: `None`
+  - description: This describes requirements the send a buy signal ("enter" a trade). There can be any number of items (what I'm calling "logiz") in here. Each `logiz` is contains a single `if` statement. The two variables are the first and last items in the list, with the operator to compare them `>`, `<` `=`.
+
+- exit: list
+
+  - required
+  - default: `None`
+  - description: This describes requirements the send a sell signal ("exit" a trade). There can be any number of items (what I'm calling "logiz") in here. Each `logiz` is contains a single `if` statement. The two variables are the first and last items in the list, with the operator to compare them `>`, `<` `=`.
+
+- indicators: list
+  - optional
+  - default: `None`
+  - description: This describes how to create the indicators. Each individual indicator has name that can be referenced in either the `enter` or `exit` logizs. For more information, see ([Indicators Detail](###IndicatorsDetail))
 
 ```python
 {

@@ -41,6 +41,6 @@ setup(
         "python-dateutil==2.8.1",
         "pytz==2019.3",
         "six==1.14.0",
-        "matplotlib==3.2.1"
+        "matplotlib==3.2.1",
     ],
 )

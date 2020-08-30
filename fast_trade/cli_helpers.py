@@ -93,25 +93,29 @@ def save(result, strat_obj):
 
 help_dict = {
     "backtest": {
-        "description": "Runs a backtest with the given parameters. Any strat modifications can be passed at the end of the command.",
-        "examples": ["python -m fast_trade backtest --csv=./datafile.csv/ --strat=./strat.json"],
+        "description": """Runs a backtest with the given parameters.
+            Any strat modifications can be passed at the end of the command.
+            """,
+        "examples": [
+            "python -m fast_trade backtest --csv=./datafile.csv/ --strat=./strat.json"
+        ],
         "args": {
-                "--csv": {
-                    "desc": "path or paths to csv_file seperated by commands",
-                    "required": True
-                },
-                "--strat": {
-                    "desc": "path to strategy file, must json format",
-                    "required": True
-                },
-                "--plot": {
-                        "desc": "opens a basic plot using matlib.plot",
-                        "required": False
-                },
-                "--save": {
-                    "desc": "saves the dataframe, strategy, and plot in to the path",
-                    "required": False
-                }
-        }
+            "--csv": {
+                "desc": "path or paths to csv_file seperated by commands",
+                "required": True,
+            },
+            "--strat": {
+                "desc": "path to strategy file, must json format",
+                "required": True,
+            },
+            "--plot": {
+                "desc": "opens a basic plot using matlib.plot",
+                "required": False,
+            },
+            "--save": {
+                "desc": "saves the dataframe, strategy, and plot in to the path",
+                "required": False,
+            },
+        },
     }
 }
