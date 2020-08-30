@@ -9,20 +9,16 @@ def analyze_df(df, strategy):
     last_aux = 0.0
     new_total_value = last_base
 
-    tics = []
-    for idx, row in df.iterrows():
+    aux_list = []
+    base_list = []
+    total_value_list = []
+    in_trade_list = []
+    fee_list = []
+
+    for row in df.itertuples():
         close = row.close
         curr_action = row.action
         fee = 0
-
-        tic = {
-            "date": idx,
-            "aux": "",
-            "base": "",
-            "total_value": "",
-            "in_trade": "",
-            "fee": "",
-        }
 
         if curr_action == "e" and not in_trade:
             # this means we should enter the trade
@@ -45,33 +41,40 @@ def analyze_df(df, strategy):
 
             in_trade = False
 
-        tic["aux"] = last_aux
-        tic["base"] = last_base
-        tic["total_value"] = new_total_value
-        tic["in_trade"] = in_trade
-        tic["fee"] = fee
-
-        tics.append(tic)
+        aux_list.append(last_aux)
+        base_list.append(last_base)
+        total_value_list.append(new_total_value)
+        in_trade_list.append(in_trade)
+        fee_list.append(fee)
 
     if strategy.get("exit_on_end") and in_trade:
         last_base = convert_aux_to_base(last_aux, close)
         last_aux = convert_base_to_aux(last_base, close)
 
-        new_tic = {
-            "date": idx + timedelta(minutes=1),
-            "base": last_base,
-            "total_value": last_base,
-            "in_trade": False,
-        }
-        tics.append(new_tic)
+        new_tic = pd.DataFrame(
+            {
+                "date": row.index.iloc[-1].dt + timedelta(minutes=1),
+                "base": last_base,
+                "total_value": last_base,
+                "in_trade": False,
+            },
+            index=["date"],
+        )
+        print(new_tic)
 
-    tics = pd.DataFrame.from_dict(tics).set_index("date")
+        df = df.append(new_tic)
 
-    df["aux"] = tics.aux
-    df["base"] = tics.base
-    df["total_value"] = tics.total_value
-    df["in_trade"] = tics.in_trade
-    df["fee"] = tics.fee
+        # aux_list.append(last_aux)
+        # base_list.append(last_base)
+        # total_value_list.append(new_total_value)
+        # in_trade_list.append(in_trade)
+        # fee_list.append(False)
+
+    df["aux"] = aux_list
+    df["base"] = base_list
+    df["total_value"] = total_value_list
+    df["in_trade"] = in_trade_list
+    df["fee"] = fee_list
 
     return df
 

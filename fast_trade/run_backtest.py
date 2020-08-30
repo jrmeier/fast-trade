@@ -139,8 +139,12 @@ def process_dataframe(df, strategy):
     Processes the frame and adds the resultant rows
     """
     # for idx, row in df.iterrows():
-    df["action"] = [determine_action(frame, strategy) for idx, frame in df.iterrows()]
+    print("processing the dataframe")
 
+    # df["action"] = [determine_action(frame, strategy) for frame in df.itertuples()]
+    df["action"] = df.apply(lambda frame: determine_action(frame, strategy), axis=1)
+
+    print("analyzing the dataframe")
     df = analyze_df(df, strategy)
 
     df["aux_perc_change"] = df["total_value"].pct_change() * 100

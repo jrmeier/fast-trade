@@ -6,7 +6,7 @@ import datetime
 from generate_strategy import generate_strategy
 
 strategy = {
-    "chart_period": "20m",
+    "chart_period": "1m",
     "enter": [["close", ">", "mid"]],
     "exit": [["close", "<", "short"]],
     "exit_on_end": False,
@@ -17,17 +17,18 @@ strategy = {
         {"args": [14], "df": "close", "func": "ta.zlema", "name": "mid"},
         {"args": [28], "df": "close", "func": "ta.zlema", "name": "long"},
     ],
-    "start": "2020-07-15",
+    # "start": "2020-07-15",
     "name": "generated",
 }
 
 if __name__ == "__main__":
     datafile = "./BTCUSDT.csv.txt"
 
-    strat = generate_strategy()
-    strat["start"] = "2020-07-15"
-    test = run_backtest(strat, ohlcv_path=datafile)
+    # strat = generate_strategy()
+    # strat["start"] = "2020-01-15"
+    test = run_backtest(strategy, ohlcv_path=datafile)
 
     df = test["df"]
 
     print(test["summary"])
+    print(df)

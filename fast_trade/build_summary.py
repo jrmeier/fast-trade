@@ -3,6 +3,7 @@ import numpy as np
 
 
 def build_summary(df, perf_start_time, strategy):
+    print("building the summary")
     # Not yet implimented
     # Exposure [%]                            94.29
     # Max. Drawdown [%]                      -33.61
@@ -24,6 +25,8 @@ def build_summary(df, perf_start_time, strategy):
         .first()
         .set_index("date")
     )
+
+    print("done making trade log")
 
     trade_time_held_series = trade_log.index.to_series().diff()
     mean_trade_time_held = trade_time_held_series.mean()
