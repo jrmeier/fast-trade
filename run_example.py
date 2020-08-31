@@ -10,7 +10,7 @@ strategy = {
     "enter": [["close", ">", "mid"]],
     "exit": [["close", "<", "short"]],
     "exit_on_end": False,
-    # "commission": 0.001,
+    "commission": 0.001,
     "id": "b25101fa-636d-4537-aa9c-b62bb9fd5c13",
     "indicators": [
         {"args": [12], "df": "close", "func": "ta.zlema", "name": "short"},
@@ -30,5 +30,5 @@ if __name__ == "__main__":
 
     df = test["df"]
 
-    print(test["summary"])
-    print(df)
+    # print(test["summary"])
+    print(df[df.fee == df["fee"].max()])

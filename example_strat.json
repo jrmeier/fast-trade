@@ -1,46 +1,13 @@
 {
-  "chart_period": "5m",
-  "enter": [
-    [
-      "close",
-      ">",
-      "mid"
-    ]
-  ],
-  "exit": [
-    [
-      "close",
-      "<",
-      "short"
-    ]
-  ],
+  "chart_period": "1m",
+  "enter": [["close", ">", "mid"]],
+  "exit": [["close", "<", "short"]],
   "exit_on_end": false,
   "id": "b25101fa-636d-4537-aa9c-b62bb9fd5c13",
   "indicators": [
-    {
-      "args": [
-        12
-      ],
-      "df": "close",
-      "func": "ta.zlema",
-      "name": "short"
-    },
-    {
-      "args": [
-        14
-      ],
-      "df": "close",
-      "func": "ta.zlema",
-      "name": "mid"
-    },
-    {
-      "args": [
-        28
-      ],
-      "df": "close",
-      "func": "ta.zlema",
-      "name": "long"
-    }
+    { "args": [12], "df": "close", "func": "ta.zlema", "name": "short" },
+    { "args": [14], "df": "close", "func": "ta.zlema", "name": "mid" },
+    { "args": [28], "df": "close", "func": "ta.zlema", "name": "long" }
   ],
   "name": "generated"
 }

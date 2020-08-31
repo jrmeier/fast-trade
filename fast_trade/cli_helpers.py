@@ -51,7 +51,7 @@ def create_plot(df):
     plot_df = pd.DataFrame(
         data={
             "Date": df.index,
-            "Portfolio_Value": df["smooth_base"],
+            "Portfolio_Value": df["total_value"],
             "Close": df["close"],
         }
     )

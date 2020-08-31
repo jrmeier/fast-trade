@@ -60,15 +60,14 @@ def analyze_df(df, strategy):
             },
             index=["date"],
         )
-        print(new_tic)
 
         df = df.append(new_tic)
 
-        # aux_list.append(last_aux)
-        # base_list.append(last_base)
-        # total_value_list.append(new_total_value)
-        # in_trade_list.append(in_trade)
-        # fee_list.append(False)
+        aux_list.append(last_aux)
+        base_list.append(last_base)
+        total_value_list.append(new_total_value)
+        in_trade_list.append(in_trade)
+        fee_list.append(False)
 
     df["aux"] = aux_list
     df["base"] = base_list

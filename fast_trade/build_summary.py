@@ -2,6 +2,19 @@ import datetime
 import numpy as np
 
 
+def create_trade_log(df):
+    trade_log = df.reset_index()
+    trade_log = (
+        trade_log.groupby(
+            (trade_log["in_trade"] != trade_log["in_trade"].shift()).cumsum()
+        )
+        .first()
+        .set_index("date")
+    )
+
+    return trade_log
+
+
 def build_summary(df, perf_start_time, strategy):
     print("building the summary")
     # Not yet implimented
@@ -15,18 +28,10 @@ def build_summary(df, perf_start_time, strategy):
     # Sharpe Ratio                             0.22
     # Sortino Ratio                            0.54
     # Calmar Ratio                             0.07
-    beg_balance = strategy.get("base_balance")
-
-    trade_log = df.reset_index()
-    trade_log = (
-        trade_log.groupby(
-            (trade_log["in_trade"] != trade_log["in_trade"].shift()).cumsum()
-        )
-        .first()
-        .set_index("date")
-    )
 
     print("done making trade log")
+
+    trade_log = create_trade_log(df)
 
     trade_time_held_series = trade_log.index.to_series().diff()
     mean_trade_time_held = trade_time_held_series.mean()
@@ -34,6 +39,10 @@ def build_summary(df, perf_start_time, strategy):
     min_trade_time_held = trade_time_held_series.min()
     median_time_held = trade_time_held_series.median()
 
+    print(trade_time_held_series["2020-07-07 21:07:01.208"].iloc)
+    print(
+        trade_time_held_series[trade_time_held_series == trade_time_held_series.min()]
+    )
     trade_perc_series = trade_log.replace([np.inf, -np.inf], np.nan)
 
     max_trade_perc = trade_perc_series.max().aux_perc_change * 100
@@ -58,9 +67,9 @@ def build_summary(df, perf_start_time, strategy):
         loss_perc = 0
 
     if trade_log.iloc[0].total_value and trade_log.iloc[-1].total_value:
-        return_perc = (
-            trade_log.iloc[0].total_value / trade_log.iloc[-1].total_value
-        ) * 100 - 100
+        return_perc = 100 - trade_log.iloc[0].total_value / (
+            trade_log.iloc[-1].total_value / 100
+        )
     else:
         return_perc = 0
 
@@ -71,11 +80,9 @@ def build_summary(df, perf_start_time, strategy):
     perf_stop_time = datetime.datetime.utcnow()
     start_date = df.index[0]
     end_date = df.index[-1]
+    loss_perc = (len(loss_trades) / total_trades) * 100
 
-    first_price = round(beg_balance / trade_log.iloc[0].close, 8)
-    last_price = round(beg_balance / trade_log.iloc[-1].close, 8)
-    buy_and_hold_perc = (abs(first_price / last_price) * 100 - 100) * 100
-
+    buy_and_hold_perc = 100 - df.iloc[0].close / (df.iloc[-1].close / 100)
     summary = {
         "return_perc": round(return_perc, 3),
         "buy_and_hold_perc": round(buy_and_hold_perc, 3),
