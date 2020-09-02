@@ -183,9 +183,8 @@ def process_dataframe(df, strategy):
     """
     # for idx, row in df.iterrows():
     print("processing the dataframe")
-
-    df["action"] = [determine_action(frame, strategy) for frame in df.itertuples()]
-    # df["action"] = df.apply(lambda frame: determine_action(frame, strategy), axis=1)
+    # df["action"] = [determine_action(frame, strategy) for frame in df.itertuples()]
+    df["action"] = df.apply(lambda frame: determine_action(frame, strategy), axis=1)
 
     print("analyzing the dataframe")
     df = analyze_df(df, strategy)

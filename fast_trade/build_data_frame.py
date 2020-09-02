@@ -50,7 +50,7 @@ def prepare_df(df: pd.DataFrame, strategy: dict):
 
     start_time = strategy.get("start")
     stop_time = strategy.get("stop")
-
+    # return df
     df = apply_charting_to_df(df, chart_period, start_time, stop_time)
 
     return df
@@ -71,14 +71,15 @@ def apply_charting_to_df(
         DataFrame, a sorted dataframe ready for consumption by run_backtest
     """
 
-    if df.index.name != "date":
-        df = df.set_index("date")
-
     if not isinstance(df.index, pd.DatetimeIndex):
         time_unit = detect_time_unit(df.iloc[-1].values[0])
         df.index = pd.to_datetime(df.index, unit=time_unit)
 
-    df = df.resample(chart_period)
+    df.index = pd.to_datetime(df.index)
+    df = df[~df.index.duplicated()]
+    df = df.resample(chart_period).first()
+
+    df = df[start_time:stop_time]
 
     if start_time and stop_time:
         df = df[start_time:stop_time]  # noqa
@@ -134,8 +135,9 @@ def load_basic_df_from_csv(csv_path: str):
     if not os.path.isfile(csv_path):
         raise Exception(f"File not found: {csv_path}")
 
-        df = pd.read_csv(csv_path, parse_dates=True)
-    df.set_index("date")
+    df = pd.read_csv(csv_path, parse_dates=True)
+
+    df = df.set_index("date")
 
     return df
 

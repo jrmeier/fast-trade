@@ -3,6 +3,12 @@ import numpy as np
 
 
 def create_trade_log(df):
+    """ Finds all the rows when a trade was entered or exited
+    
+    Parameters
+    ----------
+        df: dataframe, from 
+    """
     trade_log = df.reset_index()
     trade_log = (
         trade_log.groupby(
@@ -16,20 +22,12 @@ def create_trade_log(df):
 
 
 def build_summary(df, perf_start_time, strategy):
-    print("building the summary")
     # Not yet implimented
-    # Exposure [%]                            94.29
-    # Max. Drawdown [%]                      -33.61
-    # Avg. Drawdown [%]                       -5.68
-    # Max. Drawdown Duration      689 days 00:00:00
-    # Avg. Drawdown Duration       41 days 00:00:00
     # Expectancy [%]                           6.92
     # SQN                                      1.77
     # Sharpe Ratio                             0.22
     # Sortino Ratio                            0.54
     # Calmar Ratio                             0.07
-
-    print("done making trade log")
 
     trade_log = create_trade_log(df)
 
@@ -39,21 +37,17 @@ def build_summary(df, perf_start_time, strategy):
     min_trade_time_held = trade_time_held_series.min()
     median_time_held = trade_time_held_series.median()
 
-    print(trade_time_held_series["2020-07-07 21:07:01.208"].iloc)
-    print(
-        trade_time_held_series[trade_time_held_series == trade_time_held_series.min()]
-    )
     trade_perc_series = trade_log.replace([np.inf, -np.inf], np.nan)
 
-    max_trade_perc = trade_perc_series.max().aux_perc_change * 100
-    min_trade_perc = trade_perc_series.min().aux_perc_change * 100
-    mean_trade_perc = trade_perc_series.mean().aux_perc_change * 100
-    median_trade_perc = trade_perc_series.median().aux_perc_change * 100
+    max_trade_perc = trade_perc_series.max().aux_perc_change
+    min_trade_perc = trade_perc_series.min().aux_perc_change
+    mean_trade_perc = trade_perc_series.mean().aux_perc_change
+    median_trade_perc = trade_perc_series.median().aux_perc_change
 
     win_trades = trade_log[trade_log.aux_perc_change >= 0]
     loss_trades = trade_log[trade_log.aux_perc_change < 0]
 
-    total_trades = len(trade_log)
+    total_trades = len(trade_log.index)
 
     try:
         win_perc = (len(win_trades) / total_trades) * 100
@@ -73,16 +67,19 @@ def build_summary(df, perf_start_time, strategy):
     else:
         return_perc = 0
 
-    equity_peak = df["aux"].max()
+    equity_peak = df["total_value"].max()
 
-    equity_final = df.iloc[-1]["aux"]
+    equity_final = df.iloc[-1]["total_value"]
 
     perf_stop_time = datetime.datetime.utcnow()
     start_date = df.index[0]
     end_date = df.index[-1]
     loss_perc = (len(loss_trades) / total_trades) * 100
 
-    buy_and_hold_perc = 100 - df.iloc[0].close / (df.iloc[-1].close / 100)
+    first_close = df.iloc[0].close
+    last_close = df.iloc[-1].close
+
+    buy_and_hold_perc = (1 - (first_close / last_close)) * 100
     summary = {
         "return_perc": round(return_perc, 3),
         "buy_and_hold_perc": round(buy_and_hold_perc, 3),
