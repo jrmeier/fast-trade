@@ -4,13 +4,17 @@ import numpy as np
 
 def create_trade_log(df):
     """ Finds all the rows when a trade was entered or exited
-    
+
     Parameters
     ----------
-        df: dataframe, from 
+        df: dataframe, from process_dataframe
+
+    Returns
+    -------
+        trade_log_df: dataframe, of when transactions took place
     """
     trade_log = df.reset_index()
-    trade_log = (
+    trade_log_df = (
         trade_log.groupby(
             (trade_log["in_trade"] != trade_log["in_trade"].shift()).cumsum()
         )
@@ -18,7 +22,7 @@ def create_trade_log(df):
         .set_index("date")
     )
 
-    return trade_log
+    return trade_log_df
 
 
 def build_summary(df, perf_start_time, strategy):

@@ -6,6 +6,8 @@ MIN = 1
 HOUR = 60
 DAY = 1440
 
+DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+
 
 def build_data_frame(strategy: dict, csv_path: str):
     """ Creates a Pandas DataFame with the provided strategy. Used when providing a CSV as the datafile
@@ -78,8 +80,6 @@ def apply_charting_to_df(
     df.index = pd.to_datetime(df.index)
     df = df[~df.index.duplicated()]
     df = df.resample(chart_period).first()
-
-    df = df[start_time:stop_time]
 
     if start_time and stop_time:
         df = df[start_time:stop_time]  # noqa

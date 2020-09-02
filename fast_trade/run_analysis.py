@@ -2,7 +2,18 @@ import pandas as pd
 from datetime import timedelta
 
 
-def analyze_df(df, strategy):
+def analyze_df(df: pd.DataFrame, strategy: dict):
+    """ Analyzes the dataframe and runs sort of a market simulation, entering and exiting positions
+
+    Parameters
+    ----------
+        df, dataframe from process_dataframe after the actions have been added
+        strategy: dict, contains instructions on when to enter/exit trades
+
+    Returns
+    -------
+        df, returns a dataframe with the new rows processed
+    """
     in_trade = False
     last_base = float(strategy["base_balance"])
     commission = float(strategy["commission"])
@@ -78,21 +89,44 @@ def analyze_df(df, strategy):
     return df
 
 
-def convert_base_to_aux(last_base, close):
-    """ returns new aux balance """
+def convert_base_to_aux(last_base: float, close: float):
+    """ converts the base coin to the aux coin
+    Parameters
+    ----------
+        last_base, the last amount maintained by the strat
+        close, the closing price of the coin
+
+    Returns
+    -------
+        float, amount of the last base divided by the closing price
+    """
     if last_base:
         return round(last_base / close, 8)
+    return 0.0
 
 
-def convert_aux_to_base(last_aux, close):
-    """ returns new base balance """
+def convert_aux_to_base(last_aux: float, close: float):
+    """ converts the aux coin to the base coin
+    Parameters
+    ----------
+        last_base, the last amount maintained by the strat
+        close, the closing price of the coin
+    Returns
+    -------
+        float, amount of the last aux divided by the closing price
+    """
     if last_aux:
         return round(last_aux * close, 8)
     return 0.0
 
 
-def calculate_fee(price, commission):
-    """ determines the trading fees from the exchange """
+def calculate_fee(price: float, commission: float):
+    """ calculates the trading fees from the exchange
+    Parameters
+    ----------
+        price, amount of the coin after the transaction
+        commission, percentage of the transaction
+    """
     if commission:
         return round((price / 100) * commission, 8)
 

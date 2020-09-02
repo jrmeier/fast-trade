@@ -64,10 +64,11 @@ from fast_trade import run_backtest
 
 strategy = {
    "name": "example",
-   "chart_period": "1h",
+   "chart_period": "1H",
    "start": "",
    "stop": "",
    "exit_on_end": False,
+   "commission": 0.001,
    "enter": [
      [
        "close",
@@ -110,6 +111,7 @@ result = run_backtest(strategy, datafile_path)
 
 summary = result["summary"]
 df = result["df"]
+trade_log_df = result["trade_log]
 
 print(summary)
 print(df.head())

@@ -6,123 +6,17 @@ from .run_analysis import analyze_df
 from .build_summary import build_summary
 
 
-def take_action_tup(row, strategy):
+def run_backtest(strategy: dict, ohlcv_path: str = "", df: pd.DataFrame = None):
     """
-    Params:
-        row: data row to operate on
-        strategy: dictionary of logic and how to impliment it
-        columns: list of data points describing th row
-    Returns:
-        boolean, True if row meets the criteria of given strategy,
-        False if otherwise
-    """
-    results = []
-    row = row._asdict()
-    for each in strategy:
-        val0 = row[each[0]]
-        val1 = row[each[2]]
-        # val0 = (
-        #     each[0]
-        #     if isinstance(each[0], int) or isinstance(each[0], float)
-        #     else row[each[0]]
-        # )
-        # val1 = (
-        #     each[2]
-        #     if isinstance(each[2], int) or isinstance(each[2], float)
-        #     else row[each[2]]
-        # )
-
-        # # print("val0: ",val0)
-        # if isinstance(val0, pd.Series):
-        #     val0 = row[each[0]].values[0]
-
-        # if isinstance(val1, pd.Series):
-        #     val1 = row[each[2]].values[0]
-
-        if each[1] == ">":
-            results.append(bool(val0 > val1))
-        if each[1] == "<":
-            results.append(bool(val0 < val1))
-        if each[1] == "=":
-            results.append(bool(val0 == val1))
-        if each[1] == "!=":
-            results.append(bool(val0 != val1))
-
-    return all(results)
-
-
-def take_action(row, strategy):
-    """
-    Params:
-        row: data row to operate on
-        strategy: dictionary of logic and how to impliment it
-        columns: list of data points describing th row
-    Returns:
-        boolean, True if row meets the criteria of given strategy,
-        False if otherwise
-    """
-    results = []
-    for each in strategy:
-        val0 = (
-            each[0]
-            if isinstance(each[0], int) or isinstance(each[0], float)
-            else row[each[0]]
-        )
-        val1 = (
-            each[2]
-            if isinstance(each[2], int) or isinstance(each[2], float)
-            else row[each[2]]
-        )
-
-        # print("val0: ",val0)
-        if isinstance(val0, pd.Series):
-            val0 = row[each[0]].values[0]
-
-        if isinstance(val1, pd.Series):
-            val1 = row[each[2]].values[0]
-
-        if each[1] == ">":
-            results.append(bool(val0 > val1))
-        if each[1] == "<":
-            results.append(bool(val0 < val1))
-        if each[1] == "=":
-            results.append(bool(val0 == val1))
-        if each[1] == "!=":
-            results.append(bool(val0 != val1))
-
-    return all(results)
-
-
-def determine_action(frame, strategy):
-    """
-    Params:
-        frame: current row of the dataframe
-        strategy: object with the logic of how to trade
-        df_col_map: dictionary with the column name and index
-        of the dataframe
-    Returns:
-        string, "e" (enter), "x" (exit), "h" (hold) of what
-        the strategy would do
-    """
-
-    if take_action_tup(frame, strategy["enter"]):
-        return "e"
-
-    if take_action_tup(frame, strategy["exit"]):
-        return "x"
-
-    return "h"
-
-
-def run_backtest(strategy, ohlcv_path="", df=None):
-    """
-    Params:
+    Parameters
         strategy: dict, required, object containing the logic to test
         ohlcv_path: string or list, required, where to find the csv file of the ohlcv data
-        df
-    Returns: dictionary
-            summary is a dict summary of the performace of backtest
-            df is a pandas dataframe object used in the backtest
+        df: pandas dataframe indexed by date
+    Returns
+        dict
+            summary dict, summary of the performace of backtest
+            df dataframe, object used in the backtest
+            trade_log, dataframe of all the rows where transactions happened
     """
 
     start = datetime.datetime.utcnow()
@@ -149,10 +43,19 @@ def run_backtest(strategy, ohlcv_path="", df=None):
     return {"summary": summary, "df": df, "trade_log": trade_log, "strategy": strategy}
 
 
-def get_flagged_logiz(strategy):
+def get_flagged_logiz(strategy: dict):
+    """ removes logiz that need to be processed after the initial run
+
+    Parameters
+    ----------
+        strategy, dictionary of instructions
+
+    Returns
+    -------
+     tuple, flagged_enter, flagged_exit list of what to reprocess after the first process
+        strategy, dict, modified strategy object
     """
-    removes logiz that need to be processed after the initial run
-    """
+
     to_flag = ["aux_perc_change"]
     flagged_exit_idx = []
     flagged_enter_idx = []
@@ -177,19 +80,92 @@ def get_flagged_logiz(strategy):
     return flagged_enter, flagged_exit, strategy
 
 
-def process_dataframe(df, strategy):
+def process_dataframe(df: pd.DataFrame, strategy: dict):
+    """ Processes the frame and adds the resultent rows
+    Parameters
+    ----------
+        df, dataframe with all the calculated indicators
+        strategy, strategy object
+    
+    Returns
+    -------
+        df, dataframe with with all the actions and strategy processed
     """
-    Processes the frame and adds the resultant rows
-    """
-    # for idx, row in df.iterrows():
-    print("processing the dataframe")
-    # df["action"] = [determine_action(frame, strategy) for frame in df.itertuples()]
-    df["action"] = df.apply(lambda frame: determine_action(frame, strategy), axis=1)
+    df["action"] = [determine_action(frame, strategy) for frame in df.itertuples()]
 
-    print("analyzing the dataframe")
     df = analyze_df(df, strategy)
 
     df["aux_perc_change"] = df["total_value"].pct_change() * 100
     df["aux_change"] = df["total_value"].diff()
 
     return df
+
+
+def determine_action(frame: pd.DataFrame, strategy: dict):
+    """ processes the actions with the applied logic
+    Parameters
+    ----------
+        frame: current row of the dataframe
+        strategy: object with the logic of how to trade
+        df_col_map: dictionary with the column name and index
+        of the dataframe
+
+    Returns
+    -------
+        string, "e" (enter), "x" (exit), "h" (hold) of what
+        the strategy would do
+    """
+
+    if take_action(frame, strategy["enter"]):
+        return "e"
+
+    if take_action(frame, strategy["exit"]):
+        return "x"
+
+    return "h"
+
+
+def take_action(row, strategy):
+    """ determines whether to take action based on the logic in the strategy
+    Parameters
+    ----------
+        row: data row to operate on
+        strategy: dictionary of logic and how to impliment it
+
+    Returns
+    -------
+        boolean, True if row meets the criteria of given strategy,
+        False if otherwise
+    """
+    results = []
+    row = row._asdict()
+    for each in strategy:
+        val0 = row[each[0]]
+        val1 = row[each[2]]
+        val0 = (
+            each[0]
+            if isinstance(each[0], int) or isinstance(each[0], float)
+            else row[each[0]]
+        )
+        val1 = (
+            each[2]
+            if isinstance(each[2], int) or isinstance(each[2], float)
+            else row[each[2]]
+        )
+
+        if isinstance(val0, pd.Series):
+            val0 = row[each[0]].values[0]
+
+        if isinstance(val1, pd.Series):
+            val1 = row[each[2]].values[0]
+
+        if each[1] == ">":
+            results.append(bool(val0 > val1))
+        if each[1] == "<":
+            results.append(bool(val0 < val1))
+        if each[1] == "=":
+            results.append(bool(val0 == val1))
+        if each[1] == "!=":
+            results.append(bool(val0 != val1))
+
+    return all(results)
