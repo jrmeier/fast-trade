@@ -2,10 +2,6 @@ import pandas as pd
 from finta import TA
 import os
 
-MIN = 1
-HOUR = 60
-DAY = 1440
-
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
@@ -52,7 +48,6 @@ def prepare_df(df: pd.DataFrame, strategy: dict):
 
     start_time = strategy.get("start")
     stop_time = strategy.get("stop")
-    # return df
     df = apply_charting_to_df(df, chart_period, start_time, stop_time)
 
     return df

@@ -9,16 +9,6 @@ from fast_trade.build_data_frame import (
     apply_charting_to_df,
 )
 
-# import datetime
-# from fast_trade.build_data_frame import (
-#     detect_time_unit,
-#     determine_chart_period,
-#     load_basic_df_from_csv,
-#     apply_indicators_to_dataframe,
-#     apply_charting_to_df,
-# )
-# from unittest import mock, TestCase
-
 
 def test_detect_time_unit_s():
     mock_timestring = 1595115901734
