@@ -44,7 +44,7 @@ def prepare_df(df: pd.DataFrame, strategy: dict):
     indicators = strategy.get("indicators", [])
     df = apply_indicators_to_dataframe(df, indicators)
 
-    chart_period = strategy.get("chart_period", "1m")
+    chart_period = strategy.get("chart_period", "1Min")
 
     start_time = strategy.get("start")
     stop_time = strategy.get("stop")
