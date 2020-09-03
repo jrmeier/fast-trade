@@ -3,7 +3,7 @@ import numpy as np
 
 
 def create_trade_log(df):
-    """ Finds all the rows when a trade was entered or exited
+    """Finds all the rows when a trade was entered or exited
 
     Parameters
     ----------

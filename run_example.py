@@ -36,4 +36,3 @@ if __name__ == "__main__":
     # print(df[df.fee == df["fee"].max()])
 
     # print(test["trade_log"])
-

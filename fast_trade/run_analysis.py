@@ -3,7 +3,7 @@ from datetime import timedelta
 
 
 def analyze_df(df: pd.DataFrame, strategy: dict):
-    """ Analyzes the dataframe and runs sort of a market simulation, entering and exiting positions
+    """Analyzes the dataframe and runs sort of a market simulation, entering and exiting positions
 
     Parameters
     ----------
@@ -61,18 +61,9 @@ def analyze_df(df: pd.DataFrame, strategy: dict):
     if strategy.get("exit_on_end") and in_trade:
         last_base = convert_aux_to_base(last_aux, close)
         last_aux = convert_base_to_aux(last_base, close)
+        new_date = df.index[-1] + timedelta(minutes=1)
 
-        new_tic = pd.DataFrame(
-            {
-                "date": row.index.iloc[-1].dt + timedelta(minutes=1),
-                "base": last_base,
-                "total_value": last_base,
-                "in_trade": False,
-            },
-            index=["date"],
-        )
-
-        df = df.append(new_tic)
+        df = df.append(pd.DataFrame(index=[new_date]))
 
         aux_list.append(last_aux)
         base_list.append(last_base)
@@ -90,7 +81,7 @@ def analyze_df(df: pd.DataFrame, strategy: dict):
 
 
 def convert_base_to_aux(last_base: float, close: float):
-    """ converts the base coin to the aux coin
+    """converts the base coin to the aux coin
     Parameters
     ----------
         last_base, the last amount maintained by the strat
@@ -106,7 +97,7 @@ def convert_base_to_aux(last_base: float, close: float):
 
 
 def convert_aux_to_base(last_aux: float, close: float):
-    """ converts the aux coin to the base coin
+    """converts the aux coin to the base coin
     Parameters
     ----------
         last_base, the last amount maintained by the strat
@@ -121,7 +112,7 @@ def convert_aux_to_base(last_aux: float, close: float):
 
 
 def calculate_fee(price: float, commission: float):
-    """ calculates the trading fees from the exchange
+    """calculates the trading fees from the exchange
     Parameters
     ----------
         price, amount of the coin after the transaction

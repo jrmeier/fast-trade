@@ -33,7 +33,6 @@ def generate_strategy():
     func = random.choice(funcs)
 
     # strategy = Strategy()
-    name = "generated"
 
     df_columns = ["close", "volume"]
     # operator = [">", "<", "="]

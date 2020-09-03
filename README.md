@@ -14,7 +14,7 @@ Strategies are cheap. This is the main motivation behind fast-trade. Since a str
 
 ## Indicators
 
-Available Indicators (https://github.com/peerchemist/finta)
+Available Indicators [FinTA](https://github.com/peerchemist/finta)
 
 Custom indicators can be added by setting a function name in the [indicator_map](https://github.com/jrmeier/fast-trade/blob/master/fast_trade/build_data_frame.py#L141), then setting that equal to a function that takes in a dataframe as the first argument and whatever arguments passed in.
 
@@ -164,23 +164,22 @@ Example output:
       "mean_trade_len": 147445.013888888, # mean trade length, in seconds
       "max_trade_held": 619920.0, # longest trade held length, in seconds
       "min_trade_len": 28799.0, # shortest trade held length, in seconds
-      "best_trade_perc": 13.611,
-      "min_trade_perc": -18.355,
-      "mean_trade_perc": 0.083,
-      "num_trades": 73,
-      "win_perc": 58.904,
-      "loss_perc": 39.726,
-      "equity_peak": 1117.3126272,
-      "equity_final": 935.2209955,
-      "equity_peak_unit": 1117.3126272,
-      "first_tic": "2018-01-01 01:48:01",
-      "last_tic": "2018-05-03 22:43:02",
-      "total_tics": 720,
-      "test_duration": 0.420136
+      "best_trade_perc": 13.611, # highest trade percent
+      "min_trade_perc": -18.355, # lowest trade percent
+      "mean_trade_perc": 0.083, # mean trade percentage
+      "num_trades": 73, # number of trade
+      "win_perc": 58.904, # amount of winning trade percentages
+      "loss_perc": 39.726, # amount of losing trade percentages
+      "equity_peak": 1117.3126272, # most amount of equity
+      "equity_final": 935.2209955, # ending amount of equity
+      "first_tic": "2018-01-01 01:48:01", # first tic date in the backtest
+      "last_tic": "2018-05-03 22:43:02", # last tic date in the backtest
+      "total_tics": 720, # total number of dates
+      "test_duration": 0.420136 # amount of time test took
     },
-    "df": DataFrame(...),
-    "trade_df": DateFrame(...),
-    "strategy": {...},
+    "df": DataFrame(...), # dataframe used in the backtest
+    "trade_df": DateFrame(...), # a subset of the main dataframe only containing the rows with trades
+    "strategy": {...}, # the strategy object
 }
 ```
 

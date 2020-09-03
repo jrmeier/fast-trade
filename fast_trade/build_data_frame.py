@@ -10,7 +10,7 @@ DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
 def build_data_frame(strategy: dict, csv_path: str):
-    """ Creates a Pandas DataFame with the provided strategy. Used when providing a CSV as the datafile
+    """Creates a Pandas DataFame with the provided strategy. Used when providing a CSV as the datafile
 
     Parameters
     ----------
@@ -32,7 +32,7 @@ def build_data_frame(strategy: dict, csv_path: str):
 
 
 def prepare_df(df: pd.DataFrame, strategy: dict):
-    """ Prepares the provided dataframe for a backtest by applying the indicators and splicing based on the given strategy.
+    """Prepares the provided dataframe for a backtest by applying the indicators and splicing based on the given strategy.
         Useful when loading an existing dataframe (ex. from a cache).
 
     Parameters
@@ -61,7 +61,7 @@ def prepare_df(df: pd.DataFrame, strategy: dict):
 def apply_charting_to_df(
     df: pd.DataFrame, chart_period: str, start_time: str, stop_time: str
 ):
-    """ Modifies the dataframe based on the chart_period, start dates and end dates
+    """Modifies the dataframe based on the chart_period, start dates and end dates
     Parameters
     ----------
         df: dataframe with data loaded
@@ -92,7 +92,7 @@ def apply_charting_to_df(
 
 
 def apply_indicators_to_dataframe(df: pd.DataFrame, indicators: list):
-    """ Applies indications from the strategy to the dataframe
+    """Applies indications from the strategy to the dataframe
     Parameters
     ----------
         df: dataframe loaded with data
@@ -123,7 +123,7 @@ def apply_indicators_to_dataframe(df: pd.DataFrame, indicators: list):
 
 
 def load_basic_df_from_csv(csv_path: str):
-    """ Loads a dataframe from a csv
+    """Loads a dataframe from a csv
     Parameters
     ----------
         csv_path: string, path to the csv so it can be read
@@ -143,7 +143,7 @@ def load_basic_df_from_csv(csv_path: str):
 
 
 def detect_time_unit(timestamp: int):
-    """ Detects whether the timestamp is in seconds or milliseconds
+    """Detects whether the timestamp is in seconds or milliseconds
 
     Parameters
         timestamp, usually a np.int64

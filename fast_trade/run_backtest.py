@@ -40,11 +40,11 @@ def run_backtest(strategy: dict, ohlcv_path: str = "", df: pd.DataFrame = None):
 
     summary, trade_log = build_summary(df, start, strategy)
 
-    return {"summary": summary, "df": df, "trade_log": trade_log, "strategy": strategy}
+    return {"summary": summary, "df": df, "trade_df": trade_log, "strategy": strategy}
 
 
 def get_flagged_logiz(strategy: dict):
-    """ removes logiz that need to be processed after the initial run
+    """removes logiz that need to be processed after the initial run
 
     Parameters
     ----------
@@ -81,12 +81,12 @@ def get_flagged_logiz(strategy: dict):
 
 
 def process_dataframe(df: pd.DataFrame, strategy: dict):
-    """ Processes the frame and adds the resultent rows
+    """Processes the frame and adds the resultent rows
     Parameters
     ----------
         df, dataframe with all the calculated indicators
         strategy, strategy object
-    
+
     Returns
     -------
         df, dataframe with with all the actions and strategy processed
@@ -102,7 +102,7 @@ def process_dataframe(df: pd.DataFrame, strategy: dict):
 
 
 def determine_action(frame: pd.DataFrame, strategy: dict):
-    """ processes the actions with the applied logic
+    """processes the actions with the applied logic
     Parameters
     ----------
         frame: current row of the dataframe
@@ -126,7 +126,7 @@ def determine_action(frame: pd.DataFrame, strategy: dict):
 
 
 def take_action(row, strategy):
-    """ determines whether to take action based on the logic in the strategy
+    """determines whether to take action based on the logic in the strategy
     Parameters
     ----------
         row: data row to operate on
@@ -140,8 +140,6 @@ def take_action(row, strategy):
     results = []
     row = row._asdict()
     for each in strategy:
-        val0 = row[each[0]]
-        val1 = row[each[2]]
         val0 = (
             each[0]
             if isinstance(each[0], int) or isinstance(each[0], float)
