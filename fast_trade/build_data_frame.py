@@ -2,30 +2,24 @@ import pandas as pd
 from finta import TA
 import os
 
-MIN = 1
-HOUR = 60
-DAY = 1440
+DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
-def build_data_frame(strategy, ohlcv_path):
+def build_data_frame(strategy: dict, csv_path: str):
+    """Creates a Pandas DataFame with the provided strategy. Used when providing a CSV as the datafile
+
+    Parameters
+    ----------
+    strategy: dict, provides instructions on how to build the dataframe
+    csv_path: string, absolute path of where to find the data file
+
+    Returns
+    -------
+    object, A Pandas DataFrame indexed buy date
     """
-    Params:
-        ohlcv_path: string, absolute path of where to find the data file
-        strategy: dict, assembles and calulates all the data, designed by user
-    """
-    df = load_basic_df_from_csv(ohlcv_path)
+    df = load_basic_df_from_csv(csv_path)
 
-    indicators = strategy.get("indicators", [])
-
-    df = apply_indicators_to_dataframe(df, indicators)
-
-    s_chart_period = strategy.get("chart_period", 1)
-    chart_period = determine_chart_period(s_chart_period)
-
-    start_time = strategy.get("start")
-    stop_time = strategy.get("stop")
-
-    df = apply_charting_to_df(df, chart_period, start_time, stop_time)
+    df = prepare_df(df, strategy)
 
     if df.empty:
         raise Exception("Dataframe is empty. Check the start and end dates")
@@ -33,38 +27,89 @@ def build_data_frame(strategy, ohlcv_path):
     return df
 
 
-def apply_charting_to_df(df, chart_period, start_time, stop_time):
+def prepare_df(df: pd.DataFrame, strategy: dict):
+    """Prepares the provided dataframe for a backtest by applying the indicators and splicing based on the given strategy.
+        Useful when loading an existing dataframe (ex. from a cache).
+
+    Parameters
+    ----------
+        df: DataFrame, should have all the open, high, low, close, volume data set as headers and indexed by date
+        strategy: dict, provides instructions on how to build the dataframe
+
+    Returns
+    ------
+        df: DataFrame, with all the indicators as column headers and trimmed to the provided time frames
     """
-    Args
+
+    indicators = strategy.get("indicators", [])
+    df = apply_indicators_to_dataframe(df, indicators)
+
+    chart_period = strategy.get("chart_period", "1Min")
+
+    start_time = strategy.get("start")
+    stop_time = strategy.get("stop")
+    df = apply_charting_to_df(df, chart_period, start_time, stop_time)
+
+    return df
+
+
+def apply_charting_to_df(
+    df: pd.DataFrame, chart_period: str, start_time: str, stop_time: str
+):
+    """Modifies the dataframe based on the chart_period, start dates and end dates
+    Parameters
+    ----------
         df: dataframe with data loaded
-    Returns:
-        a sorted dataframe with the appropriate time frames
+        chart_period: string, describes how often to sample data, default is '1M' (1 minute)
+            see https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#dateoffset-objects
+        start_time: datestring in YYYY-MM-DD HH:MM (ex. 2020-08-31 04:00) of when to begin the backtest
+        stop_time: datestring of YYYY-MM-DD HH:MM when to stop the backtest
+    Returns
+        DataFrame, a sorted dataframe ready for consumption by run_backtest
     """
 
-    # print("hmm:", df.index[0])
-    time_unit = detect_time_unit(df.index[0])
+    if not isinstance(df.index, pd.DatetimeIndex):
+        time_unit = detect_time_unit(df.iloc[-1].values[0])
+        df.index = pd.to_datetime(df.index, unit=time_unit)
 
-    df["datetime"] = pd.to_datetime(df.index, unit=time_unit)
-    df.set_index(["datetime"], inplace=True)
-
-    df = df.iloc[::chart_period, :]
+    df.index = pd.to_datetime(df.index)
+    df = df[~df.index.duplicated()]
+    df = df.resample(chart_period).first()
 
     if start_time and stop_time:
         df = df[start_time:stop_time]  # noqa
     elif start_time and not stop_time:
         df = df[start_time:]  # noqa
     elif not start_time and stop_time:
-        df = df[:stop_time]  # noqa
+        df = df[:stop_time]
 
     return df
 
 
-def apply_indicators_to_dataframe(df, indicators):
+def apply_indicators_to_dataframe(df: pd.DataFrame, indicators: list):
+    """Applies indications from the strategy to the dataframe
+    Parameters
+    ----------
+        df: dataframe loaded with data
+        indicators: list of indictors as dictionary objects
+
+        Indicator detail:
+        {
+            "func": "", string, actual function to be called MUST be in the indicator_map
+            "name": "", string, name of the indicator, becomes a column on the dataframe
+            "args": [], list arguments to pass the the function
+            "df": string, the name of the dataframe column to be used
+        }
+
+    Returns
+    -------
+        df, a modified dataframe with all the indicators calculated as columns
+    """
     for ind in indicators:
         func = ind.get("func")
         field_name = ind.get("name")
         if ind.get("args"):
-            args = ind.get("args", [])
+            args = ind.get("args")
             df[field_name] = indicator_map[func](df, *args)
         else:
             df[field_name] = indicator_map[func](df)
@@ -72,65 +117,33 @@ def apply_indicators_to_dataframe(df, indicators):
     return df
 
 
-def load_basic_df_from_csv(ohlcv_path):
+def load_basic_df_from_csv(csv_path: str):
+    """Loads a dataframe from a csv
+    Parameters
+    ----------
+        csv_path: string, path to the csv so it can be read
+
+    Returns
+        df, A basic dataframe with the data from the csv
     """
-    ohlcv_path: string or list of file paths
-    """
-    if type(ohlcv_path) == str:
-        if not os.path.isfile(ohlcv_path):
-            raise Exception(f"File not found: {ohlcv_path}")
 
-        df = pd.read_csv(ohlcv_path, parse_dates=True)
+    if not os.path.isfile(csv_path):
+        raise Exception(f"File not found: {csv_path}")
 
-    if type(ohlcv_path) == list:
-        for idx, new_file_path in enumerate(ohlcv_path):
-            if not os.path.isfile(new_file_path):
-                raise Exception(f"File not found: {new_file_path}")
+    df = pd.read_csv(csv_path, parse_dates=True)
 
-            if idx == 0:
-                df = pd.read_csv(new_file_path, parse_dates=True)
-            else:
+    df = df.set_index("date")
 
-                df = df.merge(pd.read_csv(new_file_path, parse_dates=True))
-
-    df.set_index(["date"], inplace=True)
     return df
 
 
-def determine_chart_period(chart_period):
-    multiplyer = MIN
+def detect_time_unit(timestamp: int):
+    """Detects whether the timestamp is in seconds or milliseconds
 
-    chart_period = str(chart_period)
-
-    if chart_period.isnumeric():
-        clean_chart_period = int(chart_period)
-
-    clean_chart_period = chart_period
-    if type(chart_period) == str:
-        if "m" in chart_period:
-            multiplyer = MIN
-            replace_char = "m"
-
-        if "h" in chart_period:
-            multiplyer = HOUR
-            replace_char = "h"
-
-        if "d" in chart_period:
-            replace_char = "d"
-            multiplyer = DAY
-        if not chart_period.isnumeric():
-            clean_chart_period = int(chart_period.replace(replace_char, ""))
-        else:
-            clean_chart_period = int(chart_period)
-
-    return int(clean_chart_period * multiplyer)
-
-
-def detect_time_unit(timestamp):
-    """
-    Params:
+    Parameters
         timestamp, usually a np.int64
-    Returns: string of "s" if the string is 10 characters long, "ms" if otherwise
+    Returns
+        string
     """
     if len(str(timestamp)) == 10:
         return "s"
@@ -138,6 +151,10 @@ def detect_time_unit(timestamp):
     return "ms"
 
 
+"""
+These are all the indicators the can be used in a strategy as a "func".
+Any function can be implimented as an indicator.
+"""
 indicator_map = {
     "ta.sma": TA.SMA,
     "ta.smm": TA.SMM,
@@ -214,5 +231,5 @@ indicator_map = {
     "ta.fve": TA.FVE,
     "ta.vfi": TA.VFI,
     "ta.msd": TA.MSD,
-    "ta.wto": TA.WTO,
+    # "ta.wto": TA.WTO, needs a helper function
 }
