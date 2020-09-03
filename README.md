@@ -199,12 +199,12 @@ Strategies include all the instructions needed to run the backtest minus the dat
   - description: a string for quick reference of the strategy
 - chart_period:
   - string, optional
-  - default: `"1m"`
-  - description: a charting period string. Any number can be in the front, only `m` (minute),`h` (hour), `d` (day) are accepted. This value is turned into the minutes equivelent (1h = 60 minutes) and is based data granularity of 1 minute.
+  - default: `"1Min"`
+  - description: a charting period string. See [here](https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#dateoffset-objects) for allowed strings.
   - Ex.
-    - "1m" is 1 minute
-    - "2h" is 2 hours
-    - "5d" is 5 days
+    - "1Min" is 1 minute
+    - "2H" is 2 hours
+    - "5D" is 5 days
 - start: string
 
   - optional,
