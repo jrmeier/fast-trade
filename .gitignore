@@ -12,3 +12,5 @@ dist/
 *.egg-info
 saved_backtests/*
 gi_*
+.pypirc
+
