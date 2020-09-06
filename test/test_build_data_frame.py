@@ -29,7 +29,7 @@ def test_load_basic_df_from_csv_str_1():
 
     result_df = load_basic_df_from_csv(mock_ohlcv_path)
     header = list(result_df.head())
-
+    print(header)
     assert "close" in header
     assert "open" in header
     assert "high" in header

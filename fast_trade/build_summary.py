@@ -13,16 +13,17 @@ def create_trade_log(df):
     -------
         trade_log_df: dataframe, of when transactions took place
     """
-    trade_log = df.reset_index()
-    trade_log_df = (
-        trade_log.groupby(
-            (trade_log["in_trade"] != trade_log["in_trade"].shift()).cumsum()
-        )
-        .first()
-        .set_index("date")
-    )
 
-    return trade_log_df
+    trade_log = df.reset_index()
+    trade_log = trade_log.groupby(
+        (trade_log["in_trade"] != trade_log["in_trade"].shift()).cumsum()
+    ).first()
+    if "date" in trade_log.columns:
+        trade_log = trade_log.set_index("date")
+    else:
+        trade_log = trade_log.set_index("index")
+
+    return trade_log
 
 
 def build_summary(df, perf_start_time, strategy):
@@ -98,8 +99,8 @@ def build_summary(df, perf_start_time, strategy):
         "num_trades": total_trades,
         "win_perc": round(win_perc, 3),
         "loss_perc": round(loss_perc, 3),
-        "equity_peak": float(equity_peak),
-        "equity_final": float(equity_final),
+        "equity_peak": round(float(equity_peak), 3),
+        "equity_final": round(float(equity_final), 3),
         "first_tic": start_date.strftime("%Y-%m-%d %H:%M:%S"),
         "last_tic": end_date.strftime("%Y-%m-%d %H:%M:%S"),
         "total_tics": len(df.index),

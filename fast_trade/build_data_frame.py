@@ -27,6 +27,28 @@ def build_data_frame(strategy: dict, csv_path: str):
     return df
 
 
+def load_basic_df_from_csv(csv_path: str):
+    """Loads a dataframe from a csv
+    Parameters
+    ----------
+        csv_path: string, path to the csv so it can be read
+
+    Returns
+        df, A basic dataframe with the data from the csv
+    """
+
+    if not os.path.isfile(csv_path):
+        raise Exception(f"File not found: {csv_path}")
+    cols = [0, 1, 2, 3, 4, 5]
+    df = pd.read_csv(csv_path, parse_dates=True, usecols=cols)
+    df = df.set_index("date")
+    df = df.drop_duplicates()
+    time_unit = detect_time_unit(df.iloc[0].values[0])
+    df.index = pd.to_datetime(df.index, unit=time_unit)
+
+    return df
+
+
 def prepare_df(df: pd.DataFrame, strategy: dict):
     """Prepares the provided dataframe for a backtest by applying the indicators and splicing based on the given strategy.
         Useful when loading an existing dataframe (ex. from a cache).
@@ -53,6 +75,27 @@ def prepare_df(df: pd.DataFrame, strategy: dict):
     return df
 
 
+def add_freq(idx, freq=None):
+    """Add a frequency attribute to idx, through inference or directly.
+
+    Returns a copy.  If `freq` is None, it is inferred.
+    """
+
+    idx = idx.copy()
+    if freq is None:
+        if idx.freq is None:
+            freq = pd.infer_freq(idx)
+        else:
+            return idx
+    idx.freq = pd.tseries.frequencies.to_offset(freq)
+    if idx.freq is None:
+        raise AttributeError(
+            "no discernible frequency found to `idx`.  Specify"
+            " a frequency string with `freq`."
+        )
+    return idx
+
+
 def apply_charting_to_df(
     df: pd.DataFrame, chart_period: str, start_time: str, stop_time: str
 ):
@@ -71,9 +114,9 @@ def apply_charting_to_df(
     if not isinstance(df.index, pd.DatetimeIndex):
         time_unit = detect_time_unit(df.iloc[-1].values[0])
         df.index = pd.to_datetime(df.index, unit=time_unit)
+    else:
+        df.index = pd.to_datetime(df.index)
 
-    df.index = pd.to_datetime(df.index)
-    df = df[~df.index.duplicated()]
     df = df.resample(chart_period).first()
 
     if start_time and stop_time:
@@ -113,26 +156,6 @@ def apply_indicators_to_dataframe(df: pd.DataFrame, indicators: list):
             df[field_name] = indicator_map[func](df, *args)
         else:
             df[field_name] = indicator_map[func](df)
-
-    return df
-
-
-def load_basic_df_from_csv(csv_path: str):
-    """Loads a dataframe from a csv
-    Parameters
-    ----------
-        csv_path: string, path to the csv so it can be read
-
-    Returns
-        df, A basic dataframe with the data from the csv
-    """
-
-    if not os.path.isfile(csv_path):
-        raise Exception(f"File not found: {csv_path}")
-
-    df = pd.read_csv(csv_path, parse_dates=True)
-
-    df = df.set_index("date")
 
     return df
 

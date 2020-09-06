@@ -23,7 +23,6 @@ def run_backtest(strategy: dict, ohlcv_path: str = "", df: pd.DataFrame = None):
 
     if ohlcv_path:
         df = build_data_frame(strategy, ohlcv_path)
-
     flagged_enter, flagged_exit, strategy = get_flagged_logiz(strategy)
 
     strategy["base_balance"] = strategy.get("base_balance", 1000)
