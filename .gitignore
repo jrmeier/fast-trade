@@ -7,7 +7,6 @@ logs/
 .DS_Store
 .coverage
 *.ipynb_checkpoints
-.pypirc
 build/
 dist/
 *.egg-info

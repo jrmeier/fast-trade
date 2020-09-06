@@ -7,7 +7,7 @@ README = (HERE / "README.md").read_text()
 
 setup(
     name="fast-trade",
-    version="0.1.6",
+    version="0.1.6.1",
     description="Automate and backtest on ohlcv data quickly",
     long_description=README,
     long_description_content_type="text/markdown",
@@ -29,8 +29,12 @@ setup(
     python_requires=">=3",
     entry_points={"console_scripts": ["ft = fast_trade.cli:main"]},
     classifiers=[
-        "License :: OSI Approved :: MIT License",
-        "Programming Language :: Python :: 3.7",
+        "Development Status :: 3 - Alpha",
+        "Intended Audience :: Financial and Insurance Industry",
+        "Programming Language :: Python",
+        "Operating System :: OS Independent",
+        "Natural Language :: English",
+        "License :: MIT",
     ],
     packages=find_packages(include=["fast_trade"]),
     include_package_data=True,
