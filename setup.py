@@ -31,10 +31,10 @@ setup(
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Financial and Insurance Industry",
-        "Programming Language :: Python",
+        "Programming Language :: Python :: 3.8",
         "Operating System :: OS Independent",
         "Natural Language :: English",
-        "License :: MIT",
+        "License :: OSI Approved :: MIT License",
     ],
     packages=find_packages(include=["fast_trade"]),
     include_package_data=True,
