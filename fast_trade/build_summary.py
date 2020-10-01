@@ -1,5 +1,6 @@
 import datetime
 import numpy as np
+import math
 
 
 def create_trade_log(df):
@@ -84,7 +85,11 @@ def build_summary(df, perf_start_time, strategy):
     first_close = df.iloc[0].close
     last_close = df.iloc[-1].close
 
+    if math.isnan(last_close):
+        last_close = df.iloc[-2].close
+
     buy_and_hold_perc = (1 - (first_close / last_close)) * 100
+
     summary = {
         "return_perc": round(return_perc, 3),
         "buy_and_hold_perc": round(buy_and_hold_perc, 3),
