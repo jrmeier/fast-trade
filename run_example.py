@@ -3,7 +3,7 @@ from fast_trade import run_backtest
 from fast_trade.cli_helpers import save
 
 strategy = {
-    "chart_period": "15T",
+    "chart_period": "2H",
     "enter": [["close", ">", "mid"]],
     "exit": [["close", "<", "short"]],
     "exit_on_end": True,

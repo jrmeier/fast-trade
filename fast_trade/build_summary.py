@@ -90,6 +90,13 @@ def build_summary(df, perf_start_time, strategy):
 
     buy_and_hold_perc = (1 - (first_close / last_close)) * 100
 
+    # Sharpe_Ratio = portf_val[‘Daily Return’].mean() / portf_val[‘Daily Return’].std()
+    if return_perc:
+        sharpe_ratio = (
+            trade_perc_series.aux_change.mean() / trade_perc_series.aux_change.std()
+        )
+        print("sharpe ratio: ", sharpe_ratio)
+
     summary = {
         "return_perc": round(return_perc, 3),
         "buy_and_hold_perc": round(buy_and_hold_perc, 3),
