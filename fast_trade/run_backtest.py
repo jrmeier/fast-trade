@@ -29,13 +29,13 @@ def run_backtest(strategy: dict, ohlcv_path: str = "", df: pd.DataFrame = None):
     strategy["exit_on_end"] = strategy.get("exit_on_end", True)
     strategy["commission"] = strategy.get("commission", 0)
 
-    df = process_dataframe(df, strategy)
+    df = apply_strategy_to_dataframe(df, strategy)
 
     if flagged_enter or flagged_exit:
         strategy["enter"].extend(flagged_enter)
         strategy["exit"].extend(flagged_exit)
 
-        df = process_dataframe(df, strategy)
+        df = apply_strategy_to_dataframe(df, strategy)
 
     summary, trade_log = build_summary(df, start, strategy)
 
@@ -79,7 +79,7 @@ def get_flagged_logiz(strategy: dict):
     return flagged_enter, flagged_exit, strategy
 
 
-def process_dataframe(df: pd.DataFrame, strategy: dict):
+def apply_strategy_to_dataframe(df: pd.DataFrame, strategy: dict):
     """Processes the frame and adds the resultent rows
     Parameters
     ----------

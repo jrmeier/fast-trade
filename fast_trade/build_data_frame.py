@@ -1,8 +1,7 @@
 import pandas as pd
 from finta import TA
 import os
-
-DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+import re
 
 
 def build_data_frame(strategy: dict, csv_path: str):
@@ -39,12 +38,9 @@ def load_basic_df_from_csv(csv_path: str):
 
     if not os.path.isfile(csv_path):
         raise Exception(f"File not found: {csv_path}")
-    cols = [0, 1, 2, 3, 4, 5]
-    df = pd.read_csv(csv_path, parse_dates=True, usecols=cols)
-    df = df.set_index("date")
-    df = df.drop_duplicates()
-    time_unit = detect_time_unit(df.iloc[0].values[0])
-    df.index = pd.to_datetime(df.index, unit=time_unit)
+
+    df = pd.read_csv(csv_path, header=0)
+    df = standardize_df(df)
 
     return df
 
@@ -73,27 +69,6 @@ def prepare_df(df: pd.DataFrame, strategy: dict):
     df = apply_charting_to_df(df, chart_period, start_time, stop_time)
 
     return df
-
-
-def add_freq(idx, freq=None):
-    """Add a frequency attribute to idx, through inference or directly.
-
-    Returns a copy.  If `freq` is None, it is inferred.
-    """
-
-    idx = idx.copy()
-    if freq is None:
-        if idx.freq is None:
-            freq = pd.infer_freq(idx)
-        else:
-            return idx
-    idx.freq = pd.tseries.frequencies.to_offset(freq)
-    if idx.freq is None:
-        raise AttributeError(
-            "no discernible frequency found to `idx`.  Specify"
-            " a frequency string with `freq`."
-        )
-    return idx
 
 
 def apply_charting_to_df(
@@ -160,18 +135,68 @@ def apply_indicators_to_dataframe(df: pd.DataFrame, indicators: list):
     return df
 
 
-def detect_time_unit(timestamp: int):
-    """Detects whether the timestamp is in seconds or milliseconds
-
+def detect_time_unit(str_or_int: str or int):
+    """Determines a if a timestamp is really a timestamp and if it
+    matches is in seconds or milliseconds
     Parameters
-        timestamp, usually a np.int64
-    Returns
-        string
-    """
-    if len(str(timestamp)) == 10:
-        return "s"
+    ----------
+        str_or_int: string or int of the timestamp to detect against
 
-    return "ms"
+    Returns
+    -------
+        string of "s" or "ms", or None if nothing detected
+    """
+    str_or_int = str(str_or_int)
+    regex1 = r"^(\d{10})$"
+    regex2 = r"^(\d{13})$"
+
+    if re.match(regex1, str_or_int):
+        return "s"
+    if re.match(regex2, str_or_int):
+        return "ms"
+
+
+def standardize_df(df: pd.DataFrame):
+    """Standardizes a dataframe with the basic features used
+    throughout the project.
+    Parameters
+    ----------
+        df: A pandas dataframe (probably one just created) with
+    at least the required columns of: date, open, close, high, low, volume.
+
+    Returns
+    -------
+        A new pandas dataframe of with all the data in the expected types.
+    """
+    new_df = df.copy()
+
+    if "date" in new_df.columns:
+        new_df = new_df.set_index("date")
+
+    ts = str(new_df.index[0])
+
+    time_unit = detect_time_unit(ts)
+
+    new_df.index = pd.to_datetime(new_df.index, unit=time_unit)
+    new_df = new_df[~new_df.index.duplicated(keep="first")]
+    new_df = new_df.sort_index()
+
+    columns_to_drop = []
+    if "ignore" in list(new_df.columns):
+        columns_to_drop.append("ignore")
+
+    if "date" in list(new_df.columns):
+        columns_to_drop.append("date")
+
+    new_df.drop(columns=columns_to_drop)
+
+    new_df.open = pd.to_numeric(new_df.open)
+    new_df.close = pd.to_numeric(new_df.close)
+    new_df.high = pd.to_numeric(new_df.high)
+    new_df.low = pd.to_numeric(new_df.low)
+    new_df.volume = pd.to_numeric(new_df.volume)
+
+    return new_df
 
 
 """
