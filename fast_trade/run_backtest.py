@@ -6,10 +6,12 @@ from .run_analysis import analyze_df
 from .build_summary import build_summary
 
 
-def run_backtest(strategy: dict, ohlcv_path: str = "", df: pd.DataFrame = None):
+def run_backtest(
+    strategy: dict, ohlcv_path: str = "", df: pd.DataFrame = None, summary=True
+):
     """
     Parameters
-        strategy: dict, required, object containing the logic to test
+        strategy: dict, required, object containing the logic to test and other details
         ohlcv_path: string or list, required, where to find the csv file of the ohlcv data
         df: pandas dataframe indexed by date
     Returns
@@ -19,27 +21,40 @@ def run_backtest(strategy: dict, ohlcv_path: str = "", df: pd.DataFrame = None):
             trade_log, dataframe of all the rows where transactions happened
     """
 
-    start = datetime.datetime.utcnow()
+
+    perf_start_time = datetime.datetime.utcnow()
 
     if ohlcv_path:
         df = build_data_frame(strategy, ohlcv_path)
     flagged_enter, flagged_exit, strategy = get_flagged_logiz(strategy)
 
-    strategy["base_balance"] = strategy.get("base_balance", 1000)
-    strategy["exit_on_end"] = strategy.get("exit_on_end", True)
-    strategy["commission"] = strategy.get("commission", 0)
+    # just so there can be some defaults
+    new_strategy = strategy.copy()
+    new_strategy["base_balance"] = strategy.get("base_balance", 1000)
+    new_strategy["exit_on_end"] = strategy.get("exit_on_end", True)
+    new_strategy["commission"] = strategy.get("commission", 0)
 
-    df = apply_strategy_to_dataframe(df, strategy)
+    df = apply_strategy_to_dataframe(df, new_strategy)
 
     if flagged_enter or flagged_exit:
-        strategy["enter"].extend(flagged_enter)
-        strategy["exit"].extend(flagged_exit)
+        new_strategy["enter"].extend(flagged_enter)
+        new_strategy["exit"].extend(flagged_exit)
 
-        df = apply_strategy_to_dataframe(df, strategy)
+        df = apply_strategy_to_dataframe(df, new_strategy)
 
-    summary, trade_log = build_summary(df, start, strategy)
+    if summary:
+        summary, trade_log = build_summary(df, perf_start_time, new_strategy)
+    else:
+        perf_stop_time = datetime.datetime.utcnow()
+        summary = {"test_duration": (perf_stop_time - perf_start_time).total_seconds()}
 
-    return {"summary": summary, "df": df, "trade_df": trade_log, "strategy": strategy}
+    trade_log = None
+    return {
+        "summary": summary,
+        "df": df,
+        "trade_df": trade_log,
+        "strategy": new_strategy,
+    }
 
 
 def get_flagged_logiz(strategy: dict):
@@ -138,6 +153,7 @@ def take_action(row, strategy):
     """
     results = []
     row = row._asdict()
+    return_value = False
     for each in strategy:
         val0 = (
             each[0]
@@ -165,4 +181,7 @@ def take_action(row, strategy):
         if each[1] == "!=":
             results.append(bool(val0 != val1))
 
-    return all(results)
+    if len(results):
+        return_value = all(results)
+
+    return return_value

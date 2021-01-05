@@ -181,14 +181,9 @@ def standardize_df(df: pd.DataFrame):
     new_df = new_df[~new_df.index.duplicated(keep="first")]
     new_df = new_df.sort_index()
 
-    columns_to_drop = []
-    if "ignore" in list(new_df.columns):
-        columns_to_drop.append("ignore")
+    columns_to_drop = ["ignore", "date"]
 
-    if "date" in list(new_df.columns):
-        columns_to_drop.append("date")
-
-    new_df.drop(columns=columns_to_drop)
+    new_df.drop(columns=columns_to_drop, errors="ignore")
 
     new_df.open = pd.to_numeric(new_df.open)
     new_df.close = pd.to_numeric(new_df.close)

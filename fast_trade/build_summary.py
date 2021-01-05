@@ -102,9 +102,11 @@ def build_summary(df, perf_start_time, strategy):
     else:
         sharpe_ratio = 0
 
+    perf_stop_time = datetime.datetime.utcnow()
+
     summary = {
         "return_perc": round(return_perc, 3),
-        "sharpe_ratio": sharpe_ratio,
+        "sharpe_ratio": sharpe_ratio,  # BETA
         "buy_and_hold_perc": round(buy_and_hold_perc, 3),
         "median_trade_len": median_time_held.total_seconds(),
         "mean_trade_len": mean_trade_time_held.total_seconds(),
