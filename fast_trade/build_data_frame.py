@@ -1,3 +1,4 @@
+from datetime import datetime
 import pandas as pd
 from finta import TA
 import os
@@ -78,7 +79,7 @@ def apply_charting_to_df(
     Parameters
     ----------
         df: dataframe with data loaded
-        chart_period: string, describes how often to sample data, default is '1M' (1 minute)
+        chart_period: string, describes how often to sample data, default is '1Min' (1 minute)
             see https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#dateoffset-objects
         start_time: datestring in YYYY-MM-DD HH:MM (ex. 2020-08-31 04:00) of when to begin the backtest
         stop_time: datestring of YYYY-MM-DD HH:MM when to stop the backtest
@@ -91,6 +92,18 @@ def apply_charting_to_df(
         df.index = pd.to_datetime(df.index, unit=time_unit)
     else:
         df.index = pd.to_datetime(df.index)
+
+    if start_time:
+        if isinstance(start_time, datetime) or type(start_time) is int:
+            time_unit = detect_time_unit(start_time)
+            start_time = pd.to_datetime(start_time, unit=time_unit)
+            start_time = start_time.strftime("%Y-%m-%d %H:%M:%S")
+
+    if stop_time:
+        if isinstance(stop_time, datetime) or type(stop_time) is int:
+            time_unit = detect_time_unit(stop_time)
+            stop_time = pd.to_datetime(stop_time, unit=time_unit)
+            stop_time = stop_time.strftime("%Y-%m-%d %H:%M:%S")
 
     df = df.resample(chart_period).first()
 

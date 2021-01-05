@@ -21,14 +21,12 @@ def run_backtest(
             trade_log, dataframe of all the rows where transactions happened
     """
 
-
     perf_start_time = datetime.datetime.utcnow()
 
     if ohlcv_path:
         df = build_data_frame(strategy, ohlcv_path)
-    flagged_enter, flagged_exit, strategy = get_flagged_logiz(strategy)
+    flagged_enter, flagged_exit = get_flagged_logiz(strategy)
 
-    # just so there can be some defaults
     new_strategy = strategy.copy()
     new_strategy["base_balance"] = strategy.get("base_balance", 1000)
     new_strategy["exit_on_end"] = strategy.get("exit_on_end", True)
@@ -47,8 +45,8 @@ def run_backtest(
     else:
         perf_stop_time = datetime.datetime.utcnow()
         summary = {"test_duration": (perf_stop_time - perf_start_time).total_seconds()}
+        trade_log = None
 
-    trade_log = None
     return {
         "summary": summary,
         "df": df,
@@ -91,7 +89,7 @@ def get_flagged_logiz(strategy: dict):
     for e_en in flagged_enter:
         flagged_enter.append(strategy["enter"].pop(e_en))
 
-    return flagged_enter, flagged_exit, strategy
+    return flagged_enter, flagged_exit
 
 
 def apply_strategy_to_dataframe(df: pd.DataFrame, strategy: dict):

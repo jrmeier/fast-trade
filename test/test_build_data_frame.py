@@ -128,11 +128,15 @@ def test_apply_charting_to_df_3():
         mock_df, mock_chart_period, mock_start_time, mock_stop_time
     )
 
+    print("past_stop_time: ",past_stop_time)
+
     past_stop_time = datetime.datetime.strptime(
         "2018-04-17 04:11:00", "%Y-%m-%d %H:%M:%S"
     )
     result_df = apply_charting_to_df(
         mock_df, mock_chart_period, mock_start_time, mock_stop_time
     )
+
+    print("result_df.index[0]: ",result_df.index[0])
 
     assert result_df.index[0] < past_stop_time

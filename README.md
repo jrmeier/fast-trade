@@ -2,8 +2,7 @@
 
 [![License: LGPL v3](https://img.shields.io/github/license/jrmeier/fast-trade)](LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/fast-trade.svg?style=flat-square)](https://pypi.org/project/fast-trade/)
-[![](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/download/releases/3.7.0/)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
+[![Python 3.7+](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/download/releases/3.7.0/)
 [![Python application](https://github.com/jrmeier/fast-trade/workflows/Python%20application/badge.svg)](https://github.com/jrmeier/fast-trade/actions)
 
 A library built with strategy portability and performance in mind for back-test trading strategies.
@@ -11,6 +10,7 @@ A library built with strategy portability and performance in mind for back-test 
 ## Motivations
 
 Strategies are cheap. This is the main motivation behind fast-trade. Since a strategy is just a JSON object, strategies can be created, stored, modified, versioned, and re-run easily. Ideally, a strategy could be generated and tested quickly; fast-trade is just the library to handle that.
+Fast Trade is also useful for quickly analyzing chart (`ohlc`) data.
 
 ## Indicators
 
@@ -40,8 +40,6 @@ date,close,open,high,low,volume
 ```
 
 A dataframe can also be passed to `run_backtest(...)` function such as `run_backtest(strategy, df=<your data frame>)`.
-
-I've been using this project to collect and store tick data [crypto-data](https://github.com/jrmeier/crypto-data).
 
 ## Install
 
@@ -209,7 +207,7 @@ Strategies include all the instructions needed to run the backtest minus the dat
 
   - optional,
   - default: `""`
-  - description: The time string of when to start the backtest with `%Y-%m-%d %H:%M:%S` date format.
+  - description: The time string of when to start the backtest with `%Y-%m-%d %H:%M:%S` date format or a timestamp. It will be tested
   - Ex.
     - `"2018-05-01 00:00:00"` May 1st, 2018 at midnight
 
@@ -217,9 +215,12 @@ Strategies include all the instructions needed to run the backtest minus the dat
 
   - optional
   - default: `""`
-  - description: The time string of when to stop the backtest with `%Y-%m-%d %H:%M:%S` date format.
+  - description: The time string of when to stop the backtest with `%Y-%m-%d %H:%M:%S` date format or a timestamp
   - Ex.
     - `"2020-12-28 00:08:00"` December 28th, 2020 at 8am.
+    - `"2020-06-01"`June 6th, 2020
+    - `1590969600` (seconds) June 6th, 2020
+    - `1590969600000` (milliseconds) June 6th, 2020
 
 - base_balance: float
 
@@ -253,7 +254,7 @@ Strategies include all the instructions needed to run the backtest minus the dat
 ```python
 {
    "name": "example",
-   "chart_period": "4m",
+   "chart_period": "4T",
    "start": "2018-05-01 00:00:00",
    "stop": "2018-05-04 00:00:00",
    "enter": [
