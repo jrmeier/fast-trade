@@ -52,3 +52,22 @@ def test_take_action_equal():
 
     res = take_action(mock_row, mock_strategy)
     assert res is True
+
+
+def test_determine_action():
+    _strategy = {
+        'enter': [["close", "=", 0.0212]],
+        'exit': [["open", "<", 0.0712]],
+    }
+    MockRow = namedtuple("MockRow", "date close open high low volume short")
+    mock_row = MockRow(
+        date=1523937963,
+        close=0.0212,
+        open=0.01,
+        high=0.025,
+        low=0.01,
+        volume=36898,
+        short=0.0112,
+    )
+    res = determine_action(frame=mock_row, strategy=_strategy)
+    assert res == 'e'
