@@ -19,10 +19,7 @@ Available Indicators [FinTA](https://github.com/peerchemist/finta)
 Custom indicators can be added by setting a function name in the [indicator_map](https://github.com/jrmeier/fast-trade/blob/master/fast_trade/build_data_frame.py#L141), then setting that equal to a function that takes in a dataframe as the first argument and whatever arguments passed in.
 
 ## Data
-
-Data must be minute tick data. Indicators will give false results if the data isn't once a minute.
-
-Datafiles are expected but come with `ohlc` candlestick minute data in a csv file, but will not work as expected. Please open an issue if this is a problem for you.
+Data can be any tick size. I use minute data, but end-of-day data can be used as well. If you set a lower `chart_period` than the actual data frequency, fast-trade will throw an Exception.
 
 Example file format
 
