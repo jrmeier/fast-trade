@@ -7,6 +7,41 @@
 
 A library built with strategy portability and performance in mind for back-test trading strategies.
 
+## Install
+
+```bash
+pip install fast-trade
+```
+
+Or
+
+```bash
+python -m venv .fast_trade
+source .fast_trade/bin/activate
+pip install -r requirements.txt
+```
+
+## Contributing
+
+If you'd like to add a feature, fix a bug, or something else, please clone the repo and fork it. When you're ready, open a PR into this main repo.
+
+To get started with local dev, clone the repo, set up a virtual env, source it, then install the dev requirements.
+
+```bash
+git clone git@github.com:jrmeier/fast-trade.git
+cd ./fast-trade
+python -m venv .fast_trade
+source .fast_trade/bin/activate
+pip install -r dev_requirements.txt
+```
+
+To generate testing coverage, run
+
+```bash
+coverage run -m pytest
+coverage report -m
+```
+
 ## Motivations
 
 Strategies are cheap. This is the main motivation behind fast-trade. Since a strategy is just a JSON object, strategies can be created, stored, modified, versioned, and re-run easily. Ideally, a strategy could be generated and tested quickly; fast-trade is just the library to handle that.
@@ -40,20 +75,6 @@ date,close,open,high,low,volume
 ```
 
 A dataframe can also be passed to `run_backtest(...)` function such as `run_backtest(strategy, df=<your data frame>)`.
-
-## Install
-
-```bash
-pip install fast-trade
-```
-
-Or
-
-```bash
-python -m venv .fast_trade
-source .fast_trade/bin/activate
-pip install -r requirements.txt
-```
 
 ## Usage
 
@@ -144,6 +165,13 @@ Viewing a plot of the result
 
 ```bash
 python -m pytest
+```
+
+## Coverage
+
+```bash
+coverage run -m pytest
+coverage report -m
 ```
 
 ## Output

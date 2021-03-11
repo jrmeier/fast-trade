@@ -1,4 +1,5 @@
 import datetime
+from os import fwalk
 import pandas as pd
 
 from .build_data_frame import build_data_frame
@@ -31,6 +32,7 @@ def run_backtest(
     new_strategy["base_balance"] = strategy.get("base_balance", 1000)
     new_strategy["exit_on_end"] = strategy.get("exit_on_end", True)
     new_strategy["commission"] = strategy.get("commission", 0)
+    new_strategy["hard_exit"] = strategy.get("hard_exit", [])
 
     df = apply_strategy_to_dataframe(df, new_strategy)
 
@@ -92,6 +94,14 @@ def get_flagged_logiz(strategy: dict):
     return flagged_enter, flagged_exit
 
 
+def flatten_to_logics(list_of_logics):
+    if len(list_of_logics) == 1:
+        return list_of_logics
+    if isinstance(list_of_logics[0], list):
+        return flatten_to_logics(list_of_logics[0]) + flatten_to_logics(list_of_logics[1:])
+    return list_of_logics[:1] + flatten_to_logics(list_of_logics[1:])
+
+
 def apply_strategy_to_dataframe(df: pd.DataFrame, strategy: dict):
     """Processes the frame and adds the resultent rows
     Parameters
@@ -103,7 +113,32 @@ def apply_strategy_to_dataframe(df: pd.DataFrame, strategy: dict):
     -------
         df, dataframe with with all the actions and strategy processed
     """
-    df["action"] = [determine_action(frame, strategy) for frame in df.itertuples()]
+    # df["action"] = [determine_action(frame, strategy) for frame in df.itertuples()]
+
+    # get the max length to pass in
+    logics = [
+        strategy['enter'],
+        strategy['exit'],
+        strategy['hard_exit'],
+    ]
+
+    logics = flatten_to_logics(logics)
+
+    max_last_frames = 0
+
+    for logic in logics:
+        if len(logic) > 3:
+            if logic[3] > max_last_frames:
+                max_last_frames = logic[3]
+
+    if max_last_frames:
+        actions = []
+        last_frames = []
+        for frame in df.itertuples():
+            actions.append(determine_action(frame, strategy, max_last_frames, last_frames))
+        df["action"] = actions
+    else:
+        df["action"] = [determine_action(frame, strategy) for frame in df.itertuples()]
 
     df = analyze_df(df, strategy)
 
@@ -113,7 +148,7 @@ def apply_strategy_to_dataframe(df: pd.DataFrame, strategy: dict):
     return df
 
 
-def determine_action(frame: pd.DataFrame, strategy: dict):
+def determine_action(frame: pd.DataFrame, strategy: dict, max_last_frames=0, last_frames=[]):
     """processes the actions with the applied logic
     Parameters
     ----------
@@ -128,16 +163,19 @@ def determine_action(frame: pd.DataFrame, strategy: dict):
         the strategy would do
     """
 
-    if take_action(frame, strategy["enter"]):
+    if take_action(frame, strategy['hard_exit'], max_last_frames, last_frames, require_any=True):
+        return 'x'
+
+    if take_action(frame, strategy["enter"], max_last_frames, last_frames):
         return "e"
 
-    if take_action(frame, strategy["exit"]):
+    if take_action(frame, strategy["exit"], max_last_frames, last_frames):
         return "x"
 
     return "h"
 
 
-def take_action(row, strategy):
+def take_action(current_frame, logics, max_last_frames, last_frames, require_any=False):
     """determines whether to take action based on the logic in the strategy
     Parameters
     ----------
@@ -149,37 +187,64 @@ def take_action(row, strategy):
         boolean, True if row meets the criteria of given strategy,
         False if otherwise
     """
+
     results = []
-    row = row._asdict()
+
+    last_frames.insert(0, current_frame)
+
+    if len(last_frames) > max_last_frames:
+        last_frames.pop()
+
+    for last_frame in last_frames:
+        res = process_single_frame(logics, last_frame, require_any)
+        results.append(res)
+
+    return all(results)
+
+
+def process_single_frame(logics, row, require_any):
+    results = []
+    if not isinstance(row, dict):
+        row = row._asdict()
+
     return_value = False
-    for each in strategy:
-        val0 = (
-            each[0]
-            if isinstance(each[0], int) or isinstance(each[0], float)
-            else row[each[0]]
-        )
-        val1 = (
-            each[2]
-            if isinstance(each[2], int) or isinstance(each[2], float)
-            else row[each[2]]
-        )
-
-        if isinstance(val0, pd.Series):
-            val0 = row[each[0]].values[0]
-
-        if isinstance(val1, pd.Series):
-            val1 = row[each[2]].values[0]
-
-        if each[1] == ">":
-            results.append(bool(val0 > val1))
-        if each[1] == "<":
-            results.append(bool(val0 < val1))
-        if each[1] == "=":
-            results.append(bool(val0 == val1))
-        if each[1] == "!=":
-            results.append(bool(val0 != val1))
+    for logic in logics:
+        res = process_single_logic(logic, row, require_any)
+        results.append(res)
 
     if len(results):
-        return_value = all(results)
+        if require_any:
+            return_value = any(results)
+        else:
+            return_value = all(results)
 
     return return_value
+
+
+def clean_field_type(field, row):
+    if isinstance(field, str):
+        if field.isnumeric():
+            return int(field)
+
+    return row[field]
+
+
+def process_single_logic(logic, row, require_any):
+    val0 = clean_field_type(logic[0], row=row)
+    val1 = clean_field_type(logic[2], row=row)
+
+    results = []
+
+    if logic[1] == ">":
+        results.append(bool(val0 > val1))
+    if logic[1] == "<":
+        results.append(bool(val0 < val1))
+    if logic[1] == "=":
+        results.append(bool(val0 == val1))
+    if logic[1] == "!=":
+        results.append(bool(val0 != val1))
+
+    if require_any:
+        return any(results)
+
+    return all(results)

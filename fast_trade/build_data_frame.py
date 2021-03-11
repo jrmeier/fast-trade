@@ -139,11 +139,26 @@ def apply_indicators_to_dataframe(df: pd.DataFrame, indicators: list):
     for ind in indicators:
         func = ind.get("func")
         field_name = ind.get("name")
-        if ind.get("args"):
+
+        if len(ind.get("args", [])):
             args = ind.get("args")
-            df[field_name] = indicator_map[func](df, *args)
+            # df[field_name] = indicator_map[func](df, *args)
+            res = indicator_map[func](df, *args)
         else:
-            df[field_name] = indicator_map[func](df)
+            res = indicator_map[func](df)
+
+        if isinstance(res, pd.DataFrame):
+            df = process_res_df(df, ind)
+
+        if isinstance(res, pd.Series):
+            df[field_name] = res
+
+    return df
+
+
+def process_res_df(df, ind):
+    if ind.get("func", "") == "chandelier":
+        return chandelier_helper(df, ind)
 
     return df
 
@@ -207,85 +222,101 @@ def standardize_df(df: pd.DataFrame):
     return new_df
 
 
+def chandelier_helper(df, ind):
+    if len(ind.get("args", [])):
+        args = ind.get("args")
+        res = TA.CHANDELIER(df, *args)
+    else:
+        res = TA.CHANDELIER(df)
+
+    for key in res.keys().values:
+        i_name = ind.get("name")
+        clean_key = key.lower()
+        clean_key = clean_key.replace(".", "")
+        df_key = f"{i_name}_{clean_key}"
+        df[df_key] = res[key]
+
+    return df
+
 """
 These are all the indicators the can be used in a strategy as a "func".
 Any function can be implimented as an indicator.
 """
 indicator_map = {
-    "ta.sma": TA.SMA,
-    "ta.smm": TA.SMM,
-    "ta.ssma": TA.SSMA,
-    "ta.ema": TA.EMA,
-    "ta.dema": TA.DEMA,
-    "ta.tema": TA.TEMA,
-    "ta.trima": TA.TRIMA,
-    "ta.vama": TA.VAMA,
-    "ta.er": TA.ER,
-    "ta.kama": TA.KAMA,
-    "ta.zlema": TA.ZLEMA,
-    "ta.wma": TA.WMA,
-    "ta.hma": TA.HMA,
-    "ta.evwma": TA.EVWMA,
-    "ta.vwap": TA.VWAP,
-    "ta.smma": TA.SMMA,
-    "ta.macd": TA.MACD,
-    "ta.ppo": TA.PPO,
-    "ta.vw_macd": TA.VW_MACD,
-    "ta.ev_macd": TA.EV_MACD,
-    "ta.mom": TA.MOM,
-    "ta.roc": TA.ROC,
-    "ta.rsi": TA.RSI,
-    "ta.ift_rsi": TA.IFT_RSI,
-    "ta.tr": TA.TR,
-    "ta.atr": TA.ATR,
-    "ta.sar": TA.SAR,
-    "ta.bbands": TA.BBANDS,
-    "ta.bbwidth": TA.BBWIDTH,
-    "ta.percent_b": TA.PERCENT_B,
-    "ta.kc": TA.KC,
-    "ta.do": TA.DO,
-    "ta.dmi": TA.DMI,
-    "ta.adx": TA.ADX,
-    "ta.pivot": TA.PIVOT,
-    "ta.pivot_fib": TA.PIVOT_FIB,
-    "ta.stoch": TA.STOCH,
-    "ta.stochd": TA.STOCHD,
-    "ta.stochrsi": TA.STOCHRSI,
-    "ta.williams": TA.WILLIAMS,
-    "ta.uo": TA.UO,
-    "ta.ao": TA.AO,
-    "ta.mi": TA.MI,
-    "ta.vortex": TA.VORTEX,
-    "ta.kst": TA.KST,
-    "ta.tsi": TA.TSI,
-    "ta.tp": TA.TP,
-    "ta.adl": TA.ADL,
-    "ta.chaikin": TA.CHAIKIN,
-    "ta.mfi": TA.MFI,
-    "ta.obv": TA.OBV,
-    "ta.wobv": TA.WOBV,
-    "ta.vzo": TA.VZO,
-    "ta.pzo": TA.PZO,
-    "ta.efi": TA.EFI,
-    "ta.cfi": TA.CFI,
-    "ta.ebbp": TA.EBBP,
-    "ta.emv": TA.EMV,
-    "ta.cci": TA.CCI,
-    "ta.copp": TA.COPP,
-    "ta.basp": TA.BASP,
-    "ta.baspn": TA.BASPN,
-    "ta.cmo": TA.CMO,
-    "ta.chandelier": TA.CHANDELIER,
-    "ta.qstick": TA.QSTICK,
-    "ta.tmf": TA.TMF,
-    "ta.fish": TA.FISH,
-    "ta.ichimoku": TA.ICHIMOKU,
-    "ta.apz": TA.APZ,
-    "ta.vr": TA.VR,
-    "ta.sqzmi": TA.SQZMI,
-    "ta.vpt": TA.VPT,
-    "ta.fve": TA.FVE,
-    "ta.vfi": TA.VFI,
-    "ta.msd": TA.MSD,
+    "sma": TA.SMA,
+    "smm": TA.SMM,
+    "ssma": TA.SSMA,
+    "ema": TA.EMA,
+    "dema": TA.DEMA,
+    "tema": TA.TEMA,
+    "trima": TA.TRIMA,
+    "vama": TA.VAMA,
+    "er": TA.ER,
+    "kama": TA.KAMA,
+    "zlema": TA.ZLEMA,
+    "wma": TA.WMA,
+    "hma": TA.HMA,
+    "evwma": TA.EVWMA,
+    "vwap": TA.VWAP,
+    "smma": TA.SMMA,
+    "macd": TA.MACD,
+    "ppo": TA.PPO,
+    "vw_macd": TA.VW_MACD,
+    "ev_macd": TA.EV_MACD,
+    "mom": TA.MOM,
+    "roc": TA.ROC,
+    "rsi": TA.RSI,
+    "ift_rsi": TA.IFT_RSI,
+    "tr": TA.TR,
+    "atr": TA.ATR,
+    "sar": TA.SAR,
+    "bbands": TA.BBANDS,
+    "bbwidth": TA.BBWIDTH,
+    "percent_b": TA.PERCENT_B,
+    "kc": TA.KC,
+    "do": TA.DO,
+    "dmi": TA.DMI,
+    "adx": TA.ADX,
+    "pivot": TA.PIVOT,
+    "pivot_fib": TA.PIVOT_FIB,
+    "stoch": TA.STOCH,
+    "stochd": TA.STOCHD,
+    "stochrsi": TA.STOCHRSI,
+    "williams": TA.WILLIAMS,
+    "uo": TA.UO,
+    "ao": TA.AO,
+    "mi": TA.MI,
+    "vortex": TA.VORTEX,
+    "kst": TA.KST,
+    "tsi": TA.TSI,
+    "tp": TA.TP,
+    "adl": TA.ADL,
+    "chaikin": TA.CHAIKIN,
+    "mfi": TA.MFI,
+    "obv": TA.OBV,
+    "wobv": TA.WOBV,
+    "vzo": TA.VZO,
+    "pzo": TA.PZO,
+    "efi": TA.EFI,
+    "cfi": TA.CFI,
+    "ebbp": TA.EBBP,
+    "emv": TA.EMV,
+    "cci": TA.CCI,
+    "copp": TA.COPP,
+    "basp": TA.BASP,
+    "baspn": TA.BASPN,
+    "cmo": TA.CMO,
+    "chandelier": TA.CHANDELIER,
+    "qstick": TA.QSTICK,
+    "tmf": TA.TMF,
+    "fish": TA.FISH,
+    "ichimoku": TA.ICHIMOKU,
+    "apz": TA.APZ,
+    "vr": TA.VR,
+    "sqzmi": TA.SQZMI,
+    "vpt": TA.VPT,
+    "fve": TA.FVE,
+    "vfi": TA.VFI,
+    "msd": TA.MSD,
     # "ta.wto": TA.WTO, needs a helper function
 }

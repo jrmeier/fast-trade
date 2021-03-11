@@ -31,6 +31,8 @@ def analyze_df(df: pd.DataFrame, strategy: dict):
         curr_action = row.action
         fee = 0
 
+        # execute_stoploss = determine_stoploss(close, in_trade,)
+
         if curr_action == "e" and not in_trade:
             # this means we should enter the trade
             last_aux = convert_base_to_aux(last_base, close)
@@ -47,7 +49,8 @@ def analyze_df(df: pd.DataFrame, strategy: dict):
             last_base = convert_aux_to_base(last_aux, close)
             fee = calculate_fee(last_base, commission)
             last_base = last_base - fee
-            last_aux = convert_base_to_aux(last_base, close)
+            last_aux = round(last_aux - convert_base_to_aux(last_base, close), 8)
+
             new_total_value = last_base
 
             in_trade = False
