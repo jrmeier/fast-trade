@@ -77,6 +77,7 @@ strategy = {
             "close"
         ]
     ],
+    "trailing_stop_loss": .20,
     "exit_on_end": True,
 }
 

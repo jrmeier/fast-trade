@@ -63,6 +63,9 @@ def prepare_df(df: pd.DataFrame, strategy: dict):
     indicators = strategy.get("indicators", [])
     df = apply_indicators_to_dataframe(df, indicators)
 
+    if strategy.get("trailing_stop_loss"):
+        df["trailing_stop_loss"] = df["close"].cummax() * (1 - strategy.get("trailing_stop_loss"))
+
     chart_period = strategy.get("chart_period", "1Min")
 
     start_time = strategy.get("start")

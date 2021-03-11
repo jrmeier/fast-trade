@@ -1,5 +1,4 @@
 import datetime
-from os import fwalk
 import pandas as pd
 
 from .build_data_frame import build_data_frame
@@ -24,8 +23,6 @@ def run_backtest(
 
     perf_start_time = datetime.datetime.utcnow()
 
-    if ohlcv_path:
-        df = build_data_frame(strategy, ohlcv_path)
     flagged_enter, flagged_exit = get_flagged_logiz(strategy)
 
     new_strategy = strategy.copy()
@@ -33,6 +30,10 @@ def run_backtest(
     new_strategy["exit_on_end"] = strategy.get("exit_on_end", True)
     new_strategy["commission"] = strategy.get("commission", 0)
     new_strategy["hard_exit"] = strategy.get("hard_exit", [])
+    new_strategy["trailing_stop_loss"] = strategy.get("trailing_stop_loss", 0)
+
+    if ohlcv_path:
+        df = build_data_frame(strategy, ohlcv_path)
 
     df = apply_strategy_to_dataframe(df, new_strategy)
 
@@ -162,6 +163,12 @@ def determine_action(frame: pd.DataFrame, strategy: dict, max_last_frames=0, las
         string, "e" (enter), "x" (exit), "h" (hold) of what
         the strategy would do
     """
+
+    trailing_stop_loss = strategy.get("trailing_stop_loss")
+
+    if trailing_stop_loss:
+        if frame.close <= frame.trailing_stop_loss:
+            return 'x'
 
     if take_action(frame, strategy['hard_exit'], max_last_frames, last_frames, require_any=True):
         return 'x'
