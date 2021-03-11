@@ -5,12 +5,12 @@ import os
 import re
 
 
-def build_data_frame(strategy: dict, csv_path: str):
-    """Creates a Pandas DataFame with the provided strategy. Used when providing a CSV as the datafile
+def build_data_frame(backtest: dict, csv_path: str):
+    """Creates a Pandas DataFame with the provided backtest. Used when providing a CSV as the datafile
 
     Parameters
     ----------
-    strategy: dict, provides instructions on how to build the dataframe
+    backtest: dict, provides instructions on how to build the dataframe
     csv_path: string, absolute path of where to find the data file
 
     Returns
@@ -19,7 +19,7 @@ def build_data_frame(strategy: dict, csv_path: str):
     """
     df = load_basic_df_from_csv(csv_path)
 
-    df = prepare_df(df, strategy)
+    df = prepare_df(df, backtest)
 
     if df.empty:
         raise Exception("Dataframe is empty. Check the start and end dates")
@@ -46,30 +46,30 @@ def load_basic_df_from_csv(csv_path: str):
     return df
 
 
-def prepare_df(df: pd.DataFrame, strategy: dict):
-    """Prepares the provided dataframe for a backtest by applying the indicators and splicing based on the given strategy.
+def prepare_df(df: pd.DataFrame, backtest: dict):
+    """Prepares the provided dataframe for a backtest by applying the indicators and splicing based on the given backtest.
         Useful when loading an existing dataframe (ex. from a cache).
 
     Parameters
     ----------
         df: DataFrame, should have all the open, high, low, close, volume data set as headers and indexed by date
-        strategy: dict, provides instructions on how to build the dataframe
+        backtest: dict, provides instructions on how to build the dataframe
 
     Returns
     ------
         df: DataFrame, with all the indicators as column headers and trimmed to the provided time frames
     """
 
-    indicators = strategy.get("indicators", [])
+    indicators = backtest.get("indicators", [])
     df = apply_indicators_to_dataframe(df, indicators)
 
-    if strategy.get("trailing_stop_loss"):
-        df["trailing_stop_loss"] = df["close"].cummax() * (1 - strategy.get("trailing_stop_loss"))
+    if backtest.get("trailing_stop_loss"):
+        df["trailing_stop_loss"] = df["close"].cummax() * (1 - backtest.get("trailing_stop_loss"))
 
-    chart_period = strategy.get("chart_period", "1Min")
+    chart_period = backtest.get("chart_period", "1Min")
 
-    start_time = strategy.get("start")
-    stop_time = strategy.get("stop")
+    start_time = backtest.get("start")
+    stop_time = backtest.get("stop")
     df = apply_charting_to_df(df, chart_period, start_time, stop_time)
 
     return df
@@ -121,7 +121,7 @@ def apply_charting_to_df(
 
 
 def apply_indicators_to_dataframe(df: pd.DataFrame, indicators: list):
-    """Applies indications from the strategy to the dataframe
+    """Applies indications from the backtest to the dataframe
     Parameters
     ----------
         df: dataframe loaded with data
@@ -242,7 +242,7 @@ def chandelier_helper(df, ind):
     return df
 
 """
-These are all the indicators the can be used in a strategy as a "func".
+These are all the indicators the can be used in a backtest as a "func".
 Any function can be implimented as an indicator.
 """
 indicator_map = {

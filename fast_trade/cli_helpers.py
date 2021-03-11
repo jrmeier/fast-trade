@@ -64,7 +64,7 @@ def create_plot(df):
 
 def save(result, strat_obj):
     """
-    Save the dataframe, strategy, and plot into the specified path
+    Save the dataframe, backtest, and plot into the specified path
     """
     save_path = "./saved_backtests"
     if not os.path.exists(save_path):
@@ -77,7 +77,7 @@ def save(result, strat_obj):
     os.mkdir(new_save_dir)
 
     # save the strat args
-    with open(f"{new_save_dir}/strategy.json", "w") as summary_file:
+    with open(f"{new_save_dir}/backtest.json", "w") as summary_file:
         summary_file.write(json.dumps(strat_obj, indent=2))
 
     # summary file
@@ -106,7 +106,7 @@ help_dict = {
                 "required": True,
             },
             "--strat": {
-                "desc": "path to strategy file, must json format",
+                "desc": "path to backtest file, must json format",
                 "required": True,
             },
             "--plot": {
@@ -114,7 +114,7 @@ help_dict = {
                 "required": False,
             },
             "--save": {
-                "desc": "saves the dataframe, strategy, and plot in to the path",
+                "desc": "saves the dataframe, backtest, and plot in to the path",
                 "required": False,
             },
         },

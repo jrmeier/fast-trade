@@ -11,7 +11,7 @@ ds2 = "2020-07-10"
 s2 = 1594339200
 ms2 = 1594339200000
 
-# strategy = {
+# backtest = {
 #     "chart_period": "1T",
 #     "enter": [["price_action_1", ">", 2]],
 #     "exit": [["price_action_2", "<", 1]],
@@ -29,7 +29,7 @@ ms2 = 1594339200000
 #         ["close", ">=", "stop_loss_1"]
 #     ]
 # }
-strategy = {
+backtest = {
     "base_balance": 10000.0,
     "chart_period": "15T",
     "chart_start": 1596293700000,
@@ -87,7 +87,7 @@ if __name__ == "__main__":
         "/Users/jedmeier/Projects/fast-trade/BTCUSDT.csv.txt"
     )
     tmp_start = datetime.datetime.utcnow()
-    test = run_backtest(strategy, ohlcv_path=datafile, summary=True)
+    test = run_backtest(backtest, ohlcv_path=datafile, summary=True)
     # print(test["df"])
     print(test["trade_df"])
     print(json.dumps(test["summary"], indent=2))

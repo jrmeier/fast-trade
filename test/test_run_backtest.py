@@ -4,7 +4,7 @@ import pandas as pd
 
 
 def test_take_action_greater_than():
-    mock_strategy = [["close", ">", "short"]]
+    mock_backtest = [["close", ">", "short"]]
     MockRow = namedtuple("MockRow", "date close open high low volume short")
     mock_row = MockRow(
         date=1523937963,
@@ -16,12 +16,12 @@ def test_take_action_greater_than():
         short=0.0112,
     )
 
-    res = take_action(mock_row, mock_strategy)
+    res = take_action(mock_row, mock_backtest, max_last_frames=0, last_frames=[])
     assert res is True
 
 
 def test_take_action_less_than():
-    mock_strategy = [["close", "<", "short"]]
+    mock_backtest = [["close", "<", "short"]]
     MockRow = namedtuple("MockRow", "date close open high low volume short")
     mock_row = MockRow(
         date=1523937963,
@@ -33,12 +33,12 @@ def test_take_action_less_than():
         short=0.0112,
     )
 
-    res = take_action(mock_row, mock_strategy)
+    res = take_action(mock_row, mock_backtest, max_last_frames=0, last_frames=[])
     assert res is False
 
 
 def test_take_action_equal():
-    mock_strategy = [["close", "=", 0.0212]]
+    mock_backtest = [["close", "=", 0.0212]]
     MockRow = namedtuple("MockRow", "date close open high low volume short")
     mock_row = MockRow(
         date=1523937963,
@@ -50,5 +50,5 @@ def test_take_action_equal():
         short=0.0112,
     )
 
-    res = take_action(mock_row, mock_strategy)
+    res = take_action(mock_row, mock_backtest, max_last_frames=0, last_frames=[])
     assert res is True

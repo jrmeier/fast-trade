@@ -1,7 +1,7 @@
 import random
 
 
-def generate_strategy():
+def generate_backtest():
 
     charts = [
         "1m",
@@ -27,12 +27,12 @@ def generate_strategy():
     ema_exit = random.choice(emas)
     emas.pop(emas.index(ema_exit))
 
-    funcs = ["ta.zlema", "ta.ema", "ta.smma", "ta.sma"]
+    funcs = ["zlema", "ema", "smma", "sma"]
     # funcs = [ "ta.hma" ]
     ema_enter = random.choice(emas)
     func = random.choice(funcs)
 
-    # strategy = Strategy()
+    # backtest = backtest()
 
     df_columns = ["close", "volume"]
     # operator = [">", "<", "="]

@@ -29,7 +29,6 @@ def test_load_basic_df_from_csv_str_1():
 
     result_df = load_basic_df_from_csv(mock_ohlcv_path)
     header = list(result_df.head())
-    print(header)
     assert "close" in header
     assert "open" in header
     assert "high" in header
@@ -59,7 +58,7 @@ def test_load_basic_df_from_csv_str_error_1():
 def test_apply_indicators_to_dataframe_1_ind():
     mock_df = pd.read_csv("./test/ohlcv_data.csv.txt")
     mock_indicators = [
-        {"func": "ta.sma", "name": "example_indicator_name", "args": [3]}
+        {"func": "sma", "name": "example_indicator_name", "args": [3]}
     ]
 
     result_df = apply_indicators_to_dataframe(mock_df, mock_indicators)
@@ -72,7 +71,7 @@ def test_apply_indicators_to_dataframe_1_ind():
 
 def test_apply_indicators_to_dataframe_no_args():
     mock_df = pd.read_csv("./test/ohlcv_data.csv.txt")
-    mock_indicators = [{"func": "ta.rsi", "name": "rsi", "args": []}]
+    mock_indicators = [{"func": "rsi", "name": "rsi", "args": []}]
 
     result_df = apply_indicators_to_dataframe(mock_df, mock_indicators)
 
@@ -83,7 +82,6 @@ def test_apply_charting_to_df_1():
     mock_df = pd.read_csv("./test/ohlcv_data.csv.txt", index_col="date")
     # mock_df.set_index(["date"], inplace=True)
     mock_df.index = pd.to_datetime(mock_df.index, unit="s")
-    print(mock_df)
     mock_chart_period = "2Min"
     mock_start_time = "2018-04-17"
     mock_stop_time = ""
@@ -128,15 +126,11 @@ def test_apply_charting_to_df_3():
         mock_df, mock_chart_period, mock_start_time, mock_stop_time
     )
 
-    print("past_stop_time: ",past_stop_time)
-
     past_stop_time = datetime.datetime.strptime(
         "2018-04-17 04:11:00", "%Y-%m-%d %H:%M:%S"
     )
     result_df = apply_charting_to_df(
         mock_df, mock_chart_period, mock_start_time, mock_stop_time
     )
-
-    print("result_df.index[0]: ",result_df.index[0])
 
     assert result_df.index[0] < past_stop_time

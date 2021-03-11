@@ -67,23 +67,22 @@ def test_analyze_df_1():
         "date"
     )
     mock_df.index = pd.to_datetime(mock_df.index, unit="s")
-    mock_strategy = {"base_balance": 1000, "exit_on_end": True, "commission": 0.00}
+    mock_backtest = {"base_balance": 1000, "exit_on_end": True, "commission": 0.00}
 
     mock_df["action"] = ["e", "h", "x", "x", "x", "e", "x", "h", "h"]
 
-    df = analyze_df(mock_df, mock_strategy)
+    df = analyze_df(mock_df, mock_backtest)
 
-    print(df.action)
     assert list(df.aux.values) == [
         100000.0,
         100000.0,
-        100000.0,
-        100000.0,
-        100000.0,
+        0.0,
+        0.0,
+        0.0,
         103237.41007194,
-        103237.41007172,
-        103237.41007172,
-        103237.41007172,
+        0.00000022,
+        0.00000022,
+        0.00000022,
     ]
     assert list(df.base.values) == [
         0,
@@ -115,18 +114,18 @@ def test_analyze_df_2():
     )
     mock_df.index = pd.to_datetime(mock_df.index, unit="s")
 
-    mock_strategy = {"base_balance": 1000, "exit_on_end": True, "commission": 0.00}
+    mock_backtest = {"base_balance": 1000, "exit_on_end": True, "commission": 0.00}
     mock_df["action"] = ["e", "h", "h", "x", "h", "h", "e", "h", "h"]
 
-    df = analyze_df(mock_df, mock_strategy)
+    df = analyze_df(mock_df, mock_backtest)
 
     assert list(df.aux.values) == [
         100000.0,
         100000.0,
         100000.0,
-        100000.0,
-        100000.0,
-        100000.0,
+        0.0,
+        0.0,
+        0.0,
         96232.41034952,
         96232.41034952,
         96232.41034952,

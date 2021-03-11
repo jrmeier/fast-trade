@@ -2,21 +2,21 @@ import pandas as pd
 from datetime import timedelta
 
 
-def analyze_df(df: pd.DataFrame, strategy: dict):
+def analyze_df(df: pd.DataFrame, backtest: dict):
     """Analyzes the dataframe and runs sort of a market simulation, entering and exiting positions
 
     Parameters
     ----------
         df, dataframe from process_dataframe after the actions have been added
-        strategy: dict, contains instructions on when to enter/exit trades
+        backtest: dict, contains instructions on when to enter/exit trades
 
     Returns
     -------
         df, returns a dataframe with the new rows processed
     """
     in_trade = False
-    last_base = float(strategy["base_balance"])
-    commission = float(strategy["commission"])
+    last_base = float(backtest["base_balance"])
+    commission = float(backtest["commission"])
     last_aux = 0.0
     new_total_value = last_base
 
@@ -61,7 +61,7 @@ def analyze_df(df: pd.DataFrame, strategy: dict):
         in_trade_list.append(in_trade)
         fee_list.append(fee)
 
-    if strategy.get("exit_on_end") and in_trade:
+    if backtest.get("exit_on_end") and in_trade:
         last_base = convert_aux_to_base(last_aux, close)
         last_aux = convert_base_to_aux(last_base, close)
         new_date = df.index[-1] + timedelta(minutes=1)

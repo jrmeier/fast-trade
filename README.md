@@ -5,7 +5,7 @@
 [![Python 3.7+](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/download/releases/3.7.0/)
 [![Python application](https://github.com/jrmeier/fast-trade/workflows/Python%20application/badge.svg)](https://github.com/jrmeier/fast-trade/actions)
 
-A library built with strategy portability and performance in mind for back-test trading strategies.
+A library built with backtest portability and performance in mind for back-test trading strategies.
 
 ## Install
 
@@ -44,7 +44,7 @@ coverage report -m
 
 ## Motivations
 
-Strategies are cheap. This is the main motivation behind fast-trade. Since a strategy is just a JSON object, strategies can be created, stored, modified, versioned, and re-run easily. Ideally, a strategy could be generated and tested quickly; fast-trade is just the library to handle that.
+Strategies are cheap. This is the main motivation behind fast-trade. Since a backtest is just a JSON object, strategies can be created, stored, modified, versioned, and re-run easily. Ideally, a backtest could be generated and tested quickly; fast-trade is just the library to handle that.
 Fast Trade is also useful for quickly analyzing chart (`ohlc`) data.
 
 ## Indicators
@@ -74,14 +74,14 @@ date,close,open,high,low,volume
 1575150721337,7529.04000000,7708.14000000,7810.00000000,7441.00000000,46409.79564500
 ```
 
-A dataframe can also be passed to `run_backtest(...)` function such as `run_backtest(strategy, df=<your data frame>)`.
+A dataframe can also be passed to `run_backtest(...)` function such as `run_backtest(backtest, df=<your data frame>)`.
 
 ## Usage
 
 ```python
 from fast_trade import run_backtest
 
-strategy = {
+backtest = {
    "name": "example",
    "chart_period": "1H",
    "start": "",
@@ -126,7 +126,7 @@ strategy = {
 datafile_path = "./BTCUSDT.csv.txt"
 
 # returns the summary object and the dataframe
-result = run_backtest(strategy, datafile_path)
+result = run_backtest(backtest, datafile_path)
 
 summary = result["summary"]
 df = result["df"]
@@ -142,7 +142,7 @@ You can also use the package from the command line.
 
 `ft help`
 
-To run a backtest, the csv datafile needs to be passed in, along with the strategy file. On the command line, anything passed in can be overwritten with an argument and value. For example, the chart_period can be overwritten from the strat file by just passing it in. This will print out a summary of the backtest
+To run a backtest, the csv datafile needs to be passed in, along with the backtest file. On the command line, anything passed in can be overwritten with an argument and value. For example, the chart_period can be overwritten from the strat file by just passing it in. This will print out a summary of the backtest
 
 Basic usage
 
@@ -153,7 +153,7 @@ Modifying the `chart_period`
 `ft backtest --csv=./datafile.csv --strat=./strat.json --chart_period=1h`
 
 Saving a test result
-This generates creates the `saved_backtest` directory (if it doesn't exist), then inside of there, is another directory with a timestamp, with a chart, the strategy file, the summary, and the raw dataframe as a csv.
+This generates creates the `saved_backtest` directory (if it doesn't exist), then inside of there, is another directory with a timestamp, with a chart, the backtest file, the summary, and the raw dataframe as a csv.
 
 `ft backtest --csv=./datafile.csv --strat=./strat.json --save`
 
@@ -176,7 +176,7 @@ coverage report -m
 
 ## Output
 
-The output its a dictionary. The summary is a summary all the inputs and of the performace of the model. The df is a Pandas Dataframe, which contains all of the data used in the simulation. And the `trade_df` is a subset of the `df` frame which just has all the rows when there was an event. The `strategy` object is also returned, with the details of how the backtest was run.
+The output its a dictionary. The summary is a summary all the inputs and of the performace of the model. The df is a Pandas Dataframe, which contains all of the data used in the simulation. And the `trade_df` is a subset of the `df` frame which just has all the rows when there was an event. The `backtest` object is also returned, with the details of how the backtest was run.
 
 Example output:
 
@@ -205,11 +205,11 @@ Example output:
     },
     "df": DataFrame(...), # dataframe used in the backtest
     "trade_df": DateFrame(...), # a subset of the main dataframe only containing the rows with trades
-    "strategy": {...}, # the strategy object
+    "backtest": {...}, # the backtest object
 }
 ```
 
-## Strategy
+## backtest
 
 The real goal of this project is to get to the point where these strategies can be generated and tested quickly and then be easily iterated on.
 
@@ -217,12 +217,12 @@ Below is an example of a very simple strategey. Basically, indicators are used t
 
 Strategies include all the instructions needed to run the backtest minus the data.
 
-### Strategy Requirements
+### backtest Requirements
 
 - name:
   - string, optional
   - default: `None`
-  - description: a string for quick reference of the strategy
+  - description: a string for quick reference of the backtest
 - chart_period:
   - string, optional
   - default: `"1Min"`

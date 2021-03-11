@@ -28,7 +28,7 @@ def create_trade_log(df):
     return trade_log_df
 
 
-def build_summary(df, perf_start_time, strategy):
+def build_summary(df, perf_start_time, backtest):
     # Not yet implimented
     # Expectancy [%]                           6.92
     # SQN                                      1.77
