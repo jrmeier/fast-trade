@@ -13,13 +13,11 @@ def generate_backtest():
         "2h",
         "4h",
         "6h",
-        "12h",
-        "1d",
     ]
 
     t1 = random.randint(1, 50)
-    t2 = random.randint(t1 + 1, t1 * 2)
-    t3 = random.randint(t2 + 1, t2 * 2)
+    t2 = random.randint(t1 + 1, t1 * 1.8)
+    t3 = random.randint(t2 + 1, t2 * 1.8)
 
     chart = random.choice(charts)
 

@@ -1,5 +1,6 @@
 # flake8: noqa
 from fast_trade import run_backtest
+from generate_backtest import generate_backtest
 import datetime
 import json
 
@@ -29,43 +30,44 @@ ms2 = 1594339200000
 #         ["close", ">=", "stop_loss_1"]
 #     ]
 # }
-backtest = {
-    "base_balance": 1000,
-    "chart_period": "5T",
-    "chart_start": "2020-08-30 18:00:00",
-    "chart_stop": "2020-09-06 16:39:00",
-    "comission": 0.01,
-    "datapoints": [
-        {
-            "args": [
-                30
-            ],
-            "transformer": "sma",
-            "name": "sma_short"
-        },
-        {
-            "args": [
-                90
-            ],
-            "transformer": "sma",
-            "name": "sma_long"
-        },
-    ],
-    "enter": [
-        ["close", ">", "sma_long"],
-        ["close", ">", "sma_short"]
-    ],
-    "exit": [
-        ["close", "<", "sma_short"]
-    ],
-    "trailing_stop_loss": 0.05,
-    "exit_on_end": False,
-}
+# backtest = {
+#     "base_balance": 1000,
+#     "chart_period": "5T",
+#     "chart_start": "2020-08-30 18:00:00",
+#     "chart_stop": "2020-09-06 16:39:00",
+#     "comission": 0.01,
+#     "datapoints": [
+#         {
+#             "args": [
+#                 30
+#             ],
+#             "transformer": "sma",
+#             "name": "sma_short"
+#         },
+#         {
+#             "args": [
+#                 90
+#             ],
+#             "transformer": "sma",
+#             "name": "sma_long"
+#         },
+#     ],
+#     "enter": [
+#         ["close", ">", "sma_long"],
+#         ["close", ">", "sma_short"]
+#     ],
+#     "exit": [
+#         ["close", "<", "sma_short"]
+#     ],
+#     "trailing_stop_loss": 0.05,
+#     "exit_on_end": False,
+# }
 
 if __name__ == "__main__":
     # datafile = "./BTCUSDT.csv.txt"
     datafile = "/Users/jedmeier/Projects/fast-trade/BTCUSDT.csv.txt"
     tmp_start = datetime.datetime.utcnow()
+    backtest = generate_backtest()
     test = run_backtest(backtest, ohlcv_path=datafile, summary=True)
     # print(test["df"])
     print(test["trade_df"])
