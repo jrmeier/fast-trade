@@ -66,10 +66,10 @@ def generate_backtest():
     long_ind["args"] = [t3]
     long_ind["col"] = "close"
 
-    transformers = []
-    transformers.append(short_ind)
-    transformers.append(mid_ind)
-    transformers.append(long_ind)
+    datapoints = []
+    datapoints.append(short_ind)
+    datapoints.append(mid_ind)
+    datapoints.append(long_ind)
 
     exit_logiz = []
     enter_logiz = []
@@ -81,7 +81,7 @@ def generate_backtest():
         "chart_period": f"{chart}",
         "enter": [["close", ">", ema_enter]],
         "exit": [["close", "<", ema_exit]],
-        "transformers": [
+        "datapoints": [
             {"name": "short", "transformer": transformer, "args": [t1], "col": "close"},
             {"name": "mid", "transformer": transformer, "args": [t2], "col": "close"},
             {"name": "long", "transformer": transformer, "args": [t3], "col": "close"},

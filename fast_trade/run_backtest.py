@@ -60,7 +60,9 @@ def flatten_to_logics(list_of_logics):
     if len(list_of_logics) < 2:
         return list_of_logics
     if isinstance(list_of_logics[0], list):
-        return flatten_to_logics(list_of_logics[0]) + flatten_to_logics(list_of_logics[1:])
+        return flatten_to_logics(list_of_logics[0]) + flatten_to_logics(
+            list_of_logics[1:]
+        )
 
     return list_of_logics[:1] + flatten_to_logics(list_of_logics[1:])
 
@@ -69,7 +71,7 @@ def apply_backtest_to_dataframe(df: pd.DataFrame, backtest: dict):
     """Processes the frame and adds the resultent rows
     Parameters
     ----------
-        df, dataframe with all the calculated transformers
+        df, dataframe with all the calculated datapoints
         backtest, backtest object
 
     Returns
@@ -89,10 +91,10 @@ def apply_backtest_to_dataframe(df: pd.DataFrame, backtest: dict):
 
 def process_logic_and_actions(df, backtest):
     logics = [
-        backtest['enter'],
-        backtest['exit'],
-        backtest['any_exit'],
-        backtest['any_enter']
+        backtest["enter"],
+        backtest["exit"],
+        backtest["any_exit"],
+        backtest["any_enter"],
     ]
 
     logics = flatten_to_logics(logics)
@@ -111,7 +113,9 @@ def process_logic_and_actions(df, backtest):
             if len(last_frames) >= max_last_frames + 1:
                 last_frames.pop()
 
-            actions.append(determine_action(frame, backtest, max_last_frames, last_frames))
+            actions.append(
+                determine_action(frame, backtest, max_last_frames, last_frames)
+            )
         df["action"] = actions
     else:
         df["action"] = [determine_action(frame, backtest) for frame in df.itertuples()]
@@ -119,7 +123,9 @@ def process_logic_and_actions(df, backtest):
     return df
 
 
-def determine_action(frame: pd.DataFrame, backtest: dict, max_last_frames=0, last_frames=[]):
+def determine_action(
+    frame: pd.DataFrame, backtest: dict, max_last_frames=0, last_frames=[]
+):
     """processes the actions with the applied logic
     Parameters
     ----------
@@ -136,24 +142,30 @@ def determine_action(frame: pd.DataFrame, backtest: dict, max_last_frames=0, las
 
     if trailing_stop_loss:
         if frame.close <= frame.trailing_stop_loss:
-            return 'tsl'
+            return "tsl"
 
     if take_action(frame, backtest["exit"], max_last_frames, last_frames):
         return "x"
 
-    if take_action(frame, backtest['any_exit'], max_last_frames, last_frames, require_any=True):
-        return 'ax'
+    if take_action(
+        frame, backtest["any_exit"], max_last_frames, last_frames, require_any=True
+    ):
+        return "ax"
 
     if take_action(frame, backtest["enter"], max_last_frames, last_frames):
         return "e"
 
-    if take_action(frame, backtest["any_enter"], max_last_frames, last_frames, require_any=True):
+    if take_action(
+        frame, backtest["any_enter"], max_last_frames, last_frames, require_any=True
+    ):
         return "ae"
 
     return "h"
 
 
-def take_action(current_frame, logics, max_last_frames, last_frames=[], require_any=False):
+def take_action(
+    current_frame, logics, max_last_frames, last_frames=[], require_any=False
+):
     """determines whether to take action based on the logic in the backtest
     Parameters
     ----------
@@ -188,7 +200,6 @@ def process_single_frame(logics, row, require_any):
         res = process_single_logic(logic, row)
         results.append(res)
 
-    print(results)
     if len(results):
         if require_any:
             return_value = any(results)
@@ -199,7 +210,7 @@ def process_single_frame(logics, row, require_any):
 
 
 def clean_field_type(field, row):
-    """ Determines the value of what to run the logic against.
+    """Determines the value of what to run the logic against.
         This might be a calculated value from the current row,
         or a supplied value, such as a number.
 
@@ -219,7 +230,7 @@ def clean_field_type(field, row):
     if isinstance(field, str):
         if field.isnumeric():
             return int(field)
-        if re.match(r'^-?\d+(?:\.\d+)$', field):   # if its a string in a float
+        if re.match(r"^-?\d+(?:\.\d+)$", field):  # if its a string in a float
             return float(field)
     elif isinstance(field, int) or isinstance(field, float):
         return field

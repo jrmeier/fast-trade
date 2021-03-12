@@ -1,9 +1,10 @@
 import re
+
 # from .build_data_frame import transformers_map,
 
 
 def validate_backtest(backtest):
-    """ validates a backtest object and returns errors/warnings
+    """validates a backtest object and returns errors/warnings
 
     Parameters
     -----------
@@ -21,7 +22,7 @@ def validate_backtest(backtest):
         "chart_start": None,
         "chart_stop": None,
         "comission": None,
-        "transformers": {},
+        "datapoints": {},
         "enter": [],
         "exit": [],
         "any_enter": None,
@@ -31,7 +32,7 @@ def validate_backtest(backtest):
     }
 
     required_keys = [
-        "transformers",
+        "datapoints",
         "enter",
         "exit",
     ]
@@ -40,46 +41,43 @@ def validate_backtest(backtest):
 
     for req in required_keys:
         if req not in curr_keys:
-            backtest_mirror[req] = {
-                "error": True,
-                "msg": ["Paramater required"]
-            }
+            backtest_mirror[req] = {"error": True, "msg": ["Paramater required"]}
 
     base_balance = backtest.get("base_balance")
     if base_balance:
         bb = match_field_type_to_value(base_balance)
 
         if isinstance(bb, str):
-            backtest_mirror['base_balance'] = {
+            backtest_mirror["base_balance"] = {
                 "error": True,
-                "msg": ["base_balance must be a float or string"]
+                "msg": ["base_balance must be a float or string"],
             }
     chart_period = backtest.get("chart_period")
     if chart_period:
         if not re.search(r"(^\d{1,4}((T)|(Min)|(H)|(D)|)$)", chart_period):
             backtest_mirror["chart_period"] = {
                 "error": True,
-                "msg": ["Chart period not valid"]
+                "msg": ["Chart period not valid"],
             }
 
     chart_stop = backtest.get("chart_stop")
 
-    # transformers = backtest.get("transformers", [])
+    # datapoints = backtest.get("datapoints", [])
     # # now check the logic fields to the data points
-    # if not len(transformers):
-    #     warnings.append("No transformers set.")
+    # if not len(datapoints):
+    #     warnings.append("No datapoints set.")
 
     # else:
     #     columns = []
     #     logics = []
 
-    #     for ind in transformers:
+    #     for ind in datapoints:
     #         transformer = ind.get("transformer")
     #         name = ind.get("name")
     #         col = ind.get("col")
 
     #         # check the function is in the transformer map
-    #         if transformer not in list(transformers.keys()):
+    #         if transformer not in list(datapoints.keys()):
     #             errors.append(f"Transformer \"{transformer}\" is not a valid transformer")
 
     # def clean_fields(raw_val):
@@ -107,6 +105,6 @@ def match_field_type_to_value(field):
     if isinstance(field, str):
         if field.isnumeric():
             return int(field)
-        if re.match(r'^-?\d+(?:\.\d+)$', field):   # if its a string in a float
+        if re.match(r"^-?\d+(?:\.\d+)$", field):  # if its a string in a float
             return float(field)
     return field

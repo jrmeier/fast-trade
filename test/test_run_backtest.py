@@ -1,5 +1,7 @@
 from fast_trade.run_backtest import (
-    flatten_to_logics, prepare_new_backtest, process_logic_and_actions,
+    flatten_to_logics,
+    prepare_new_backtest,
+    process_logic_and_actions,
     take_action,
     clean_field_type,
     process_single_logic,
@@ -24,7 +26,9 @@ def test_take_action_greater_than():
         short=0.0112,
     )
 
-    res = take_action(mock_row, mock_backtest, max_last_frames=0, last_frames=[mock_row])
+    res = take_action(
+        mock_row, mock_backtest, max_last_frames=0, last_frames=[mock_row]
+    )
     assert res is True
 
 
@@ -41,7 +45,9 @@ def test_take_action_less_than():
         short=0.0112,
     )
 
-    res = take_action(mock_row, mock_backtest, max_last_frames=0, last_frames=[mock_row])
+    res = take_action(
+        mock_row, mock_backtest, max_last_frames=0, last_frames=[mock_row]
+    )
 
     assert res is False
 
@@ -59,7 +65,9 @@ def test_take_action_not_equal():
         short=0.0112,
     )
 
-    res = take_action(mock_row, mock_backtest, max_last_frames=0, last_frames=[mock_row])
+    res = take_action(
+        mock_row, mock_backtest, max_last_frames=0, last_frames=[mock_row]
+    )
     assert res is True
 
 
@@ -94,12 +102,11 @@ def test_take_action_many_frames():
         short=0.0112,
     )
 
-    mock_last_frames = [
-        mock_row,
-        mock_row
-    ]
+    mock_last_frames = [mock_row, mock_row]
 
-    res = take_action(mock_row, mock_backtest, max_last_frames=0, last_frames=mock_last_frames)
+    res = take_action(
+        mock_row, mock_backtest, max_last_frames=0, last_frames=mock_last_frames
+    )
     assert res is True
 
 
@@ -114,7 +121,7 @@ def test_clean_field_type_num():
         low=0.01,
         volume=36898,
         short=0.0112,
-        mock_f1=50
+        mock_f1=50,
     )
 
     res = clean_field_type(mock_field, mock_row)
@@ -133,7 +140,7 @@ def test_clean_field_type_num_str():
         low=0.01,
         volume=36898,
         short=0.0112,
-        mock_f1=50
+        mock_f1=50,
     )
 
     res = clean_field_type(mock_field, mock_row)
@@ -152,7 +159,7 @@ def test_clean_field_type_float_str():
         low=0.01,
         volume=36898,
         short=0.0112,
-        mock_f1=50
+        mock_f1=50,
     )
 
     res = clean_field_type(mock_field, mock_row)
@@ -171,7 +178,7 @@ def test_clean_field_type_float():
         low=0.01,
         volume=36898,
         short=0.0112,
-        mock_f1=50.04
+        mock_f1=50.04,
     )
 
     res = clean_field_type(mock_field, mock_row)
@@ -306,7 +313,7 @@ def test_determine_action_1():
         "exit": [["close", "<", "short"]],
         "any_exit": [],
         "enter": [],
-        "any_enter": []
+        "any_enter": [],
     }
 
     res = determine_action(mock_frame, mock_backtest, last_frames=[mock_frame])
@@ -330,7 +337,7 @@ def test_determine_action_2():
         "exit": [["close", ">", "short"]],
         "any_exit": [],
         "enter": [],
-        "any_enter": []
+        "any_enter": [],
     }
 
     res = determine_action(mock_frame, mock_backtest, last_frames=[mock_frame])
@@ -354,7 +361,7 @@ def test_determine_action_2_any_exit():
         "exit": [],
         "any_exit": [["close", "<", "short"]],
         "enter": [],
-        "any_enter": []
+        "any_enter": [],
     }
 
     res = determine_action(mock_frame, mock_backtest, last_frames=[mock_frame])
@@ -378,7 +385,7 @@ def test_determine_action_3_any_exit():
         "exit": [["close", ">", "short"]],
         "any_exit": [["close", "<", "short"]],
         "enter": [],
-        "any_enter": []
+        "any_enter": [],
     }
 
     res = determine_action(mock_frame, mock_backtest, last_frames=[mock_frame])
@@ -387,7 +394,9 @@ def test_determine_action_3_any_exit():
 
 
 def test_determine_action_1_trailing_stop_loss():
-    MockFrame = namedtuple("MockFrame", "date close open high low volume short trailing_stop_loss")
+    MockFrame = namedtuple(
+        "MockFrame", "date close open high low volume short trailing_stop_loss"
+    )
     mock_frame = MockFrame(
         date=1523937963,
         close=0.0212,
@@ -396,7 +405,7 @@ def test_determine_action_1_trailing_stop_loss():
         low=0.01,
         volume=36898,
         short=0.0312,
-        trailing_stop_loss=10
+        trailing_stop_loss=10,
     )
 
     mock_backtest = {
@@ -497,7 +506,7 @@ def test_proccess_logic_and_actions_3():
     )
     mock_backtest = {
         "exit": [],
-        "any_exit": [['close', '>', 0.02199]],
+        "any_exit": [["close", ">", 0.02199]],
         "enter": [],
         "any_enter": [],
     }
@@ -510,11 +519,11 @@ def test_proccess_logic_and_actions_4():
     mock_df = pd.read_csv("./test/ohlcv_data.csv.txt", parse_dates=True).set_index(
         "date"
     )
-    mock_df['ind_1'] = [0, 0, 0, 0, 1, 1, 1, 0, 0]
+    mock_df["ind_1"] = [0, 0, 0, 0, 1, 1, 1, 0, 0]
     mock_backtest = {
         "exit": [],
         "any_exit": [],
-        "enter": [['ind_1', '=', 1, 3]],
+        "enter": [["ind_1", "=", 1, 3]],
         "any_enter": [],
     }
 
@@ -523,11 +532,7 @@ def test_proccess_logic_and_actions_4():
 
 
 def test_prepare_new_backtest_1():
-    mock_backtest = {
-        "base_balance": 126,
-        "exit_on_end": False,
-        "comission": 0.022
-    }
+    mock_backtest = {"base_balance": 126, "exit_on_end": False, "comission": 0.022}
 
     res = prepare_new_backtest(mock_backtest)
 
@@ -537,7 +542,7 @@ def test_prepare_new_backtest_1():
 
 
 def test_flatten_to_logics_1():
-    mock_logics = [[['close', '>', 'short']], [['close', '=', 'high']]]
+    mock_logics = [[["close", ">", "short"]], [["close", "=", "high"]]]
 
     res = flatten_to_logics(mock_logics)
 
@@ -545,7 +550,12 @@ def test_flatten_to_logics_1():
 
 
 def test_flatten_to_logics_2():
-    mock_logics = [[['close', '>', 'short']], [[]], [['close', '>', 'short']], [['close', '>', 'short']]]
+    mock_logics = [
+        [["close", ">", "short"]],
+        [[]],
+        [["close", ">", "short"]],
+        [["close", ">", "short"]],
+    ]
 
     res = flatten_to_logics(mock_logics)
 

@@ -1,8 +1,9 @@
 from datetime import datetime
 import pandas as pd
-from finta import TA
 import os
 import re
+
+from .transformers_map import transformers_map
 
 
 def build_data_frame(backtest: dict, csv_path: str):
@@ -47,7 +48,7 @@ def load_basic_df_from_csv(csv_path: str):
 
 
 def prepare_df(df: pd.DataFrame, backtest: dict):
-    """Prepares the provided dataframe for a backtest by applying the transformers and splicing based on the given backtest.
+    """Prepares the provided dataframe for a backtest by applying the datapoints and splicing based on the given backtest.
         Useful when loading an existing dataframe (ex. from a cache).
 
     Parameters
@@ -57,14 +58,16 @@ def prepare_df(df: pd.DataFrame, backtest: dict):
 
     Returns
     ------
-        df: DataFrame, with all the transformers as column headers and trimmed to the provided time frames
+        df: DataFrame, with all the datapoints as column headers and trimmed to the provided time frames
     """
 
-    transformers = backtest.get("transformers", [])
-    df = apply_transformers_to_dataframe(df, transformers)
+    datapoints = backtest.get("datapoints", [])
+    df = apply_transformers_to_dataframe(df, datapoints)
 
     if backtest.get("trailing_stop_loss"):
-        df["trailing_stop_loss"] = df["close"].cummax() * (1 - backtest.get("trailing_stop_loss"))
+        df["trailing_stop_loss"] = df["close"].cummax() * (
+            1 - backtest.get("trailing_stop_loss")
+        )
 
     chart_period = backtest.get("chart_period", "1Min")
 
@@ -120,16 +123,16 @@ def apply_charting_to_df(
     return df
 
 
-def apply_transformers_to_dataframe(df: pd.DataFrame, transformers: list):
+def apply_transformers_to_dataframe(df: pd.DataFrame, datapoints: list):
     """Applies indications from the backtest to the dataframe
     Parameters
     ----------
         df: dataframe loaded with data
-        transformers: list of indictors as dictionary objects
+        datapoints: list of indictors as dictionary objects
 
         transformer detail:
         {
-            "transformer": "", string, actual function to be called MUST be in the transformers
+            "transformer": "", string, actual function to be called MUST be in the datapoints
             "name": "", string, name of the transformer, becomes a column on the dataframe
             "args": [], list arguments to pass the the function
             "col": string, the name of the dataframe column to be used
@@ -137,15 +140,15 @@ def apply_transformers_to_dataframe(df: pd.DataFrame, transformers: list):
 
     Returns
     -------
-        df, a modified dataframe with all the transformers calculated as columns
+        df, a modified dataframe with all the datapoints calculated as columns
     """
-    for ind in transformers:
+    for ind in datapoints:
         transformer = ind.get("transformer")
         field_name = ind.get("name")
 
         if len(ind.get("args", [])):
             args = ind.get("args")
-            # df[field_name] = transformers[transformer](df, *args)
+            # df[field_name] = datapoints[transformer](df, *args)
             trans_res = transformers_map[transformer](df, *args)
         else:
             trans_res = transformers_map[transformer](df)
@@ -160,7 +163,7 @@ def apply_transformers_to_dataframe(df: pd.DataFrame, transformers: list):
 
 
 def process_res_df(df, ind, trans_res):
-    """ handle if a transformer returns multiple columns
+    """handle if a transformer returns multiple columns
     To manage this, we just add the name of column in a clean
     way, removing periods and lowercasing it.
 
@@ -241,87 +244,3 @@ def standardize_df(df: pd.DataFrame):
     new_df.volume = pd.to_numeric(new_df.volume)
 
     return new_df
-
-
-"""
-These are all the transformers the can be used in a backtest as a "transformer".
-Any function can be implimented as an transformer.
-"""
-transformers_map = {
-    "sma": TA.SMA,
-    "smm": TA.SMM,
-    "ssma": TA.SSMA,
-    "ema": TA.EMA,
-    "dema": TA.DEMA,
-    "tema": TA.TEMA,
-    "trima": TA.TRIMA,
-    "vama": TA.VAMA,
-    "er": TA.ER,
-    "kama": TA.KAMA,
-    "zlema": TA.ZLEMA,
-    "wma": TA.WMA,
-    "hma": TA.HMA,
-    "evwma": TA.EVWMA,
-    "vwap": TA.VWAP,
-    "smma": TA.SMMA,
-    "macd": TA.MACD,
-    "ppo": TA.PPO,
-    "vw_macd": TA.VW_MACD,
-    "ev_macd": TA.EV_MACD,
-    "mom": TA.MOM,
-    "roc": TA.ROC,
-    "rsi": TA.RSI,
-    "ift_rsi": TA.IFT_RSI,
-    "tr": TA.TR,
-    "atr": TA.ATR,
-    "sar": TA.SAR,
-    "bbands": TA.BBANDS,
-    "bbwidth": TA.BBWIDTH,
-    "percent_b": TA.PERCENT_B,
-    "kc": TA.KC,
-    "do": TA.DO,
-    "dmi": TA.DMI,
-    "adx": TA.ADX,
-    "pivot": TA.PIVOT,
-    "pivot_fib": TA.PIVOT_FIB,
-    "stoch": TA.STOCH,
-    "stochd": TA.STOCHD,
-    "stochrsi": TA.STOCHRSI,
-    "williams": TA.WILLIAMS,
-    "uo": TA.UO,
-    "ao": TA.AO,
-    "mi": TA.MI,
-    "vortex": TA.VORTEX,
-    "kst": TA.KST,
-    "tsi": TA.TSI,
-    "tp": TA.TP,
-    "adl": TA.ADL,
-    "chaikin": TA.CHAIKIN,
-    "mfi": TA.MFI,
-    "obv": TA.OBV,
-    "wobv": TA.WOBV,
-    "vzo": TA.VZO,
-    "pzo": TA.PZO,
-    "efi": TA.EFI,
-    "cfi": TA.CFI,
-    "ebbp": TA.EBBP,
-    "emv": TA.EMV,
-    "cci": TA.CCI,
-    "copp": TA.COPP,
-    "basp": TA.BASP,
-    "baspn": TA.BASPN,
-    "cmo": TA.CMO,
-    "chandelier": TA.CHANDELIER,
-    "qstick": TA.QSTICK,
-    "tmf": TA.TMF,
-    "fish": TA.FISH,
-    "ichimoku": TA.ICHIMOKU,
-    "apz": TA.APZ,
-    "vr": TA.VR,
-    "sqzmi": TA.SQZMI,
-    "vpt": TA.VPT,
-    "fve": TA.FVE,
-    "vfi": TA.VFI,
-    "msd": TA.MSD,
-    # "ta.wto": TA.WTO, needs a helper function
-}

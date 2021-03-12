@@ -47,15 +47,15 @@ coverage report -m
 Strategies are cheap. This is the main motivation behind fast-trade. Since a backtest is just a JSON object, strategies can be created, stored, modified, versioned, and re-run easily. Ideally, a backtest could be generated and tested quickly; fast-trade is just the library to handle that.
 Fast Trade is also useful for quickly analyzing chart (`ohlc`) data.
 
-## transformers
+## Transfomers (Technical Indicators)
 
-Available transformers [FinTA](https://github.com/peerchemist/finta)
+Available transformer functions are from [FinTA](https://github.com/peerchemist/finta)
 
-Custom transformers can be added by setting a function name in the [transformers](https://github.com/jrmeier/fast-trade/blob/master/fast_trade/build_data_frame.py#L141), then setting that equal to a function that takes in a dataframe as the first argument and whatever arguments passed in.
+Custom datapoints can be added by setting a function name in the [datapoints](/fast_trade/transformers_map.py), then setting that equal to a function that takes in a dataframe as the first argument and whatever arguments passed in.
 
 ## Data
 
-Data must be minute tick data. transformers will give false results if the data isn't once a minute.
+Data must be minute tick data. datapoints will give false results if the data isn't once a minute.
 
 Datafiles are expected but come with `ohlc` candlestick minute data in a csv file, but will not work as expected. Please open an issue if this is a problem for you.
 
@@ -102,22 +102,20 @@ backtest = {
        "long"
      ],
    ],
-   "transformers": [
+   "datapoints": [
      {
        "name": "short",
        "transformer": "ta.ema",
        "args": [
          21
-       ],
-       "col": "close"
+       ]
      },
      {
        "name": "long",
        "transformer": "ta.ema",
        "args": [
          50
-       ],
-       "col": "close"
+       ]
      },
 
    ]
@@ -129,7 +127,7 @@ datafile_path = "./BTCUSDT.csv.txt"
 result = run_backtest(backtest, datafile_path)
 
 summary = result["summary"]
-df = result["col"]
+df = result["df"]
 trade_log_df = result["trade_log]
 
 print(summary)
@@ -182,42 +180,44 @@ Example output:
 
 ```python
 {
-  "summary":
-    {
-      "return_perc": -6.478, # total return percentage
-      "buy_and_hold_perc": 14.699, # the return perc if comparing the first price to the last price
-      "median_trade_len": 29999.00115, # median length of trade, in seconds
-      "mean_trade_len": 147445.013888888, # mean trade length, in seconds
-      "max_trade_held": 619920.0, # longest trade held length, in seconds
-      "min_trade_len": 28799.0, # shortest trade held length, in seconds
-      "best_trade_perc": 13.611, # highest trade percent
-      "min_trade_perc": -18.355, # lowest trade percent
-      "mean_trade_perc": 0.083, # mean trade percentage
-      "num_trades": 73, # number of trade
-      "win_perc": 58.904, # amount of winning trade percentages
-      "loss_perc": 39.726, # amount of losing trade percentages
-      "equity_peak": 1117.3126272, # most amount of equity
-      "equity_final": 935.2209955, # ending amount of equity
-      "first_tic": "2018-01-01 01:48:01", # first tic date in the backtest
-      "last_tic": "2018-05-03 22:43:02", # last tic date in the backtest
-      "total_tics": 720, # total number of dates
-      "test_duration": 0.420136 # amount of time test took
-    },
-    "col": DataFrame(...), # dataframe used in the backtest
-    "trade_df": DateFrame(...), # a subset of the main dataframe only containing the rows with trades
-    "backtest": {...}, # the backtest object
+  "return_perc": -3.608,
+  "sharpe_ratio": -0.018705921376959495,
+  "buy_and_hold_perc": -13.661,
+  "median_trade_len": 1260.0,
+  "mean_trade_len": 1430.121951,
+  "max_trade_held": 4680.0,
+  "min_trade_len": 360.0,
+  "total_num_winning_trades": 46,
+  "total_num_losing_trades": 119,
+  "avg_win_per": 0.134,
+  "avg_loss_per": -0.081,
+  "best_trade_perc": 0.592,
+  "min_trade_perc": -2.588,
+  "median_trade_perc": -0.01,
+  "mean_trade_perc": -0.021,
+  "num_trades": 165,
+  "win_perc": 27.879,
+  "loss_perc": 72.121,
+  "equity_peak": 10053.901,
+  "equity_final": 9651.792,
+  "max_drawdown": 9651.792,
+  "total_fees": 81.745,
+  "first_tic": "2020-08-30 18:00:00",
+  "last_tic": "2020-09-06 16:39:00",
+  "total_tics": 3334,
+  "test_duration": 0.199153
 }
 ```
 
-## backtest
+## Backtest
 
 The real goal of this project is to get to the point where these strategies can be generated and tested quickly and then be easily iterated on.
 
-Below is an example of a very simple strategey. Basically, transformers are used to build a list of transformers to look at which must all be true to produce an enter or exit status for that tick.
+Below is an example of a very simple strategey. Basically, datapoints are used to build a list of datapoints to look at which must all be true to produce an enter or exit status for that tick.
 
-Strategies include all the instructions needed to run the backtest minus the data.
+Backtests include all the instructions needed to run the backtest minus the data.
 
-### backtest Requirements
+### Backtest Requirements
 
 - name:
   - string, optional
@@ -226,21 +226,19 @@ Strategies include all the instructions needed to run the backtest minus the dat
 - chart_period:
   - string, optional
   - default: `"1Min"`
-  - description: a charting period string. See [here](https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#dateoffset-objects) for allowed strings.
+  - description: a charting period string. allowed values are "Min" (minute), "T" (minute), "D" (day),"H" (hour)
   - Ex.
     - "1Min" is 1 minute
     - "2H" is 2 hours
     - "5D" is 5 days
-- start: string
-
+- start: string or timestamp
   - optional,
   - default: `""`
   - description: The time string of when to start the backtest with `%Y-%m-%d %H:%M:%S` date format or a timestamp. It will be tested
   - Ex.
     - `"2018-05-01 00:00:00"` May 1st, 2018 at midnight
 
-- stop: string
-
+- stop: sting or timestamp
   - optional
   - default: `""`
   - description: The time string of when to stop the backtest with `%Y-%m-%d %H:%M:%S` date format or a timestamp
@@ -250,113 +248,140 @@ Strategies include all the instructions needed to run the backtest minus the dat
     - `1590969600` (seconds) June 6th, 2020
     - `1590969600000` (milliseconds) June 6th, 2020
 
-- base_balance: float
-
+- base_balance: float or int
   - optional
   - default: 1000
-  - description: The starting balance of trade account. Usually \$ or "base" coins for cryptocurrencies.
+  - description: The starting balance of trade account. Usually $ or "base" coins for cryptocurrencies.
 
 - comission: float
-
   - optional
-  - defaut: 0.0
+  - default: 0.0
   - description: The "trading fee" per trade. This is subtracted per trade.
 
 - enter: list,
-
   - required
   - default: `None`
-  - description: This describes requirements the send a buy signal ("enter" a trade). There can be any number of items (what I'm calling "logiz") in here. Each `logiz` is contains a single `if` statement. The two variables are the first and last items in the list, with the operator to compare them `>`, `<` `=`.
+  - description: a list of [Logic](###LogicDetail)'s with instructions to compare the data on each tick. ALL logic items must return True to ENTER the  trade.
 
-- exit: list
-
-  - required
-  - default: `None`
-  - description: This describes requirements the send a sell signal ("exit" a trade). There can be any number of items (what I'm calling "logiz") in here. Each `logiz` is contains a single `if` statement. The two variables are the first and last items in the list, with the operator to compare them `>`, `<` `=`.
-
-- transformers: list
+- any_enter: list,
   - optional
   - default: `None`
-  - description: This describes how to create the transformers. Each individual transformer has name that can be referenced in either the `enter` or `exit` logizs. For more information, see ([transformers Detail](###transformersDetail))
+  - description: a list of [Logic](###LogicDetail)'s with instructions to compare the data on each tick. ANY LOGIC ITEM can return True to ENTER the trade.
+
+- exit: list
+  - required
+  - default: `None`
+  - description: a list of [Logic](###LogicDetail)'s with instructions to compare the data on each tick. ANY LOGIC ITEM can return True to EXIT the trade.
+
+- any_exit: list
+  - optional
+  - default: `None`
+  - description: a list of [Logic](###LogicDetail)'s with instructions to compare the data on each tick. ANY LOGIC ITEM can return True to EXIT the trade.
+
+- datapoints: list
+  - optional
+  - default: `None`
+  - description: This describes how to create the datapoints. Each individual transformer has name that can be referenced in either the `enter` or `exit` logizs. For more information, see ([Datapoints](###Datapoints))
+
+- trailing_stop_loss: float
+  - optional
+  - default `0`
+  - description: This sets a trailing stop loss, so the trade will exit immediately, without considering any other action. It is the percentage ot follow for example, to set a stop loss of 5%, set `0.05`
+
+#### Simple Moving Average Cross example
+
+This is an example of a simple moving average cross backtest.
 
 ```python
 {
-   "name": "example",
-   "chart_period": "4T",
-   "start": "2018-05-01 00:00:00",
-   "stop": "2018-05-04 00:00:00",
-   "enter": [
-     [
-       "close",
-       ">",
-       "short"
-     ],
-     [
-       "rsi",
-       ">",
-       30
-     ]
-   ],
-   "exit": [
-     [
-       "close",
-       "<",
-       "long"
-     ],
-     [
-       "rsi",
-       "<",
-       70
-     ]
-   ],
-   "transformers": [
-     {
-       "name": "short",
-       "transformer": "ta.zlema",
-       "args": [
-         7
-       ],
-       "col": "close"
-     },
-     {
-       "name": "long",
-       "transformer": "ta.zlema",
-       "args": [
-         150
-       ],
-       "col": "close"
-     },
-     {
-       "name": "rsi",
-       "transformer": "ta.rsi",
-       "args": [
-         14
-       ],
-       "col": "close"
-     }
-   ]
+    "base_balance": 1000,
+    "chart_period": "5T",
+    "chart_start": "2020-08-30 18:00:00",
+    "chart_stop": "2020-09-06 16:39:00",
+    "comission": 0.01,
+    "datapoints": [
+        {
+            "args": [
+                30
+            ],
+            "transformer": "sma",
+            "name": "sma_short"
+        },
+        {
+            "args": [
+                90
+            ],
+            "transformer": "sma",
+            "name": "sma_long"
+        },
+    ],
+    "enter": [
+      ["close", ">", "sma_long"],
+      ["close", ">", "sma_short"]
+    ],
+    "exit": [["close", "<", "sma_short"]],
+    "trailing_stop_loss": 0.05,
+    "exit_on_end": False,
 }
 ```
 
-### transformersDetail
+### LogicDetail
+
+Each `logic` is contains a single `if` statement. The two variables are the first and last item in the list, with the operator to compare them `>`, `<` `=`.
+
+To think of this easily, just say it out loud.
+Ex.
+
+If the close (closing price) at X time is greater than the "short_sma" (custom datapoint), then return True, else return False.
+
+```python
+[
+  "close",
+  ">",
+  "sma_short"
+  ]
+  ```
+
+Valid datapoints:
+
+- open
+- high
+- low
+- close
+- volume
+- any [datapoint](###Datapoints) (see [LogicExample1](####LogicExample1))
+- any additional columns in your data file or your dataframe (see [LogicExample2](####LogicExample2))
+
+#### LogicExample1
+
+```python
+    [
+      "close", # valid datapoint, always provided
+      ">", # logic to use to compare
+      "short" # valid custom datapoint, defined in datapoints
+    ]
+```
+
+#### LogicExample2
+
+```python
+    [
+      "rsi", # valid custom datapoint, should be defined in datapoints
+      "<", # logic to use to compare
+      70 # integer, float, or string 
+    ]
+```
+
+### Datapoints
+
+Datapoints are user defined technical indicators. You can select a defined [transformer](##Transformer) function to apply the technical analysis. They can reference data and calculate the new values to be referenced inside of any of the logics.
+
+Simple SMA example
 
 ```python
       {
-         "name": "short", # transformer name
-         "transformer": "ta.zlema", # technical analysis function to be used
-         "args": [12], # arguments to pass to the function
-         "col": "close" # which column of the dataframe to look at
+         "name": "sma_short", # transformer name
+         "transformer": "sma", # technical analysis function to be used
+         "args": [20], # arguments to pass to the function
       }
-```
-
-### Enter / Exit
-
-```python
-   "enter": [ # all must be true to enter or exit
-      [
-         "close", # column of the dataframe to compare to
-         ">", # logic to use to compare
-         "short" # the name from the defined transformer
-      ]
-   ]
 ```
