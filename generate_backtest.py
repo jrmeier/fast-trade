@@ -82,8 +82,8 @@ def generate_backtest():
         "enter": [["close", ">", ema_enter]],
         "exit": [["close", "<", ema_exit]],
         "datapoints": [
-            {"name": "short", "transformer": transformer, "args": [t1], "col": "close"},
-            {"name": "mid", "transformer": transformer, "args": [t2], "col": "close"},
-            {"name": "long", "transformer": transformer, "args": [t3], "col": "close"},
+            {"name": "short", "transformer": transformer, "args": [t1]},
+            {"name": "mid", "transformer": transformer, "args": [t2]},
+            {"name": "long", "transformer": transformer, "args": [t3]},
         ],
     }

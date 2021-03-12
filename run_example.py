@@ -30,31 +30,34 @@ ms2 = 1594339200000
 #     ]
 # }
 backtest = {
-    "base_balance": 10000.0,
-    "chart_period": "3T",
-    "chart_start": 1596293700000,
-    "chart_stop": 1614095742000,
+    "base_balance": 1000,
+    "chart_period": "5T",
+    "chart_start": "2020-08-30 18:00:00",
+    "chart_stop": "2020-09-06 16:39:00",
     "comission": 0.01,
-    "created_at": 1615422604619,
     "datapoints": [
-        # {
-        #     "args": [
-        #         10
-        #     ],
-        #     "transformer": "rsi",
-        #     "name": "BTCUSD_rsi"
-        # },
-        {"args": [55], "transformer": "zlema", "name": "zlema_close"},
-        # {
-        #     "args": [
-        #         22, 22
-        #     ],
-        #     "transformer":"chandelier",
-        #     "name": "stop_loss"
-        # }
+        {
+            "args": [
+                30
+            ],
+            "transformer": "sma",
+            "name": "sma_short"
+        },
+        {
+            "args": [
+                90
+            ],
+            "transformer": "sma",
+            "name": "sma_long"
+        },
     ],
-    "enter": [["zlema_close", ">", "close", 2]],
-    "exit": [["zlema_close", "<", "close", 2]],
+    "enter": [
+        ["close", ">", "sma_long"],
+        ["close", ">", "sma_short"]
+    ],
+    "exit": [
+        ["close", "<", "sma_short"]
+    ],
     "trailing_stop_loss": 0.05,
     "exit_on_end": False,
 }

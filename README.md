@@ -372,6 +372,19 @@ Valid datapoints:
     ]
 ```
 
+#### Logic Lookbacks
+
+Logic lookbacks allow you to confirm a signal by checking the last N periods.
+
+```python
+    [
+      "rsi", # valid custom datapoint, should be defined in datapoints
+      ">", # logic to use to compare
+      30, # integer, float, or string
+      2 # optional, default 0, LogicalLookback number of periods to confirm this signal
+    ]
+```
+
 ### Datapoints
 
 Datapoints are user defined technical indicators. You can select a defined [transformer](##Transformer) function to apply the technical analysis. They can reference data and calculate the new values to be referenced inside of any of the logics.
@@ -382,6 +395,6 @@ Simple SMA example
       {
          "name": "sma_short", # transformer name
          "transformer": "sma", # technical analysis function to be used
-         "args": [20], # arguments to pass to the function
+         "args": [20], # arguments to pass to the function, for multiple args, add a "," behind each
       }
 ```
