@@ -10,14 +10,11 @@ def generate_backtest():
         "15m",
         "30m",
         "1h",
-        "2h",
-        "4h",
-        "6h",
     ]
 
-    t1 = random.randint(1, 50)
-    t2 = random.randint(t1 + 1, t1 * 1.8)
-    t3 = random.randint(t2 + 1, t2 * 1.8)
+    t1 = random.randint(1, 25)
+    t2 = random.randint(t1 + 1, t1 * 2)
+    t3 = random.randint(t2 + 1, t2 * 2)
 
     chart = random.choice(charts)
 
@@ -74,11 +71,15 @@ def generate_backtest():
     exit_logiz.append(new_exit_logiz)
     enter_logiz.append(new_enter_logiz)
 
+    look_back_e = random.randint(1, 6)
+    look_back_x = random.randint(1, 6)
+
     return {
         "name": "generated",
+        "exit_on_end": False,
         "chart_period": f"{chart}",
-        "enter": [["close", ">", ema_enter]],
-        "exit": [["close", "<", ema_exit]],
+        "enter": [["close", ">", ema_enter, look_back_e]],
+        "exit": [["close", "<", ema_exit, look_back_x]],
         "datapoints": [
             {"name": "short", "transformer": transformer, "args": [t1]},
             {"name": "mid", "transformer": transformer, "args": [t2]},

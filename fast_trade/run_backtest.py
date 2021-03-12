@@ -97,13 +97,9 @@ def process_logic_and_actions(df, backtest):
         backtest["any_enter"],
     ]
 
-    # logics = flatten_to_logics(logics)
-    print(logics)
     max_last_frames = 0
 
-    print(logics)
     for logic in logics:
-        print("logic: ", logic)
         if len(logic) > 3:
             if logic[3] > max_last_frames:
                 max_last_frames = logic[3]

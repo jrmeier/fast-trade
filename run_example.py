@@ -68,6 +68,7 @@ if __name__ == "__main__":
     datafile = "/Users/jedmeier/Projects/fast-trade/BTCUSDT.csv.txt"
     tmp_start = datetime.datetime.utcnow()
     backtest = generate_backtest()
+    print("backtest: ",json.dumps(backtest, indent=2)
     test = run_backtest(backtest, ohlcv_path=datafile, summary=True)
     # print(test["df"])
     print(test["trade_df"])
