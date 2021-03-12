@@ -47,7 +47,7 @@ def load_basic_df_from_csv(csv_path: str):
 
 
 def prepare_df(df: pd.DataFrame, backtest: dict):
-    """Prepares the provided dataframe for a backtest by applying the indicators and splicing based on the given backtest.
+    """Prepares the provided dataframe for a backtest by applying the transformers and splicing based on the given backtest.
         Useful when loading an existing dataframe (ex. from a cache).
 
     Parameters
@@ -57,11 +57,11 @@ def prepare_df(df: pd.DataFrame, backtest: dict):
 
     Returns
     ------
-        df: DataFrame, with all the indicators as column headers and trimmed to the provided time frames
+        df: DataFrame, with all the transformers as column headers and trimmed to the provided time frames
     """
 
-    indicators = backtest.get("indicators", [])
-    df = apply_indicators_to_dataframe(df, indicators)
+    transformers = backtest.get("transformers", [])
+    df = apply_transformers_to_dataframe(df, transformers)
 
     if backtest.get("trailing_stop_loss"):
         df["trailing_stop_loss"] = df["close"].cummax() * (1 - backtest.get("trailing_stop_loss"))
@@ -120,48 +120,66 @@ def apply_charting_to_df(
     return df
 
 
-def apply_indicators_to_dataframe(df: pd.DataFrame, indicators: list):
+def apply_transformers_to_dataframe(df: pd.DataFrame, transformers: list):
     """Applies indications from the backtest to the dataframe
     Parameters
     ----------
         df: dataframe loaded with data
-        indicators: list of indictors as dictionary objects
+        transformers: list of indictors as dictionary objects
 
-        Indicator detail:
+        transformer detail:
         {
-            "func": "", string, actual function to be called MUST be in the indicator_map
-            "name": "", string, name of the indicator, becomes a column on the dataframe
+            "transformer": "", string, actual function to be called MUST be in the transformers
+            "name": "", string, name of the transformer, becomes a column on the dataframe
             "args": [], list arguments to pass the the function
-            "df": string, the name of the dataframe column to be used
+            "col": string, the name of the dataframe column to be used
         }
 
     Returns
     -------
-        df, a modified dataframe with all the indicators calculated as columns
+        df, a modified dataframe with all the transformers calculated as columns
     """
-    for ind in indicators:
-        func = ind.get("func")
+    for ind in transformers:
+        transformer = ind.get("transformer")
         field_name = ind.get("name")
 
         if len(ind.get("args", [])):
             args = ind.get("args")
-            # df[field_name] = indicator_map[func](df, *args)
-            res = indicator_map[func](df, *args)
+            # df[field_name] = transformers[transformer](df, *args)
+            trans_res = transformers_map[transformer](df, *args)
         else:
-            res = indicator_map[func](df)
+            trans_res = transformers_map[transformer](df)
 
-        if isinstance(res, pd.DataFrame):
-            df = process_res_df(df, ind)
+        if isinstance(trans_res, pd.DataFrame):
+            df = process_res_df(df, ind, trans_res)
 
-        if isinstance(res, pd.Series):
-            df[field_name] = res
+        if isinstance(trans_res, pd.Series):
+            df[field_name] = trans_res
 
     return df
 
 
-def process_res_df(df, ind):
-    if ind.get("func", "") == "chandelier":
-        return chandelier_helper(df, ind)
+def process_res_df(df, ind, trans_res):
+    """ handle if a transformer returns multiple columns
+    To manage this, we just add the name of column in a clean
+    way, removing periods and lowercasing it.
+
+    Parameters
+    ----------
+    df, dataframe, current dataframe
+    ind, indicator object
+    trans_res, result from the transformer function
+
+    Returns
+    -------
+    df, dataframe, updated dataframe with the new columns
+    """
+    for key in trans_res.keys().values:
+        i_name = ind.get("name")
+        clean_key = key.lower()
+        clean_key = clean_key.replace(".", "")
+        df_key = f"{i_name}_{clean_key}"
+        df[df_key] = trans_res[key]
 
     return df
 
@@ -225,27 +243,11 @@ def standardize_df(df: pd.DataFrame):
     return new_df
 
 
-def chandelier_helper(df, ind):
-    if len(ind.get("args", [])):
-        args = ind.get("args")
-        res = TA.CHANDELIER(df, *args)
-    else:
-        res = TA.CHANDELIER(df)
-
-    for key in res.keys().values:
-        i_name = ind.get("name")
-        clean_key = key.lower()
-        clean_key = clean_key.replace(".", "")
-        df_key = f"{i_name}_{clean_key}"
-        df[df_key] = res[key]
-
-    return df
-
 """
-These are all the indicators the can be used in a backtest as a "func".
-Any function can be implimented as an indicator.
+These are all the transformers the can be used in a backtest as a "transformer".
+Any function can be implimented as an transformer.
 """
-indicator_map = {
+transformers_map = {
     "sma": TA.SMA,
     "smm": TA.SMM,
     "ssma": TA.SSMA,

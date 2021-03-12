@@ -16,8 +16,8 @@ ms2 = 1594339200000
 #     "enter": [["price_action_1", ">", 2]],
 #     "exit": [["price_action_2", "<", 1]],
 #     "exit_on_end": False,
-#     "commission": 0.001,
-#     "indicators": [
+#     "comission": 0.001,
+#     "transformers": [
 #         {"args": [60], "df": "close", "func": "ta.roc", "name": "price_action_1"},
 #         {"args": [10], "df": "close", "func": "ta.roc", "name": "price_action_2"},
 #         {"args": [10], "df": "close", "func": "stop_loss", "name": "stop_loss_1"},
@@ -31,54 +31,52 @@ ms2 = 1594339200000
 # }
 backtest = {
     "base_balance": 10000.0,
-    "chart_period": "15T",
+    "chart_period": "3T",
     "chart_start": 1596293700000,
     "chart_stop": 1614095742000,
     "comission": 0.01,
     "created_at": 1615422604619,
-    "indicators": [
+    "transformers": [
+        # {
+        #     "args": [
+        #         10
+        #     ],
+        #     "transformer": "rsi",
+        #     "name": "BTCUSD_rsi"
+        # },
         {
             "args": [
-                10
+                55
             ],
-            "df": "BTCUSD",
-            "func": "rsi",
-            "name": "BTCUSD_rsi"
-        },
-        {
-            "args": [
-                7
-            ],
-            "df": "BTCUSD",
-            "func": "zlema",
+            "transformer": "zlema",
             "name": "zlema_close"
         },
-        {
-            "args": [
-                22, 22
-            ],
-            "df": "BTCUSD",
-            "func":"chandelier",
-            "name": "stop_loss"
-        }
+        # {
+        #     "args": [
+        #         22, 22
+        #     ],
+        #     "transformer":"chandelier",
+        #     "name": "stop_loss"
+        # }
     ],
     "enter": [
         [
             "zlema_close",
             ">",
             "close",
-            3,
+            2
         ]
     ],
     "exit": [
         [
-            "stop_loss_short",
+            "zlema_close",
             "<",
-            "close"
+            "close",
+            2
         ]
     ],
-    "trailing_stop_loss": .20,
-    "exit_on_end": True,
+    "trailing_stop_loss": .05,
+    "exit_on_end": False,
 }
 
 if __name__ == "__main__":

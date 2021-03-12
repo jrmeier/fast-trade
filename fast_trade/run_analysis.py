@@ -16,7 +16,7 @@ def analyze_df(df: pd.DataFrame, backtest: dict):
     """
     in_trade = False
     last_base = float(backtest["base_balance"])
-    commission = float(backtest["commission"])
+    comission = float(backtest["comission"])
     last_aux = 0.0
     new_total_value = last_base
 
@@ -33,10 +33,10 @@ def analyze_df(df: pd.DataFrame, backtest: dict):
 
         # execute_stoploss = determine_stoploss(close, in_trade,)
 
-        if curr_action == "e" and not in_trade:
+        if curr_action in ["e", "he"] and not in_trade:
             # this means we should enter the trade
             last_aux = convert_base_to_aux(last_base, close)
-            fee = calculate_fee(last_aux, commission)
+            fee = calculate_fee(last_aux, comission)
 
             last_aux = last_aux - fee
             new_total_value = convert_aux_to_base(last_aux, close)
@@ -45,9 +45,9 @@ def analyze_df(df: pd.DataFrame, backtest: dict):
             last_base = round(last_base - new_total_value, 8)
             in_trade = True
 
-        if curr_action == "x" and in_trade:
+        if curr_action in ["x", "hx", "tsl"] and in_trade:
             last_base = convert_aux_to_base(last_aux, close)
-            fee = calculate_fee(last_base, commission)
+            fee = calculate_fee(last_base, comission)
             last_base = last_base - fee
             last_aux = round(last_aux - convert_base_to_aux(last_base, close), 8)
 
@@ -114,14 +114,14 @@ def convert_aux_to_base(last_aux: float, close: float):
     return 0.0
 
 
-def calculate_fee(price: float, commission: float):
+def calculate_fee(price: float, comission: float):
     """calculates the trading fees from the exchange
     Parameters
     ----------
         price, amount of the coin after the transaction
-        commission, percentage of the transaction
+        comission, percentage of the transaction
     """
-    if commission:
-        return round((price / 100) * commission, 8)
+    if comission:
+        return round((price / 100) * comission, 8)
 
     return 0.0

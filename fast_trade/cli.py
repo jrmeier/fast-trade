@@ -63,7 +63,7 @@ def main():
             save(res, strat_obj)
 
         if args.get("plot"):
-            create_plot(res["df"])
+            create_plot(res["col"])
 
             plt.show()
 

@@ -85,10 +85,10 @@ def save(result, strat_obj):
         summary_file.write(json.dumps(result["summary"], indent=2))
 
     # dataframe
-    result["df"].to_csv(f"{new_save_dir}/dataframe.csv")
+    result["col"].to_csv(f"{new_save_dir}/dataframe.csv")
 
     # plot
-    create_plot(result["df"])
+    create_plot(result["col"])
     plt.savefig(f"{new_save_dir}/plot.png")
 
 

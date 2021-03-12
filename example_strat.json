@@ -4,10 +4,10 @@
   "exit": [["close", "<", "short"]],
   "exit_on_end": false,
   "id": "b25101fa-636d-4537-aa9c-b62bb9fd5c13",
-  "indicators": [
-    { "args": [12], "df": "close", "func": "ta.zlema", "name": "short" },
-    { "args": [14], "df": "close", "func": "ta.zlema", "name": "mid" },
-    { "args": [28], "df": "close", "func": "ta.zlema", "name": "long" }
+  "transformers": [
+    { "args": [12], "col": "close", "transformer": "ta.zlema", "name": "short" },
+    { "args": [14], "col": "close", "transformer": "ta.zlema", "name": "mid" },
+    { "args": [28], "col": "close", "transformer": "ta.zlema", "name": "long" }
   ],
   "name": "generated"
 }

@@ -67,7 +67,7 @@ def test_analyze_df_1():
         "date"
     )
     mock_df.index = pd.to_datetime(mock_df.index, unit="s")
-    mock_backtest = {"base_balance": 1000, "exit_on_end": True, "commission": 0.00}
+    mock_backtest = {"base_balance": 1000, "exit_on_end": True, "comission": 0.00}
 
     mock_df["action"] = ["e", "h", "x", "x", "x", "e", "x", "h", "h"]
 
@@ -114,7 +114,7 @@ def test_analyze_df_2():
     )
     mock_df.index = pd.to_datetime(mock_df.index, unit="s")
 
-    mock_backtest = {"base_balance": 1000, "exit_on_end": True, "commission": 0.00}
+    mock_backtest = {"base_balance": 1000, "exit_on_end": True, "comission": 0.00}
     mock_df["action"] = ["e", "h", "h", "x", "h", "h", "e", "h", "h"]
 
     df = analyze_df(mock_df, mock_backtest)

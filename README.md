@@ -47,15 +47,15 @@ coverage report -m
 Strategies are cheap. This is the main motivation behind fast-trade. Since a backtest is just a JSON object, strategies can be created, stored, modified, versioned, and re-run easily. Ideally, a backtest could be generated and tested quickly; fast-trade is just the library to handle that.
 Fast Trade is also useful for quickly analyzing chart (`ohlc`) data.
 
-## Indicators
+## transformers
 
-Available Indicators [FinTA](https://github.com/peerchemist/finta)
+Available transformers [FinTA](https://github.com/peerchemist/finta)
 
-Custom indicators can be added by setting a function name in the [indicator_map](https://github.com/jrmeier/fast-trade/blob/master/fast_trade/build_data_frame.py#L141), then setting that equal to a function that takes in a dataframe as the first argument and whatever arguments passed in.
+Custom transformers can be added by setting a function name in the [transformers](https://github.com/jrmeier/fast-trade/blob/master/fast_trade/build_data_frame.py#L141), then setting that equal to a function that takes in a dataframe as the first argument and whatever arguments passed in.
 
 ## Data
 
-Data must be minute tick data. Indicators will give false results if the data isn't once a minute.
+Data must be minute tick data. transformers will give false results if the data isn't once a minute.
 
 Datafiles are expected but come with `ohlc` candlestick minute data in a csv file, but will not work as expected. Please open an issue if this is a problem for you.
 
@@ -87,7 +87,7 @@ backtest = {
    "start": "",
    "stop": "",
    "exit_on_end": False,
-   "commission": 0.001,
+   "comission": 0.001,
    "enter": [
      [
        "close",
@@ -102,22 +102,22 @@ backtest = {
        "long"
      ],
    ],
-   "indicators": [
+   "transformers": [
      {
        "name": "short",
-       "func": "ta.ema",
+       "transformer": "ta.ema",
        "args": [
          21
        ],
-       "df": "close"
+       "col": "close"
      },
      {
        "name": "long",
-       "func": "ta.ema",
+       "transformer": "ta.ema",
        "args": [
          50
        ],
-       "df": "close"
+       "col": "close"
      },
 
    ]
@@ -129,7 +129,7 @@ datafile_path = "./BTCUSDT.csv.txt"
 result = run_backtest(backtest, datafile_path)
 
 summary = result["summary"]
-df = result["df"]
+df = result["col"]
 trade_log_df = result["trade_log]
 
 print(summary)
@@ -203,7 +203,7 @@ Example output:
       "total_tics": 720, # total number of dates
       "test_duration": 0.420136 # amount of time test took
     },
-    "df": DataFrame(...), # dataframe used in the backtest
+    "col": DataFrame(...), # dataframe used in the backtest
     "trade_df": DateFrame(...), # a subset of the main dataframe only containing the rows with trades
     "backtest": {...}, # the backtest object
 }
@@ -213,7 +213,7 @@ Example output:
 
 The real goal of this project is to get to the point where these strategies can be generated and tested quickly and then be easily iterated on.
 
-Below is an example of a very simple strategey. Basically, indicators are used to build a list of indicators to look at which must all be true to produce an enter or exit status for that tick.
+Below is an example of a very simple strategey. Basically, transformers are used to build a list of transformers to look at which must all be true to produce an enter or exit status for that tick.
 
 Strategies include all the instructions needed to run the backtest minus the data.
 
@@ -256,7 +256,7 @@ Strategies include all the instructions needed to run the backtest minus the dat
   - default: 1000
   - description: The starting balance of trade account. Usually \$ or "base" coins for cryptocurrencies.
 
-- commission: float
+- comission: float
 
   - optional
   - defaut: 0.0
@@ -274,10 +274,10 @@ Strategies include all the instructions needed to run the backtest minus the dat
   - default: `None`
   - description: This describes requirements the send a sell signal ("exit" a trade). There can be any number of items (what I'm calling "logiz") in here. Each `logiz` is contains a single `if` statement. The two variables are the first and last items in the list, with the operator to compare them `>`, `<` `=`.
 
-- indicators: list
+- transformers: list
   - optional
   - default: `None`
-  - description: This describes how to create the indicators. Each individual indicator has name that can be referenced in either the `enter` or `exit` logizs. For more information, see ([Indicators Detail](###IndicatorsDetail))
+  - description: This describes how to create the transformers. Each individual transformer has name that can be referenced in either the `enter` or `exit` logizs. For more information, see ([transformers Detail](###transformersDetail))
 
 ```python
 {
@@ -309,43 +309,43 @@ Strategies include all the instructions needed to run the backtest minus the dat
        70
      ]
    ],
-   "indicators": [
+   "transformers": [
      {
        "name": "short",
-       "func": "ta.zlema",
+       "transformer": "ta.zlema",
        "args": [
          7
        ],
-       "df": "close"
+       "col": "close"
      },
      {
        "name": "long",
-       "func": "ta.zlema",
+       "transformer": "ta.zlema",
        "args": [
          150
        ],
-       "df": "close"
+       "col": "close"
      },
      {
        "name": "rsi",
-       "func": "ta.rsi",
+       "transformer": "ta.rsi",
        "args": [
          14
        ],
-       "df": "close"
+       "col": "close"
      }
    ]
 }
 ```
 
-### IndicatorsDetail
+### transformersDetail
 
 ```python
       {
-         "name": "short", # indicator name
-         "func": "ta.zlema", # technical analysis function to be used
+         "name": "short", # transformer name
+         "transformer": "ta.zlema", # technical analysis function to be used
          "args": [12], # arguments to pass to the function
-         "df": "close" # which column of the dataframe to look at
+         "col": "close" # which column of the dataframe to look at
       }
 ```
 
@@ -356,7 +356,7 @@ Strategies include all the instructions needed to run the backtest minus the dat
       [
          "close", # column of the dataframe to compare to
          ">", # logic to use to compare
-         "short" # the name from the defined indicator
+         "short" # the name from the defined transformer
       ]
    ]
 ```

@@ -5,7 +5,7 @@ import datetime
 from fast_trade.build_data_frame import (
     detect_time_unit,
     load_basic_df_from_csv,
-    apply_indicators_to_dataframe,
+    apply_transformers_to_dataframe,
     apply_charting_to_df,
 )
 
@@ -55,25 +55,25 @@ def test_load_basic_df_from_csv_str_error_1():
         load_basic_df_from_csv(mock_ohlcv_path)
 
 
-def test_apply_indicators_to_dataframe_1_ind():
+def test_apply_transformers_to_dataframe_1_ind():
     mock_df = pd.read_csv("./test/ohlcv_data.csv.txt")
-    mock_indicators = [
-        {"func": "sma", "name": "example_indicator_name", "args": [3]}
+    mock_transformers = [
+        {"transformer": "sma", "name": "example_transformer_name", "args": [3]}
     ]
 
-    result_df = apply_indicators_to_dataframe(mock_df, mock_indicators)
+    result_df = apply_transformers_to_dataframe(mock_df, mock_transformers)
 
     header = list(result_df.head())
 
-    assert "example_indicator_name" in header
-    assert "FAKE_indicator_name" not in header
+    assert "example_transformer_name" in header
+    assert "FAKE_transformer_name" not in header
 
 
-def test_apply_indicators_to_dataframe_no_args():
+def test_apply_transformers_to_dataframe_no_args():
     mock_df = pd.read_csv("./test/ohlcv_data.csv.txt")
-    mock_indicators = [{"func": "rsi", "name": "rsi", "args": []}]
+    mock_transformers = [{"transformer": "rsi", "name": "rsi", "args": []}]
 
-    result_df = apply_indicators_to_dataframe(mock_df, mock_indicators)
+    result_df = apply_transformers_to_dataframe(mock_df, mock_transformers)
 
     assert "rsi" in list(result_df.columns)
 

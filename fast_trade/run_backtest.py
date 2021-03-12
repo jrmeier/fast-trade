@@ -1,5 +1,6 @@
 import datetime
 import pandas as pd
+import re
 
 from .build_data_frame import build_data_frame
 from .run_analysis import analyze_df
@@ -22,26 +23,11 @@ def run_backtest(
     """
 
     perf_start_time = datetime.datetime.utcnow()
-
-    flagged_enter, flagged_exit = get_flagged_logiz(backtest)
-
-    new_backtest = backtest.copy()
-    new_backtest["base_balance"] = backtest.get("base_balance", 1000)
-    new_backtest["exit_on_end"] = backtest.get("exit_on_end", True)
-    new_backtest["commission"] = backtest.get("commission", 0)
-    new_backtest["hard_exit"] = backtest.get("hard_exit", [])
-    new_backtest["trailing_stop_loss"] = backtest.get("trailing_stop_loss", 0)
-
+    new_backtest = prepare_new_backtest(backtest)
     if ohlcv_path:
         df = build_data_frame(backtest, ohlcv_path)
 
     df = apply_backtest_to_dataframe(df, new_backtest)
-
-    if flagged_enter or flagged_exit:
-        new_backtest["enter"].extend(flagged_enter)
-        new_backtest["exit"].extend(flagged_exit)
-
-        df = apply_backtest_to_dataframe(df, new_backtest)
 
     if summary:
         summary, trade_log = build_summary(df, perf_start_time, new_backtest)
@@ -52,54 +38,30 @@ def run_backtest(
 
     return {
         "summary": summary,
-        "df": df,
+        "col": df,
         "trade_df": trade_log,
         "backtest": new_backtest,
     }
 
 
-def get_flagged_logiz(backtest: dict):
-    """removes logiz that need to be processed after the initial run
+def prepare_new_backtest(backtest):
+    new_backtest = backtest.copy()
+    new_backtest["base_balance"] = backtest.get("base_balance", 1000)
+    new_backtest["exit_on_end"] = backtest.get("exit_on_end", False)
+    new_backtest["comission"] = backtest.get("comission", 0)
+    new_backtest["trailing_stop_loss"] = backtest.get("trailing_stop_loss", 0)
+    new_backtest["any_enter"] = backtest.get("any_enter", [])
+    new_backtest["any_exit"] = backtest.get("any_exit", [])
 
-    Parameters
-    ----------
-        backtest, dictionary of instructions
-
-    Returns
-    -------
-     tuple, flagged_enter, flagged_exit list of what to reprocess after the first process
-        backtest, dict, modified backtest object
-    """
-
-    to_flag = ["aux_perc_change"]
-    flagged_exit_idx = []
-    flagged_enter_idx = []
-
-    flagged_enter = []
-    flagged_exit = []
-
-    for idx, ex in enumerate(backtest["exit"]):
-        if ex[0] in to_flag or ex[2] in to_flag:
-            flagged_exit_idx.append(idx)
-
-    for e_ex in flagged_exit_idx:
-        flagged_exit.append(backtest["exit"].pop(e_ex))
-
-    for idx, en in enumerate(backtest["enter"]):
-        if en[0] in to_flag or en[2] in to_flag:
-            flagged_enter_idx.append(idx)
-
-    for e_en in flagged_enter:
-        flagged_enter.append(backtest["enter"].pop(e_en))
-
-    return flagged_enter, flagged_exit
+    return new_backtest
 
 
 def flatten_to_logics(list_of_logics):
-    if len(list_of_logics) == 1:
+    if len(list_of_logics) < 2:
         return list_of_logics
     if isinstance(list_of_logics[0], list):
         return flatten_to_logics(list_of_logics[0]) + flatten_to_logics(list_of_logics[1:])
+
     return list_of_logics[:1] + flatten_to_logics(list_of_logics[1:])
 
 
@@ -107,24 +69,33 @@ def apply_backtest_to_dataframe(df: pd.DataFrame, backtest: dict):
     """Processes the frame and adds the resultent rows
     Parameters
     ----------
-        df, dataframe with all the calculated indicators
+        df, dataframe with all the calculated transformers
         backtest, backtest object
 
     Returns
     -------
         df, dataframe with with all the actions and backtest processed
     """
-    # df["action"] = [determine_action(frame, backtest) for frame in df.itertuples()]
 
-    # get the max length to pass in
+    df = process_logic_and_actions(df, backtest)
+
+    df = analyze_df(df, backtest)
+
+    df["aux_perc_change"] = df["total_value"].pct_change() * 100
+    df["aux_change"] = df["total_value"].diff()
+
+    return df
+
+
+def process_logic_and_actions(df, backtest):
     logics = [
         backtest['enter'],
         backtest['exit'],
-        backtest['hard_exit'],
+        backtest['any_exit'],
+        backtest['any_enter']
     ]
 
     logics = flatten_to_logics(logics)
-
     max_last_frames = 0
 
     for logic in logics:
@@ -136,15 +107,14 @@ def apply_backtest_to_dataframe(df: pd.DataFrame, backtest: dict):
         actions = []
         last_frames = []
         for frame in df.itertuples():
+            last_frames.insert(0, frame)
+            if len(last_frames) >= max_last_frames + 1:
+                last_frames.pop()
+
             actions.append(determine_action(frame, backtest, max_last_frames, last_frames))
         df["action"] = actions
     else:
         df["action"] = [determine_action(frame, backtest) for frame in df.itertuples()]
-
-    df = analyze_df(df, backtest)
-
-    df["aux_perc_change"] = df["total_value"].pct_change() * 100
-    df["aux_change"] = df["total_value"].diff()
 
     return df
 
@@ -155,8 +125,6 @@ def determine_action(frame: pd.DataFrame, backtest: dict, max_last_frames=0, las
     ----------
         frame: current row of the dataframe
         backtest: object with the logic of how to trade
-        df_col_map: dictionary with the column name and index
-        of the dataframe
 
     Returns
     -------
@@ -168,21 +136,24 @@ def determine_action(frame: pd.DataFrame, backtest: dict, max_last_frames=0, las
 
     if trailing_stop_loss:
         if frame.close <= frame.trailing_stop_loss:
-            return 'x'
-
-    if take_action(frame, backtest['hard_exit'], max_last_frames, last_frames, require_any=True):
-        return 'x'
-
-    if take_action(frame, backtest["enter"], max_last_frames, last_frames):
-        return "e"
+            return 'tsl'
 
     if take_action(frame, backtest["exit"], max_last_frames, last_frames):
         return "x"
 
+    if take_action(frame, backtest['any_exit'], max_last_frames, last_frames, require_any=True):
+        return 'ax'
+
+    if take_action(frame, backtest["enter"], max_last_frames, last_frames):
+        return "e"
+
+    if take_action(frame, backtest["any_enter"], max_last_frames, last_frames, require_any=True):
+        return "ae"
+
     return "h"
 
 
-def take_action(current_frame, logics, max_last_frames, last_frames, require_any=False):
+def take_action(current_frame, logics, max_last_frames, last_frames=[], require_any=False):
     """determines whether to take action based on the logic in the backtest
     Parameters
     ----------
@@ -197,29 +168,27 @@ def take_action(current_frame, logics, max_last_frames, last_frames, require_any
 
     results = []
 
-    last_frames.insert(0, current_frame)
-    if len(last_frames) > max_last_frames and len(last_frames) > 1:
-        last_frames.pop()
+    if len(last_frames):
+        for last_frame in last_frames:
+            res = process_single_frame(logics, last_frame, require_any)
+            results.append(res)
 
-    for last_frame in last_frames:
-        res = process_single_frame(logics, last_frame, require_any)
+    else:
+        res = process_single_frame(logics, current_frame, require_any)
         results.append(res)
 
-    wtf = all(results)
-    print("Wtf: ", results)
-    return wtf
+    return all(results)
 
 
 def process_single_frame(logics, row, require_any):
     results = []
-    if not isinstance(row, dict):
-        row = row._asdict()
 
     return_value = False
     for logic in logics:
-        res = process_single_logic(logic, row, require_any)
+        res = process_single_logic(logic, row)
         results.append(res)
 
+    print(results)
     if len(results):
         if require_any:
             return_value = any(results)
@@ -230,31 +199,45 @@ def process_single_frame(logics, row, require_any):
 
 
 def clean_field_type(field, row):
+    """ Determines the value of what to run the logic against.
+        This might be a calculated value from the current row,
+        or a supplied value, such as a number.
+
+    Parameters
+    ----------
+        field - str, int, or float, logic field to check
+        row - dict, dictionary of values of the current frame
+
+    Returns
+    -------
+        str or int
+
+    """
+    if not isinstance(row, dict):
+        row = row._asdict()
+
     if isinstance(field, str):
         if field.isnumeric():
             return int(field)
-    elif isinstance(field, float) or isinstance(field, int):
+        if re.match(r'^-?\d+(?:\.\d+)$', field):   # if its a string in a float
+            return float(field)
+    elif isinstance(field, int) or isinstance(field, float):
         return field
 
     return row[field]
 
 
-def process_single_logic(logic, row, require_any):
+def process_single_logic(logic, row):
     val0 = clean_field_type(logic[0], row=row)
     val1 = clean_field_type(logic[2], row=row)
 
-    results = []
-
     if logic[1] == ">":
-        results.append(bool(val0 > val1))
+        return_value = bool(val0 > val1)
     if logic[1] == "<":
-        results.append(bool(val0 < val1))
+        return_value = bool(val0 < val1)
     if logic[1] == "=":
-        results.append(bool(val0 == val1))
+        return_value = bool(val0 == val1)
     if logic[1] == "!=":
-        results.append(bool(val0 != val1))
+        return_value = bool(val0 != val1)
 
-    if require_any:
-        return any(results)
-
-    return all(results)
+    return return_value

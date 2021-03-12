@@ -30,7 +30,7 @@ def generate_backtest():
     funcs = ["zlema", "ema", "smma", "sma"]
     # funcs = [ "ta.hma" ]
     ema_enter = random.choice(emas)
-    func = random.choice(funcs)
+    transformer = random.choice(funcs)
 
     # backtest = backtest()
 
@@ -50,26 +50,26 @@ def generate_backtest():
 
     short_ind = {}
     short_ind["name"] = "short"
-    short_ind["func"] = func
+    short_ind["transformer"] = transformer
     short_ind["args"] = [t1]
-    short_ind["df"] = "close"
+    short_ind["col"] = "close"
 
     mid_ind = {}
     mid_ind["name"] = "mid"
-    mid_ind["func"] = func
+    mid_ind["transformer"] = transformer
     mid_ind["args"] = [t2]
-    mid_ind["df"] = "close"
+    mid_ind["col"] = "close"
 
     long_ind = {}
     long_ind["name"] = "short"
-    long_ind["func"] = func
+    long_ind["transformer"] = transformer
     long_ind["args"] = [t3]
-    long_ind["df"] = "close"
+    long_ind["col"] = "close"
 
-    indicators = []
-    indicators.append(short_ind)
-    indicators.append(mid_ind)
-    indicators.append(long_ind)
+    transformers = []
+    transformers.append(short_ind)
+    transformers.append(mid_ind)
+    transformers.append(long_ind)
 
     exit_logiz = []
     enter_logiz = []
@@ -81,9 +81,9 @@ def generate_backtest():
         "chart_period": f"{chart}",
         "enter": [["close", ">", ema_enter]],
         "exit": [["close", "<", ema_exit]],
-        "indicators": [
-            {"name": "short", "func": func, "args": [t1], "df": "close"},
-            {"name": "mid", "func": func, "args": [t2], "df": "close"},
-            {"name": "long", "func": func, "args": [t3], "df": "close"},
+        "transformers": [
+            {"name": "short", "transformer": transformer, "args": [t1], "col": "close"},
+            {"name": "mid", "transformer": transformer, "args": [t2], "col": "close"},
+            {"name": "long", "transformer": transformer, "args": [t3], "col": "close"},
         ],
     }
