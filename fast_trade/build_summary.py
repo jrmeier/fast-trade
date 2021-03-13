@@ -28,7 +28,7 @@ def create_trade_log(df):
     return trade_log_df
 
 
-def build_summary(df, perf_start_time, strategy):
+def build_summary(df, perf_start_time, backtest):
     # Not yet implimented
     # Expectancy [%]                           6.92
     # SQN                                      1.77
@@ -84,6 +84,8 @@ def build_summary(df, perf_start_time, strategy):
 
     equity_final = df.iloc[-1]["total_value"]
 
+    max_drawdown = df["total_value"].min()
+
     perf_stop_time = datetime.datetime.utcnow()
     start_date = df.index[0]
     end_date = df.index[-1]
@@ -98,7 +100,7 @@ def build_summary(df, perf_start_time, strategy):
     buy_and_hold_perc = (1 - (first_close / last_close)) * 100
 
     if return_perc:
-        sharpe_ratio = df.aux_perc_change.mean() / df.aux_perc_change.std()
+        sharpe_ratio = round(df.aux_perc_change.mean() / df.aux_perc_change.std(), 3)
     else:
         sharpe_ratio = 0
 
@@ -125,6 +127,7 @@ def build_summary(df, perf_start_time, strategy):
         "loss_perc": round(loss_perc, 3),
         "equity_peak": round(float(equity_peak), 3),
         "equity_final": round(float(equity_final), 3),
+        "max_drawdown": round(float(max_drawdown), 3),
         "total_fees": round(float(total_fees), 3),
         "first_tic": start_date.strftime("%Y-%m-%d %H:%M:%S"),
         "last_tic": end_date.strftime("%Y-%m-%d %H:%M:%S"),

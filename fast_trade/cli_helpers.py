@@ -10,9 +10,9 @@ def open_strat_file(fp):
 
     try:
         with open(fp, "r") as json_file:
-            strat = json.load(json_file)
+            backtest = json.load(json_file)
 
-        return strat
+        return backtest
     except Exception as e:
         print("error: ", e)
 
@@ -64,7 +64,7 @@ def create_plot(df):
 
 def save(result, strat_obj):
     """
-    Save the dataframe, strategy, and plot into the specified path
+    Save the dataframe, backtest, and plot into the specified path
     """
     save_path = "./saved_backtests"
     if not os.path.exists(save_path):
@@ -76,8 +76,8 @@ def save(result, strat_obj):
     new_save_dir = f"{save_path}/{new_dir}"
     os.mkdir(new_save_dir)
 
-    # save the strat args
-    with open(f"{new_save_dir}/strategy.json", "w") as summary_file:
+    # save the backtest args
+    with open(f"{new_save_dir}/backtest.json", "w") as summary_file:
         summary_file.write(json.dumps(strat_obj, indent=2))
 
     # summary file
@@ -95,18 +95,18 @@ def save(result, strat_obj):
 help_dict = {
     "backtest": {
         "description": """Runs a backtest with the given parameters.
-            Any strat modifications can be passed at the end of the command.
+            Any backtest modifications can be passed at the end of the command.
             """,
         "examples": [
-            "python -m fast_trade backtest --csv=./datafile.csv/ --strat=./strat.json"
+            "python -m fast_trade backtest --csv=./datafile.csv/ --backtest=./backtest.json"
         ],
         "args": {
             "--csv": {
                 "desc": "path or paths to csv_file seperated by commands",
                 "required": True,
             },
-            "--strat": {
-                "desc": "path to strategy file, must json format",
+            "--backtest": {
+                "desc": "path to backtest file, must json format",
                 "required": True,
             },
             "--plot": {
@@ -114,7 +114,7 @@ help_dict = {
                 "required": False,
             },
             "--save": {
-                "desc": "saves the dataframe, strategy, and plot in to the path",
+                "desc": "saves the dataframe, backtest, and plot in to the path",
                 "required": False,
             },
         },
