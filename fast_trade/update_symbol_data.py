@@ -262,26 +262,24 @@ def update_symbol_meta(symbol, new_object={}):
     meta_obj = get_symbol_meta_obj(symbol)
     meta_obj.update(new_object)
 
-    if len(meta_obj.get("years", [])):
-        years = meta_obj["years"]
 
-    else:
         # if the years don't exist, look for them in the archive folder
-        years = []
-        for f in os.listdir(ARCHIVE_PATH):
-            file_reg = r"^([A-Z]{3,}\_2\d{3,})"
-            file_str = re.search(file_reg, f)
+    years = []
+    for f in os.listdir(ARCHIVE_PATH):
+        file_reg = r"^([A-Z]{3,}\_2\d{3,})"
+        file_str = re.search(file_reg, f)
 
-            if file_str:
-                symbol_with_year = file_str.group()
-                curr_symbol = symbol_with_year.split("_")[0]
-                year = symbol_with_year.split("_")[1]
-                if symbol == curr_symbol:
-                    years.append(year)
+        if file_str:
+            symbol_with_year = file_str.group()
+            curr_symbol = symbol_with_year.split("_")[0]
+            year = symbol_with_year.split("_")[1]
+            if symbol == curr_symbol:
+                years.append(year)
 
-        meta_obj["years"] = years
+    meta_obj["years"] = years
 
     if len(years):
+        years = [int(y) for y in years]
         years.sort()
         earliest_year = years[0]
         latest_year = years[-1]
