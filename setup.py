@@ -45,16 +45,18 @@ setup(
     include_package_data=True,
     install_requires=[
         "cycler==0.10.0",
-        "finta==1.2",
+        "finta",
         "kiwisolver==1.3.1",
         "matplotlib==3.3.4",
-        "numpy==1.20.1",
-        "pandas==1.2.3",
+        "numpy",
+        "pandas",
         "Pillow==8.1.2",
         "pyparsing==2.4.7",
         "python-dateutil==2.8.1",
-        "pytz==2021.1",
-        "six==1.15.0",
-        "python-binance==0.7.9"
+        "pytz",
+        "six",
+        "python-binance",
+        'service_identity',
+        'pyasn1'
     ],
 )
