@@ -5,7 +5,7 @@
 [![Python 3.7+](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/download/releases/3.7.0/)
 [![Python application](https://github.com/jrmeier/fast-trade/workflows/Python%20application/badge.svg)](https://github.com/jrmeier/fast-trade/actions)
 
-A library built with backtest portability and performance in mind for backtest trading strategies. There is also a [DataDownloader](####DataDownloader), which can be used to download compatible kline data from Binance (.com or .us)
+A library built with backtest portability and performance in mind for backtest trading strategies. There is also a [DataDownloader](#DataDownloader), which can be used to download compatible kline data from Binance (.com or .us)
 
 ## Install
 
@@ -67,7 +67,7 @@ So when we want to reference these in our logic, the names we use in the logics 
 
 ## Data
 
-[DataDownloader](###DataDownloader) for those details.
+[DataDownloader](#DataDownloader) for those details.
 
 I use minute kline data, but end-of-day data can be used as well. If you set a lower `chart_period` than the actual data frequency, fast-trade will throw an `Exception`.
 
@@ -347,27 +347,27 @@ Backtests include all the instructions needed to run the backtest minus the data
 - enter: list,
   - required
   - default: `None`
-  - description: a list of [Logic](###LogicDetail)'s with instructions to compare the data on each tick. ALL logic items must return True to ENTER the  trade.
+  - description: a list of [Logic](#LogicDetail)'s with instructions to compare the data on each tick. ALL logic items must return True to ENTER the  trade.
 
 - any_enter: list,
   - optional
   - default: `None`
-  - description: a list of [Logic](###LogicDetail)'s with instructions to compare the data on each tick. ANY LOGIC ITEM can return True to ENTER the trade.
+  - description: a list of [Logic](#LogicDetail)'s with instructions to compare the data on each tick. ANY LOGIC ITEM can return True to ENTER the trade.
 
 - exit: list
   - required
   - default: `None`
-  - description: a list of [Logic](###LogicDetail)'s with instructions to compare the data on each tick. ANY LOGIC ITEM can return True to EXIT the trade.
+  - description: a list of [Logic](#LogicDetail)'s with instructions to compare the data on each tick. ANY LOGIC ITEM can return True to EXIT the trade.
 
 - any_exit: list
   - optional
   - default: `None`
-  - description: a list of [Logic](###LogicDetail)'s with instructions to compare the data on each tick. ANY LOGIC ITEM can return True to EXIT the trade.
+  - description: a list of [Logic](#LogicDetail)'s with instructions to compare the data on each tick. ANY LOGIC ITEM can return True to EXIT the trade.
 
 - datapoints: list
   - optional
   - default: `None`
-  - description: This describes how to create the datapoints. Each individual transformer has name that can be referenced in either the `enter` or `exit` logizs. For more information, see ([Datapoints](###Datapoints))
+  - description: This describes how to create the datapoints. Each individual transformer has name that can be referenced in either the `enter` or `exit` logizs. For more information, see ([Datapoints](#Datapoints))
 
 - trailing_stop_loss: float
   - optional
@@ -435,8 +435,8 @@ Valid datapoints:
 - low
 - close
 - volume
-- any [datapoint](###Datapoints) (see [LogicExample1](####LogicExample1))
-- any additional columns in your data file or your dataframe (see [LogicExample2](####LogicExample2))
+- any [datapoint](#Datapoints) (see [LogicExample1](#LogicExample1))
+- any additional columns in your data file or your dataframe (see [LogicExample2](#LogicExample2))
 
 #### LogicExample1
 
@@ -473,7 +473,7 @@ Logic lookbacks allow you to confirm a signal by checking the last N periods.
 
 ### Datapoints
 
-Datapoints are user defined technical indicators. You can select a defined [transformer](##Transformer) function to apply the technical analysis. They can reference data and calculate the new values to be referenced inside of any of the logics.
+Datapoints are user defined technical indicators. You can select a defined [transformer](#Transformer) function to apply the technical analysis. They can reference data and calculate the new values to be referenced inside of any of the logics.
 
 Simple SMA example
 
