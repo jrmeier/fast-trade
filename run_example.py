@@ -46,8 +46,8 @@ backtest = {
 }
 
 if __name__ == "__main__":
-    # datafile = "./BTCUSDT.csv.txt"
-    datafile = "./BTCUSDT.csv.txt"
+    # datafile = "./BTCUSDT.csv"
+    datafile = "./BTCUSDT.csv"
     tmp_start = datetime.datetime.utcnow()
     # backtest = generate_backtest()
     # print("backtest: ",json.dumps(backtest, indent=2)

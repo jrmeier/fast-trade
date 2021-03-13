@@ -145,7 +145,7 @@ from fast_trade import run_backtest, validate_backtest
 # returns a mirror of the object, with errors if any
 print(validate_backtest(backtest))
 
-datafile_path = "./BTCUSDT.csv.txt"
+datafile_path = "./BTCUSDT.csv"
 
 # returns the summary object and the dataframe
 result = run_backtest(backtest, datafile_path)
