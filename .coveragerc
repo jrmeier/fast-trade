@@ -6,3 +6,6 @@ omit=
     ./fast_trade/__main__.py
     ./fast_trade/__init__.py
     ./fast_trade/file_helpers.py
+    ./fast_trade/cli.py
+    ./fast_trade/update_symbol_data.py
+    ./fast_trade/cli_helpers.py
