@@ -55,5 +55,6 @@ setup(
         "python-dateutil==2.8.1",
         "pytz==2021.1",
         "six==1.15.0",
+        "python-binance==0.7.9"
     ],
 )
