@@ -9,8 +9,10 @@ from .cli_helpers import (
     create_plot,
     format_command,
 )
+from fast_trade.update_symbol_data import update_symbol_data
 from .run_backtest import run_backtest
 import matplotlib.pyplot as plt
+import datetime
 
 
 def parse_args(raw_args):
@@ -63,15 +65,30 @@ def main():
             save(res, strat_obj)
 
         if args.get("plot"):
-            create_plot(res["col"])
+            create_plot(res["df"])
 
             plt.show()
 
         return
 
+
     if command == "help":
         print(format_all_help_text())
         return
+    
+    if command == "download":
+        default_end = (datetime.datetime.utcnow() + datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+        symbol = args.get("symbol",'BTCUSDT')
+        arc_path = args.get("archive", './archive/')
+        start_date = args.get("start", "2017-01-01")
+        end_date = args.get("end", default_end)
+        exchange = args.get('exchange', 'binance.com')
+        update_symbol_data(symbol, start_date, end_date, arc_path, exchange)
+
+        print("Done downloading ",symbol)
+        return
+
+
 
     print("Command not found")
     print(format_all_help_text())

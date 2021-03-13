@@ -55,6 +55,8 @@ Custom datapoints can be added by setting a function name in the [datapoints](/f
 
 ## Data
 
+There is a data downloader for downloading Binance data and storing it locally. Its best to use it from the CLI, but if you can dig into it in [update_symbol_data.py](/fast_trade/update_symbol_data.py). Check out the [CLI](##CLI) section for details.
+
 Data must be minute tick data. datapoints will give false results if the data isn't once a minute.
 
 Datafiles are expected but come with `ohlc` candlestick minute data in a csv file, but will not work as expected. Please open an issue if this is a problem for you.
@@ -78,48 +80,42 @@ A dataframe can also be passed to `run_backtest(...)` function such as `run_back
 
 ## Usage
 
+Example Backtest
+
 ```python
 from fast_trade import run_backtest
 
-backtest = {
-   "name": "example",
-   "chart_period": "1H",
-   "start": "",
-   "stop": "",
-   "exit_on_end": False,
-   "comission": 0.001,
-   "enter": [
-     [
-       "close",
-       ">",
-       "short"
-     ]
-   ],
-   "exit": [
-     [
-       "close",
-       "<",
-       "long"
-     ],
-   ],
-   "datapoints": [
-     {
-       "name": "short",
-       "transformer": "ta.ema",
-       "args": [
-         21
-       ]
-     },
-     {
-       "name": "long",
-       "transformer": "ta.ema",
-       "args": [
-         50
-       ]
-     },
-
-   ]
+{
+    "base_balance": 1000, # start with a balance of 1000
+    "chart_period": "5T", # time period selected on the chard
+    "chart_start": "2020-08-30 18:00:00", # when to start the chart
+    "chart_stop": "2020-09-06 16:39:00", # when to stop the chart
+    "comission": 0.01, # a comission to pay per transaction 
+    "datapoints": [ # describes the data to use in the logic
+        {
+            "args": [
+                30
+            ],
+            "transformer": "sma",
+            "name": "sma_short"
+        },
+        {
+            "args": [
+                90
+            ],
+            "transformer": "sma",
+            "name": "sma_long"
+        },
+    ],
+    "enter": [
+      ["close", ">", "sma_long"],
+      ["close", ">", "sma_short"]
+    ],
+    "exit": [["close", "<", "sma_short"]],
+    "trailing_stop_loss": 0.05,
+    "exit_on_end": False,
 }
+
 
 datafile_path = "./BTCUSDT.csv.txt"
 
@@ -158,6 +154,24 @@ This generates creates the `saved_backtest` directory (if it doesn't exist), the
 Viewing a plot of the result
 
 `ft backtest --csv=./datafile.csv --strat=./strat.json --plot`
+
+### DataDownloader
+
+Download 1 minute kline/ohlcv from Binance and store them in CSVs in the `archive` path. You can rerun this command to keep the files updated.
+It may take awhile to download all of the data the first time, so be patient. It only need to download all of it once, then it will be updated from the most recent date.
+`ft download --symbol=SYMBOL --exchange=EXCHANGE --start=START --end=END --archive=ARCHIVE`
+
+Defaults are:
+
+```python
+
+SYMBOL="BTCUSDT" # any symbol on the exchange
+EXCHANGE="binance.com" # can be binance.us
+START="2017-01-01" # the start date of when you want date. This default is the oldest for binance.com.
+END='current date' # you'll probably never need this
+ARCHIVE='./archive' # path the archive folder, which is where the CSVs are stored
+
+```
 
 ## Testing
 
