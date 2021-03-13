@@ -256,6 +256,7 @@ def update_symbol_meta(symbol, new_object={}):
     symbol_meta_file_path = f"{ARCHIVE_PATH}/{symbol}_meta.json"
 
     if not os.path.exists(ARCHIVE_PATH):
+        print("creating new archive directory: ", ARCHIVE_PATH)
         os.mkdir(ARCHIVE_PATH)
 
     # open the existing archive
