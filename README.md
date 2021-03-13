@@ -28,7 +28,7 @@ If you'd like to add a feature, fix a bug, or something else, please clone the r
 To get started with local dev, clone the repo, set up a virtual env, source it, then install the dev requirements.
 
 ```bash
-git clone git@github.com:jrmeier/fast-trade.git
+git clone git@github.com:<YOUR GIT USERNAME>/fast-trade.git
 cd ./fast-trade
 python -m venv .fast_trade
 source .fast_trade/bin/activate
@@ -45,13 +45,25 @@ coverage report -m
 ## Motivations
 
 Strategies are cheap. This is the main motivation behind fast-trade. Since a backtest is just a JSON object, strategies can be created, stored, modified, versioned, and re-run easily. Ideally, a backtest could be generated and tested quickly; fast-trade is just the library to handle that.
-Fast Trade is also useful for quickly analyzing chart (`ohlcv`) data.
+Fast Trade is also useful for quickly analyzing chart (`ohlcv`) data and downloading it.
 
 ## Transfomers (Technical Indicators)
 
 Available transformer functions are from [FinTA](https://github.com/peerchemist/finta)
 
 Custom datapoints can be added by setting a function name in the [datapoints](/fast_trade/transformers_map.py), then setting that equal to a function that takes in a dataframe as the first argument and whatever arguments passed in.
+
+Note:
+  
+If a transfomer function returns multiple values, the will be datapoints with the `datapointName_respective column.
+
+Example
+
+Say we have a datapoint that uses the transformer `bbands`.
+
+`bbands` returns 3 columns `upper_bb, middle_band, lower_bb`
+
+So when we want to reference these in our logic, the names we use in the logics are `bbands_upper_bb`, `bbands_middle_bb`,`bbands_lower_bb`
 
 ## Data
 
@@ -83,7 +95,7 @@ A dataframe can also be passed to `run_backtest(...)` function such as `run_back
 Example Backtest
 
 ```python
-from fast_trade import run_backtest
+from fast_trade import run_backtest, validate_backtest
 
 {
     "base_balance": 1000, # start with a balance of 1000
@@ -130,6 +142,8 @@ from fast_trade import run_backtest
     "exit_on_end": False, # at then end of the backtest, if true, the trade will exit
 }
 
+# returns a mirror of the object, with errors if any
+print(validate_backtest(backtest))
 
 datafile_path = "./BTCUSDT.csv.txt"
 
@@ -150,7 +164,33 @@ You can also use the package from the command line.
 
 `ft help`
 
-Basic usage
+### Basic usage
+
+Validate a backtest
+
+`ft validate --backtest=./example_backtest.json`
+
+```json
+{
+  "base_balance": null,
+  "chart_period": null,
+  "chart_start": null,
+  "chart_stop": null,
+  "comission": null,
+  "datapoints": null,
+  "enter": {
+    "error": true,
+    "msgs": [
+      "Datapoint \"closes\" referenced in enter logic not found in datapoints. Check datapoints and logic."
+    ]
+  },
+  "exit": null,
+  "any_enter": null,
+  "any_exit": null,
+  "trailing_stop_loss": null,
+  "exit_on_end": null
+}
+```
 
 Using a custom file
 
@@ -158,7 +198,7 @@ Using a custom file
 
 Using an archive item managed by the DataDownloader. Just pass in the symbol instead of the path.
 
-`ft backtest --data=BTCUSDT --backtest=./example_backtest.json `
+`ft backtest --data=BTCUSDT --backtest=./example_backtest.json`
 
 Modifying the `chart_period`
 
@@ -334,7 +374,7 @@ Backtests include all the instructions needed to run the backtest minus the data
   - default `0`
   - description: This sets a trailing stop loss, so the trade will exit immediately, without considering any other action. It is the percentage ot follow for example, to set a stop loss of 5%, set `0.05`
 
-#### Simple Moving Average Cross example
+## Simple Moving Average Cross example
 
 This is an example of a simple moving average cross backtest.
 
@@ -382,11 +422,11 @@ If the close (closing price) at X time is greater than the "short_sma" (custom d
 
 ```python
 [
-  "close",
-  ">",
-  "sma_short"
-  ]
-  ```
+  "close", # datapoint or column in provided data
+  ">", # operator for comparisson
+  "sma_short" # datapoint or column in provided data
+]
+```
 
 Valid datapoints:
 

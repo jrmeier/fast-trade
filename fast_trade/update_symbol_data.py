@@ -30,7 +30,6 @@ and then pass in --start=YYYY-m-d
 """
 
 import pandas as pd
-import pytz
 import datetime
 import os
 import re
@@ -155,7 +154,8 @@ def update_archive_csv_by_df(archive_csv_filename, new_df):
     # de duplicate the dataframe
     combined_df.drop_duplicates(inplace=True)
 
-    # There's BUG here. After ts 1608444000,  the date isnt formated and breaks. I think its to do with the large file sizes.
+    # There's BUG here. After ts 1608444000,  the date isnt formated and breaks.
+    # I think its to do with the large file sizes.
     # If the below worked, we wouldn't need to go futher.
     # combined_df.to_csv(archive_csv_path, date_format="%s")
 

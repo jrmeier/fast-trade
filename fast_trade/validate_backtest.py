@@ -1,8 +1,6 @@
 from .transformers_map import transformers_map
 import re
 
-# from .build_data_frame import transformers_map,
-
 
 def validate_backtest(backtest):
     """validates a backtest object and returns errors/warnings
@@ -42,7 +40,10 @@ def validate_backtest(backtest):
 
     for req in required_keys:
         if req not in curr_keys:
-            backtest_mirror[req] = {"error": True, "msgs": [f"Paramater \"{req}\" required"]}
+            backtest_mirror[req] = {
+                "error": True,
+                "msgs": [f'Paramater "{req}" required'],
+            }
 
     base_balance = backtest.get("base_balance")
     if base_balance:
@@ -83,7 +84,7 @@ def validate_backtest(backtest):
     # fill the indicator keys
     basic_keys = ["open", "high", "low", "close", "volume"]
     indicator_keys = [
-        dp.get("name") for dp in backtest.get("datapoints",[]) if dp.get("name")
+        dp.get("name") for dp in backtest.get("datapoints", []) if dp.get("name")
     ]
     indicator_keys.extend(basic_keys)
 
@@ -130,7 +131,8 @@ def validate_backtest(backtest):
                 and log not in [">", "=", "<"]
             ):
                 any_enter_errors.append(
-                    f'Datapoint "{log}" referenced in any_enter logic not found in datapoints. Check datapoints and logic.'
+                    f'Datapoint "{log}" referenced in any_enter \
+                    logic not found in datapoints. Check datapoints and logic.'
                 )
         if len(any_enter_errors):
             backtest_mirror["any_enter"] = {"error": True, "msgs": any_enter_errors}

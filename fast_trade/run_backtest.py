@@ -1,5 +1,4 @@
 import datetime
-from os import RTLD_NOW
 import pandas as pd
 import re
 
