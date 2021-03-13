@@ -1,4 +1,5 @@
 import datetime
+from os import RTLD_NOW
 import pandas as pd
 import re
 
@@ -208,7 +209,7 @@ def process_single_frame(logics, row, require_any):
     return return_value
 
 
-def clean_field_type(field, row):
+def clean_field_type(field, row=None):
     """Determines the value of what to run the logic against.
         This might be a calculated value from the current row,
         or a supplied value, such as a number.
@@ -223,8 +224,9 @@ def clean_field_type(field, row):
         str or int
 
     """
-    if not isinstance(row, dict):
-        row = row._asdict()
+    if row:
+        if not isinstance(row, dict):
+            row = row._asdict()
 
     if isinstance(field, str):
         if field.isnumeric():
@@ -234,7 +236,10 @@ def clean_field_type(field, row):
     elif isinstance(field, int) or isinstance(field, float):
         return field
 
-    return row[field]
+    if row:
+        return row[field]
+
+    return row
 
 
 def process_single_logic(logic, row):

@@ -20,7 +20,7 @@
       }
   ],
   "enter": [
-    ["close", ">", "sma_long"],
+    ["closes", ">", "sma_long"],
     ["close", ">", "sma_short"]
   ],
   "exit": [["close", "<", "sma_short"]],

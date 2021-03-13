@@ -1,6 +1,6 @@
 # flake8: noqa
 from fast_trade import run_backtest
-from generate_backtest import generate_backtest
+from fast_trade.validate_backtest import validate_backtest
 import datetime
 import json
 
@@ -23,7 +23,7 @@ backtest = {
                 30
             ],
             "transformer": "sma",
-            "name": "sma_short"
+            "name": "sma_shorst"
         },
         {
             "args": [
@@ -34,11 +34,12 @@ backtest = {
         },
     ],
     "enter": [
-        ["close", ">", "sma_long"],
+        ["close", ">", "sma_long_wrong"],
         ["close", ">", "sma_short"]
     ],
     "exit": [
-        ["close", "<", "sma_short"]
+        ["close", "<", "sma_short"],
+        ["close", "<", 5]
     ],
     "trailing_stop_loss": 0.05,
     "exit_on_end": False,
@@ -46,11 +47,13 @@ backtest = {
 
 if __name__ == "__main__":
     # datafile = "./BTCUSDT.csv.txt"
-    datafile = "/Users/jedmeier/Projects/fast-trade/BTCUSDT.csv.txt"
+    datafile = "./BTCUSDT.csv.txt"
     tmp_start = datetime.datetime.utcnow()
-    backtest = generate_backtest()
-    print("backtest: ",json.dumps(backtest, indent=2)
-    test = run_backtest(backtest, ohlcv_path=datafile, summary=True)
-    # print(test["df"])
-    print(test["trade_df"])
-    print(json.dumps(test["summary"], indent=2))
+    # backtest = generate_backtest()
+    # print("backtest: ",json.dumps(backtest, indent=2)
+    # test = run_backtest(backtest, ohlcv_path=datafile, summary=True)
+    res = validate_backtest(backtest)
+    print(res)
+    # print(backtest["enter"])
+    # print(test["trade_df"]) .
+    # print(json.dumps(test["summary"], indent=2))

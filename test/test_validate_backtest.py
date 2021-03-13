@@ -29,21 +29,164 @@ def test_validate_backtest_base_balance():
     assert backtest_mirror["base_balance"] is None
 
 
-# def test_validate_basic_invalid():
-#     mock_backtest = {
-#         "base_balance": "c1000",
-#         "chart_period": "1Min22",
-#         "chart_stop": "x1615515979",
-#         "chart_start": "x1583979979",
-#         "comission": "0.011",
-#         "exit_on_end": "true"
-#     }
+def test_validate_basic_invalid():
+    mock_backtest = {
+        "base_balance": "c1000",
+        "chart_period": "1Min22",
+    }
 
-#     backtest_mirror = validate_backtest(mock_backtest)
+    backtest_mirror = validate_backtest(mock_backtest)
 
-#     assert backtest_mirror["base_balance"].get("error") is True
-#     assert backtest_mirror["chart_period"].get("error") is True
-#     assert backtest_mirror["chart_stop"].get("error") is True
-#     assert backtest_mirror["chart_start"].get("error") is True
-#     assert backtest_mirror["comission"].get("error") is True
-#     assert backtest_mirror["exit_on_end"].get("error") is True
+    assert backtest_mirror["base_balance"].get("error") is True
+    assert backtest_mirror["chart_period"].get("error") is True
+
+
+def test_validate_data_points_valid():
+    mock_datapoints = [
+        {"args": [30], "transformer": "sma", "name": "sma_short"},
+    ]
+
+    mock_backtest = {"datapoints": mock_datapoints}
+
+    backtest_mirror = validate_backtest(mock_backtest)
+
+    assert backtest_mirror["datapoints"] is None
+
+
+def test_validate_data_points_invalid():
+    mock_datapoints = [
+        {"args": [30], "transformer": "fake_news_transformer", "name": "sma_short"},
+    ]
+
+    mock_backtest = {"datapoints": mock_datapoints}
+
+    backtest_mirror = validate_backtest(mock_backtest)
+
+    assert backtest_mirror["datapoints"].get("error") is True
+
+
+def test_validate_data_points_invalid_name():
+    mock_datapoints = [
+        {"args": [30], "transformer": "ema", "name": ""},
+    ]
+
+    mock_backtest = {"datapoints": mock_datapoints}
+
+    backtest_mirror = validate_backtest(mock_backtest)
+
+    assert backtest_mirror["datapoints"].get("error") is True
+
+
+def test_validate_enter_logic_valid():
+    mock_datapoints = [
+        {"args": [30], "transformer": "sma", "name": "sma_short"},
+    ]
+
+    mock_enter_logic = [["close", ">", "sma_short"]]
+
+    mock_backtest = {"datapoints": mock_datapoints, "enter": mock_enter_logic}
+
+    backtest_mirror = validate_backtest(mock_backtest)
+
+    assert backtest_mirror["datapoints"] is None
+
+
+def test_validate_enter_logic_invalid_1():
+    mock_datapoints = [
+        {"args": [30], "transformer": "sma", "name": "sma_short"},
+    ]
+
+    mock_enter_logic = [["close", ">", "sma_shortee"]]
+
+    mock_backtest = {"datapoints": mock_datapoints, "enter": mock_enter_logic}
+
+    backtest_mirror = validate_backtest(mock_backtest)
+
+    assert backtest_mirror["enter"].get("error") is True
+
+
+def test_validate_any_enter_logic_valid():
+    mock_datapoints = [
+        {"args": [30], "transformer": "sma", "name": "sma_short"},
+    ]
+
+    mock_any_enter_logic = [["close", ">", "sma_short"]]
+
+    mock_backtest = {"datapoints": mock_datapoints, "any_enter": mock_any_enter_logic}
+
+    backtest_mirror = validate_backtest(mock_backtest)
+
+    assert backtest_mirror["datapoints"] is None
+
+
+def test_validate_any_enter_logic_invalid_1():
+    mock_datapoints = [
+        {"args": [30], "transformer": "sma", "name": "sma_shorter"},
+    ]
+
+    mock_enter_logic = [["close", ">", "sma_short"]]
+
+    mock_backtest = {"datapoints": mock_datapoints, "any_enter": mock_enter_logic}
+
+    backtest_mirror = validate_backtest(mock_backtest)
+
+    assert backtest_mirror["any_enter"].get("error") is True
+
+
+def test_validate_exit_logic_valid():
+    mock_datapoints = [
+        {"args": [30], "transformer": "sma", "name": "sma_short"},
+    ]
+
+    mock_any_exit_logic = [["close", ">", "sma_short"]]
+
+    mock_backtest = {"datapoints": mock_datapoints, "enter": [], "exit": mock_any_exit_logic}
+
+    backtest_mirror = validate_backtest(mock_backtest)
+
+    assert backtest_mirror["exit"] is None
+
+
+def test_validate_exit_logic_invalid_1():
+    mock_datapoints = [
+        {"args": [30], "transformer": "sma", "name": "sma_shorter"},
+    ]
+
+    mock_enter_logic = [["close", ">", "sma_short"]]
+
+    mock_backtest = {"datapoints": mock_datapoints, "enter": [], "exit": mock_enter_logic}
+
+    backtest_mirror = validate_backtest(mock_backtest)
+    print(backtest_mirror)
+
+    assert backtest_mirror["exit"].get("error") is True
+
+
+def test_validate_any_exit_logic_valid():
+    mock_datapoints = [
+        {"args": [30], "transformer": "sma", "name": "sma_short"},
+    ]
+
+    mock_any_exit_logic = [["close", ">", "sma_short"]]
+
+    mock_backtest = {"datapoints": mock_datapoints, "enter": [], "any_exit": mock_any_exit_logic}
+
+    backtest_mirror = validate_backtest(mock_backtest)
+
+    assert backtest_mirror["any_exit"] is None
+
+
+def test_validate_any_exit_logic_invalid_1():
+    mock_datapoints = [
+        {"args": [30], "transformer": "sma", "name": "wtf"},
+    ]
+
+    mock_exit_logic = [["close", ">", "no name here"]]
+
+    mock_backtest = {"datapoints": mock_datapoints, "exit": [], "enter": [], "any_exit": mock_exit_logic}
+
+    backtest_mirror = validate_backtest(mock_backtest)
+
+    print(backtest_mirror)
+
+    assert backtest_mirror["any_exit"].get("error") is True

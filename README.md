@@ -5,7 +5,7 @@
 [![Python 3.7+](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/download/releases/3.7.0/)
 [![Python application](https://github.com/jrmeier/fast-trade/workflows/Python%20application/badge.svg)](https://github.com/jrmeier/fast-trade/actions)
 
-A library built with backtest portability and performance in mind for back-test trading strategies. There is also a [DataDownloader](####DataDownloader), which can be used to download compatible kline data from Binance (.com or .us)
+A library built with backtest portability and performance in mind for backtest trading strategies. There is also a [DataDownloader](####DataDownloader), which can be used to download compatible kline data from Binance (.com or .us)
 
 ## Install
 
@@ -55,11 +55,9 @@ Custom datapoints can be added by setting a function name in the [datapoints](/f
 
 ## Data
 
-Data can be any tick size. I use minute data, but end-of-day data can be used as well. If you set a lower `chart_period` than the actual data frequency, fast-trade will throw an `Exception`.
+[DataDownloader](###DataDownloader) for those details.
 
-There is a data downloader for downloading Binance data and storing it locally. Its best to use it from the CLI, but if you can dig into it in [update_symbol_data.py](/fast_trade/update_symbol_data.py). Check out the [DataDownloader](###DataDownloader) section for details.
-
-Data must be minute tick data. datapoints will give false results if the data isn't once a minute.
+I use minute kline data, but end-of-day data can be used as well. If you set a lower `chart_period` than the actual data frequency, fast-trade will throw an `Exception`.
 
 Datafiles are expected but come with `ohlcv` candlestick minute data in a csv file, but will not work as expected. Please open an issue if this is a problem for you.
 
@@ -95,11 +93,11 @@ from fast_trade import run_backtest
     "comission": 0.01, # a comission to pay per transaction 
     "datapoints": [ # describes the data to use in the logic
         {
-            "args": [
+            "args": [ # args are passed to the transformer function
                 30
             ],
-            "transformer": "sma",
-            "name": "sma_short"
+            "transformer": "sma", # technical analysis function to run
+            "name": "sma_short" # reference point for use in logic
         },
         {
             "args": [
@@ -110,12 +108,26 @@ from fast_trade import run_backtest
         },
     ],
     "enter": [
-      ["close", ">", "sma_long"],
-      ["close", ">", "sma_short"]
+      [
+        "close", # field to reference, by default this is any column in the data file. Could also be a float or int
+        ">", # operator to compare these to
+        "sma_long" # name of datapoint that was prevously defined
+      ],
+      [
+        "close",
+        ">",
+        "sma_short"
+      ]
     ],
-    "exit": [["close", "<", "sma_short"]],
-    "trailing_stop_loss": 0.05,
-    "exit_on_end": False,
+    "exit": [
+      [
+        "close",
+        "<",
+        "sma_short"
+      ]
+    ],
+    "trailing_stop_loss": 0.05, # optional trailing stop loss 
+    "exit_on_end": False, # at then end of the backtest, if true, the trade will exit
 }
 
 
@@ -138,29 +150,34 @@ You can also use the package from the command line.
 
 `ft help`
 
-To run a backtest, the csv datafile needs to be passed in, along with the backtest file. On the command line, anything passed in can be overwritten with an argument and value. For example, the chart_period can be overwritten from the backtest file by just passing it in. This will print out a summary of the backtest
-
 Basic usage
 
-`ft backtest --csv=./BTCUSDT.csv --backtest=./example_backtest.json`
+Using a custom file
+
+`ft backtest --data=./BTCUSDT.csv --backtest=./example_backtest.json`
+
+Using an archive item managed by the DataDownloader. Just pass in the symbol instead of the path.
+
+`ft backtest --data=BTCUSDT --backtest=./example_backtest.json `
 
 Modifying the `chart_period`
 
-`ft backtest --csv=./datafile.csv --backtest=./backtest.json --chart_period=1h`
+`ft backtest --data=./datafile.csv --backtest=./backtest.json --chart_period=1h`
 
 Saving a test result
 This generates creates the `saved_backtest` directory (if it doesn't exist), then inside of there, is another directory with a timestamp, with a chart, the backtest file, the summary, and the raw dataframe as a csv.
 
-`ft backtest --csv=./datafile.csv --backtest=./backtest.json --save`
+`ft backtest --data=./datafile.csv --backtest=./backtest.json --save`
 
 Viewing a plot of the result
 
-`ft backtest --csv=./datafile.csv --backtest=./backtest.json --plot`
+`ft backtest --data=./datafile.csv --backtest=./backtest.json --plot`
 
 ### DataDownloader
 
 Download 1 minute kline/ohlcv from Binance and store them in CSVs in the `archive` path. You can rerun this command to keep the files updated.
 It may take awhile to download all of the data the first time, so be patient. It only need to download all of it once, then it will be updated from the most recent date.
+Check out the file [update_symbol_data.py](/fast_trade/update_symbol_data.py) if you want to see how it works.
 
 `ft download --symbol=SYMBOL --exchange=EXCHANGE --start=START --end=END --archive=ARCHIVE`
 

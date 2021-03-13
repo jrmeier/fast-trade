@@ -41,7 +41,9 @@ from json.decoder import JSONDecodeError
 import time
 import random
 
-from binance.client import Client  # requires python-binance, not included in fast-trade package
+from binance.client import (
+    Client,
+)  # requires python-binance, not included in fast-trade package
 
 # ARCHIVE_PATH = "/Users/jedmeier/Desktop"  # where to store the downloaded csv
 # SYMBOL = "ETHBTC"
@@ -51,7 +53,9 @@ from binance.client import Client  # requires python-binance, not included in fa
 # EXCHANGE = "binance.com"  # binance.com or binance.us
 
 
-def update_symbol_data(symbol, start_date, end_date='', arc_path='./archive', exchange='binance.us'):
+def update_symbol_data(
+    symbol, start_date, end_date="", arc_path="./archive", exchange="binance.us"
+):
     print(f"updating: {symbol}")
 
     global ARCHIVE_PATH
@@ -68,14 +72,18 @@ def update_symbol_data(symbol, start_date, end_date='', arc_path='./archive', ex
     last_date = meta_obj.get("last_date")
 
     if not isinstance(last_date, datetime.datetime):
-        start_date_dt = datetime.datetime.fromtimestamp(last_date).replace(second=0, microsecond=0)
+        start_date_dt = datetime.datetime.fromtimestamp(last_date).replace(
+            second=0, microsecond=0
+        )
     else:
         start_date_dt = last_date.replace(second=0, microsecond=0)
 
     if not end_date:
         end_date_dt = datetime.datetime.utcnow().replace(second=0, microsecond=0)
     else:
-        end_date_dt = datetime.datetime.strptime(end_date, "%Y-%m-%d").replace(second=0, microsecond=0)
+        end_date_dt = datetime.datetime.strptime(end_date, "%Y-%m-%d").replace(
+            second=0, microsecond=0
+        )
 
     # this is so we can skip an unnessesary request
     if end_date_dt > datetime.datetime.utcnow():
@@ -89,9 +97,7 @@ def update_symbol_data(symbol, start_date, end_date='', arc_path='./archive', ex
         print(f"fetching klines for dates between {curr_date} and {next_end_date}")
 
         try:
-            klines_df = load_historical_klines_as_df(
-                    symbol, curr_date, next_end_date
-                )
+            klines_df = load_historical_klines_as_df(symbol, curr_date, next_end_date)
 
             if not klines_df.empty:
                 years_in_klines = klines_df.index.strftime("%Y").unique().tolist()
@@ -105,7 +111,9 @@ def update_symbol_data(symbol, start_date, end_date='', arc_path='./archive', ex
                     update_archive_csv_by_df(archive_csv_filename, year_df)
 
             else:
-                print(f"No data from {curr_date} to {next_end_date} for symbol {symbol} ")
+                print(
+                    f"No data from {curr_date} to {next_end_date} for symbol {symbol} "
+                )
                 time.sleep(random.uniform(0.5, 1.3))
 
         except Exception as e:
@@ -175,7 +183,7 @@ def update_archive_csv_by_df(archive_csv_filename, new_df):
         writer = csv.writer(archive_file)
         writer.writerow(CSV_HEADER)
         writer.writerows(rows_to_write)
-    
+
     # done updating the csv
 
 
@@ -217,7 +225,7 @@ def get_symbol_meta_obj(symbol, key=None):
         "last_date": START_DATE,
         "first_date": START_DATE,
         "updating": False,
-        "years": []
+        "years": [],
     }
 
     # check to see if the meta object file exists
@@ -227,7 +235,6 @@ def get_symbol_meta_obj(symbol, key=None):
                 meta_obj = json.load(meta_file)
         else:
             meta_obj = default_meta_obj
-
 
         # validate it has default keys
         for default_key in default_meta_obj.keys():
@@ -253,11 +260,10 @@ def update_symbol_meta(symbol, new_object={}):
     meta_obj.update(new_object)
 
     if len(meta_obj.get("years", [])):
-        years = meta_obj['years']
+        years = meta_obj["years"]
 
     else:
         # if the years don't exist, look for them in the archive folder
-        print("new symbol")
         years = []
         for f in os.listdir(ARCHIVE_PATH):
             file_reg = r"^([A-Z]{3,}\_2\d{3,})"
@@ -291,8 +297,8 @@ def update_symbol_meta(symbol, new_object={}):
             meta_obj["last_date"] = int(last_line[0])
     else:
         # this means we have nothing, so we should set these manually
-        meta_obj['first_date'] = START_DATE
-        meta_obj['last_date'] = START_DATE
+        meta_obj["first_date"] = START_DATE
+        meta_obj["last_date"] = START_DATE
 
     meta_obj["last_modified"] = int(datetime.datetime.utcnow().timestamp())
     with open(symbol_meta_file_path, "w") as symbol_meta_file:
@@ -367,32 +373,25 @@ def load_archive_to_df(symbol, archive_path):
     files_to_load = []
     # get date now, figure out how many days
     now = datetime.datetime.utcnow()
-    now = pytz.utc.localize(now)
-    # print(furthest_day)
 
-    # diff_years = relativedelta(now, furthest_day).years
-    # print(now.year + diff_years)
-    
     # open the archive meta and get the oldest year
-    with open(f"{archive_path}/{symbol}_meta.json","r") as meta_file:
+    with open(f"{archive_path}/{symbol}_meta.json", "r") as meta_file:
         meta_file = json.load(meta_file)
-        years = meta_file.get('years',[])
+        years = meta_file.get("years", [])
+        years = [int(year) for year in years]
         years.sort()
-    
-    print("years: ",years)
 
-    return
+    year = years[0]
 
     files_to_load.append(f"{symbol}_{now.year}.csv")
 
-    for year in range(load_from_date.year, now.year):
+    for year in range(year, now.year):
         files_to_load.append(f"{symbol}_{year}.csv")
-    #     print(diff_year)
 
     year_dfs = []
 
     for file_to_load in files_to_load:
-        file_to_load_path = f"{ARCHIVE_PATH}/{file_to_load}"
+        file_to_load_path = f"{archive_path}/{file_to_load}"
         if os.path.exists(file_to_load_path):
             file_df = pd.read_csv(file_to_load_path)
             year_dfs.append(file_df)
@@ -401,21 +400,10 @@ def load_archive_to_df(symbol, archive_path):
     new_df = new_df.drop_duplicates()
     new_df = standardize_df(new_df)
 
-
-    # new_df = new_df.set_index("date")
-    # new_df.index = pd.to_datetime(new_df.index, unit="s")
-
     return new_df
 
 
-CSV_HEADER = [
-    "date",
-    "low",
-    "high",
-    "open",
-    "close",
-    "volume"
-]
+CSV_HEADER = ["date", "low", "high", "open", "close", "volume"]
 
 BINANCE_KLINE_REST_HEADER_MATCH = [
     "date",  # Open time

@@ -1,7 +1,7 @@
 import pytest
 import pandas as pd
 import random
-from fast_trade import convert_base_to_aux, convert_aux_to_base, analyze_df
+from fast_trade.run_analysis import convert_base_to_aux, convert_aux_to_base, analyze_df
 
 
 def test_convert_base_to_aux_1():

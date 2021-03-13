@@ -1,6 +1,8 @@
 # flake8: noqa
+from fast_trade.validate_backtest import validate_backtest
 import sys
 import json
+from .build_data_frame import prepare_df
 
 from .cli_helpers import (
     open_strat_file,
@@ -56,18 +58,17 @@ def main():
 
         strat_obj = open_strat_file(args["backtest"])
         strat_obj = {**strat_obj, **args}
-        
-        if args.get("data","").endswith(".csv"):
+
+        if args.get("data", "").endswith(".csv"):
             # use a csv file
             data = args["data"]
             res = run_backtest(strat_obj, ohlcv_path=data)
         else:
             # load from the archive
-            archive=args.get("archive","./archive")
-            archive_df = load_archive_to_df(strat_obj["symbol"],archive)
-
-            print(archive_df)
-    
+            archive = args.get("archive", "./archive")
+            archive_df = load_archive_to_df(strat_obj["symbol"], archive)
+            archive_df = prepare_df(archive_df, strat_obj)
+            res = run_backtest(strat_obj, df=archive_df)
 
         print(json.dumps((res["summary"]), indent=2))
 
@@ -81,25 +82,32 @@ def main():
 
         return
 
-
     if command == "help":
         print(format_all_help_text())
         return
-    
+
     if command == "download":
-        default_end = (datetime.datetime.utcnow() + datetime.timedelta(days=1)).strftime("%Y-%m-%d")
-        symbol = args.get("symbol",'BTCUSDT')
-        arc_path = args.get("archive", './archive/')
+        default_end = (
+            datetime.datetime.utcnow() + datetime.timedelta(days=1)
+        ).strftime("%Y-%m-%d")
+        symbol = args.get("symbol", "BTCUSDT")
+        arc_path = args.get("archive", "./archive/")
         start_date = args.get("start", "2017-01-01")
         end_date = args.get("end", default_end)
-        exchange = args.get('exchange', 'binance.com')
+        exchange = args.get("exchange", "binance.com")
         update_symbol_data(symbol, start_date, end_date, arc_path, exchange)
 
-        print("Done downloading ",symbol)
+        print("Done downloading ", symbol)
         return
 
+    if command == "validate":
+        backtest = open_strat_file(args["backtest"])
+        backtest = {**backtest, **args}
 
+        res = validate_backtest(backtest)
 
+        print(json.dumps(res, indent=2))
+        return
     print("Command not found")
     print(format_all_help_text())
 

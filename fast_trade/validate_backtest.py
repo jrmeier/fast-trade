@@ -1,3 +1,4 @@
+from .transformers_map import transformers_map
 import re
 
 # from .build_data_frame import transformers_map,
@@ -22,9 +23,9 @@ def validate_backtest(backtest):
         "chart_start": None,
         "chart_stop": None,
         "comission": None,
-        "datapoints": {},
-        "enter": [],
-        "exit": [],
+        "datapoints": None,
+        "enter": None,
+        "exit": None,
         "any_enter": None,
         "any_exit": None,
         "trailing_stop_loss": None,
@@ -41,7 +42,7 @@ def validate_backtest(backtest):
 
     for req in required_keys:
         if req not in curr_keys:
-            backtest_mirror[req] = {"error": True, "msg": ["Paramater required"]}
+            backtest_mirror[req] = {"error": True, "msgs": [f"Paramater \"{req}\" required"]}
 
     base_balance = backtest.get("base_balance")
     if base_balance:
@@ -50,52 +51,103 @@ def validate_backtest(backtest):
         if isinstance(bb, str):
             backtest_mirror["base_balance"] = {
                 "error": True,
-                "msg": ["base_balance must be a float or string"],
+                "msgs": ["base_balance must be a float or string"],
             }
     chart_period = backtest.get("chart_period")
     if chart_period:
         if not re.search(r"(^\d{1,4}((T)|(Min)|(H)|(D)|)$)", chart_period):
             backtest_mirror["chart_period"] = {
                 "error": True,
-                "msg": ["Chart period not valid"],
+                "msgs": ["Chart period not valid"],
             }
 
-    chart_stop = backtest.get("chart_stop")
+    # check the datapints
+    dp_errors = []
 
-    # datapoints = backtest.get("datapoints", [])
-    # # now check the logic fields to the data points
-    # if not len(datapoints):
-    #     warnings.append("No datapoints set.")
+    for dp in backtest.get("datapoints", []):
+        # check that we have the transformer function
+        trans = dp.get("transformer", "")
+        if trans not in list(transformers_map.keys()):
+            dp_errors.append(
+                f'Tranformer "{trans}" not valid. See the transformers_map for valid transformers.'
+            )
 
-    # else:
-    #     columns = []
-    #     logics = []
+        if not dp.get("name"):
+            dp_errors.append("Name is required.")
 
-    #     for ind in datapoints:
-    #         transformer = ind.get("transformer")
-    #         name = ind.get("name")
+    if len(dp_errors):
+        backtest_mirror["datapoints"] = {"error": True, "msgs": dp_errors}
 
-    #         # check the function is in the transformer map
-    #         if transformer not in list(datapoints.keys()):
-    #             errors.append(f"Transformer \"{transformer}\" is not a valid transformer")
+    # check the logics
 
-    # def clean_fields(raw_val):
+    # fill the indicator keys
+    basic_keys = ["open", "high", "low", "close", "volume"]
+    indicator_keys = [
+        dp.get("name") for dp in backtest.get("datapoints",[]) if dp.get("name")
+    ]
+    indicator_keys.extend(basic_keys)
 
-    #     if type(raw_val) is str:
-    #         if raw_val.isnumeric():
-    #             clean_val = float(raw_val)
-    #         else:
-    #             clean_val = raw_val
+    exit_errors = []
+    any_exit_errors = []
+    enter_errors = []
+    any_enter_errors = []
+    # by default these can always be used
+    indicator_keys = list(set(indicator_keys))
 
-    #     return clean_val
+    for logic in backtest.get("exit", []):
+        for log in logic:
+            if (
+                log not in indicator_keys
+                and isinstance(log, str)
+                and log not in [">", "=", "<"]
+            ):
+                exit_errors.append(
+                    f'Datapoint "{log}" referenced in exit logic not found in datapoints. Check datapoints and logic.'
+                )
 
-    # for log in self.exit_logic:
-    #     logic_keys.append(clean_fields(log.field_1))
-    #     logic_keys.append(clean_fields(log.field_2))
+        if len(exit_errors):
+            backtest_mirror["exit"] = {"error": True, "msgs": exit_errors}
 
-    # for log in self.enter_logic:
-    #     logic_keys.append(clean_fields(log.field_1))
-    #     logic_keys.append(clean_fields(log.field_2))
+    for logic in backtest.get("enter", []):
+        for log in logic:
+            if (
+                log not in indicator_keys
+                and isinstance(log, str)
+                and log not in [">", "=", "<"]
+            ):
+                enter_errors.append(
+                    f'Datapoint "{log}" referenced in enter logic not found in datapoints. Check datapoints and logic.'
+                )
+
+        if len(enter_errors):
+            backtest_mirror["enter"] = {"error": True, "msgs": enter_errors}
+
+    for logic in backtest.get("any_enter", []):
+        for log in logic:
+            if (
+                log not in indicator_keys
+                and isinstance(log, str)
+                and log not in [">", "=", "<"]
+            ):
+                any_enter_errors.append(
+                    f'Datapoint "{log}" referenced in any_enter logic not found in datapoints. Check datapoints and logic.'
+                )
+        if len(any_enter_errors):
+            backtest_mirror["any_enter"] = {"error": True, "msgs": any_enter_errors}
+
+    for logic in backtest.get("any_exit", []):
+        for log in logic:
+            if (
+                log not in indicator_keys
+                and isinstance(log, str)
+                and log not in [">", "=", "<"]
+            ):
+                any_exit_errors.append(
+                    f'Datapoint "{log}" referenced in any_exit logic not found in datapoints. Check datapoints and logic.'
+                )
+
+        if len(any_exit_errors):
+            backtest_mirror["any_exit"] = {"error": True, "msgs": any_exit_errors}
 
     return backtest_mirror
 
