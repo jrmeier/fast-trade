@@ -2,6 +2,7 @@
   "base_balance": 1000,
   "chart_period": "5T",
   "comission": 0.01,
+  "symbol": "BTCUSDT",
   "datapoints": [
       {
           "args": [

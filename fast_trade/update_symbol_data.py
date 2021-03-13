@@ -358,9 +358,10 @@ def get_existing_archives(archive_path):
     return symbols
 
 
-def load_archive_to_df(symbol, load_from_date, archive_path):
+def load_archive_to_df(symbol, archive_path):
     # check if we have it in the archive
     if symbol not in get_existing_archives(archive_path):
+        print(f"Nothing in archive for {symbol}")
         return pd.DataFrame()
     # load all the files we can
     files_to_load = []
@@ -371,6 +372,17 @@ def load_archive_to_df(symbol, load_from_date, archive_path):
 
     # diff_years = relativedelta(now, furthest_day).years
     # print(now.year + diff_years)
+    
+    # open the archive meta and get the oldest year
+    with open(f"{archive_path}/{symbol}_meta.json","r") as meta_file:
+        meta_file = json.load(meta_file)
+        years = meta_file.get('years',[])
+        years.sort()
+    
+    print("years: ",years)
+
+    return
+
     files_to_load.append(f"{symbol}_{now.year}.csv")
 
     for year in range(load_from_date.year, now.year):
@@ -389,7 +401,6 @@ def load_archive_to_df(symbol, load_from_date, archive_path):
     new_df = new_df.drop_duplicates()
     new_df = standardize_df(new_df)
 
-    new_df = new_df[new_df.index > load_from_date]
 
     # new_df = new_df.set_index("date")
     # new_df.index = pd.to_datetime(new_df.index, unit="s")

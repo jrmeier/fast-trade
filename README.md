@@ -5,7 +5,7 @@
 [![Python 3.7+](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/download/releases/3.7.0/)
 [![Python application](https://github.com/jrmeier/fast-trade/workflows/Python%20application/badge.svg)](https://github.com/jrmeier/fast-trade/actions)
 
-A library built with backtest portability and performance in mind for back-test trading strategies.
+A library built with backtest portability and performance in mind for back-test trading strategies. There is also a [DataDownloader](####DataDownloader), which can be used to download compatible kline data from Binance (.com or .us)
 
 ## Install
 
@@ -45,7 +45,7 @@ coverage report -m
 ## Motivations
 
 Strategies are cheap. This is the main motivation behind fast-trade. Since a backtest is just a JSON object, strategies can be created, stored, modified, versioned, and re-run easily. Ideally, a backtest could be generated and tested quickly; fast-trade is just the library to handle that.
-Fast Trade is also useful for quickly analyzing chart (`ohlc`) data.
+Fast Trade is also useful for quickly analyzing chart (`ohlcv`) data.
 
 ## Transfomers (Technical Indicators)
 
@@ -55,13 +55,13 @@ Custom datapoints can be added by setting a function name in the [datapoints](/f
 
 ## Data
 
-Data can be any tick size. I use minute data, but end-of-day data can be used as well. If you set a lower `chart_period` than the actual data frequency, fast-trade will throw an Exception.
+Data can be any tick size. I use minute data, but end-of-day data can be used as well. If you set a lower `chart_period` than the actual data frequency, fast-trade will throw an `Exception`.
 
 There is a data downloader for downloading Binance data and storing it locally. Its best to use it from the CLI, but if you can dig into it in [update_symbol_data.py](/fast_trade/update_symbol_data.py). Check out the [DataDownloader](###DataDownloader) section for details.
 
 Data must be minute tick data. datapoints will give false results if the data isn't once a minute.
 
-Datafiles are expected but come with `ohlc` candlestick minute data in a csv file, but will not work as expected. Please open an issue if this is a problem for you.
+Datafiles are expected but come with `ohlcv` candlestick minute data in a csv file, but will not work as expected. Please open an issue if this is a problem for you.
 
 Example file format
 

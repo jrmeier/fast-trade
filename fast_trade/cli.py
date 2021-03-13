@@ -9,7 +9,7 @@ from .cli_helpers import (
     create_plot,
     format_command,
 )
-from fast_trade.update_symbol_data import update_symbol_data
+from fast_trade.update_symbol_data import load_archive_to_df, update_symbol_data
 from .run_backtest import run_backtest
 import matplotlib.pyplot as plt
 import datetime
@@ -56,8 +56,18 @@ def main():
 
         strat_obj = open_strat_file(args["backtest"])
         strat_obj = {**strat_obj, **args}
+        
+        if args.get("data","").endswith(".csv"):
+            # use a csv file
+            data = args["data"]
+            res = run_backtest(strat_obj, ohlcv_path=data)
+        else:
+            # load from the archive
+            archive=args.get("archive","./archive")
+            archive_df = load_archive_to_df(strat_obj["symbol"],archive)
 
-        res = run_backtest(strat_obj, args["csv"])
+            print(archive_df)
+    
 
         print(json.dumps((res["summary"]), indent=2))
 
