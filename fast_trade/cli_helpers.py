@@ -54,10 +54,11 @@ def create_plot(df):
             "Date": df.index,
             "Portfolio_Value": df["total_value"],
             "Close": df["close"],
+            "Fees": df["fee"]
         }
     )
 
-    plot_df.plot(x="Date", y=["Portfolio_Value", "Close"])
+    plot_df.plot(x="Date", y=["Portfolio_Value", "Close","Fees"])
 
     return plot_df
 
@@ -93,12 +94,55 @@ def save(result, strat_obj):
 
 
 help_dict = {
+    "validate": {
+        "description": """Takes in a backtest object and returns
+            a mirror object with errors if they exist
+        """,
+        "examples": [
+            "ft validate --backtest./backtest.json"
+        ],
+        "args": {
+            "--backtest": {
+                "desc": "path to the backtest file",
+                "required": True
+            }
+        }
+    },
+    "download": {
+        "description": "download data from Binance",
+        "examples": [
+            "ft download --symbol=BTCUSDT --start=2019-01-01"
+        ],
+        "args": {
+            "--symbol": {
+                "desc": "Symbol to download",
+                "required": False
+            },
+            "--archive": {
+                "desc": "Path to the archive where the CSVs live",
+                "required": False
+            },
+            "--start": {
+                "desc": "date to start downloading from",
+                "required": False
+            },
+            "--end": {
+                "desc": "date to stop downloading_from",
+                "required": False
+            },
+            "--exchange": {
+                "desc": "Exchange to use. Either binance.us or binance.com. binance.com is the default.",
+                "required": False
+            }
+
+        }
+    },
     "backtest": {
         "description": """Runs a backtest with the given parameters.
             Any backtest modifications can be passed at the end of the command.
             """,
         "examples": [
-            "python -m fast_trade backtest --csv=./datafile.csv/ --backtest=./backtest.json"
+            "ft backtest --csv=./datafile.csv/ --backtest=./backtest.json"
         ],
         "args": {
             "--csv": {

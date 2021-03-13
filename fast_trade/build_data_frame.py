@@ -64,9 +64,10 @@ def prepare_df(df: pd.DataFrame, backtest: dict):
     datapoints = backtest.get("datapoints", [])
     df = apply_transformers_to_dataframe(df, datapoints)
 
-    if backtest.get("trailing_stop_loss"):
+    trailing_stop_loss = backtest.get("trailing_stop_loss", 0)
+    if trailing_stop_loss:
         df["trailing_stop_loss"] = df["close"].cummax() * (
-            1 - backtest.get("trailing_stop_loss")
+            1 - float(trailing_stop_loss)
         )
 
     chart_period = backtest.get("chart_period", "1Min")

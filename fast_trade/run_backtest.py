@@ -1,4 +1,5 @@
 import datetime
+from fast_trade.validate_backtest import validate_backtest
 import pandas as pd
 import re
 
@@ -22,26 +23,36 @@ def run_backtest(
             trade_log, dataframe of all the rows where transactions happened
     """
 
-    perf_start_time = datetime.datetime.utcnow()
-    new_backtest = prepare_new_backtest(backtest)
-    if ohlcv_path:
-        df = build_data_frame(backtest, ohlcv_path)
+    try:
+        perf_start_time = datetime.datetime.utcnow()
+        new_backtest = prepare_new_backtest(backtest)
+        if ohlcv_path:
+            df = build_data_frame(backtest, ohlcv_path)
 
-    df = apply_backtest_to_dataframe(df, new_backtest)
+        df = apply_backtest_to_dataframe(df, new_backtest)
 
-    if summary:
-        summary, trade_log = build_summary(df, perf_start_time, new_backtest)
-    else:
-        perf_stop_time = datetime.datetime.utcnow()
-        summary = {"test_duration": (perf_stop_time - perf_start_time).total_seconds()}
-        trade_log = None
+        if summary:
+            summary, trade_log = build_summary(df, perf_start_time, new_backtest)
+        else:
+            perf_stop_time = datetime.datetime.utcnow()
+            summary = {"test_duration": (perf_stop_time - perf_start_time).total_seconds()}
+            trade_log = None
 
-    return {
-        "summary": summary,
-        "df": df,
-        "trade_df": trade_log,
-        "backtest": new_backtest,
-    }
+        return {
+            "summary": summary,
+            "df": df,
+            "trade_df": trade_log,
+            "backtest": new_backtest,
+        }
+    except Exception as e:
+        return {
+            "summary": None,
+            "df": None,
+            "trade_df": None,
+            "backtest": None,
+            "error": e,
+            "backtest_validation": validate_backtest(backtest)
+        }
 
 
 def prepare_new_backtest(backtest):

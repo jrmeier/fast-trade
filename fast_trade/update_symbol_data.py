@@ -255,6 +255,9 @@ def update_symbol_meta(symbol, new_object={}):
     # now open the lowest year file
     symbol_meta_file_path = f"{ARCHIVE_PATH}/{symbol}_meta.json"
 
+    if not os.path.exists(ARCHIVE_PATH):
+        os.mkdir(ARCHIVE_PATH)
+
     # open the existing archive
     meta_obj = get_symbol_meta_obj(symbol)
     meta_obj.update(new_object)

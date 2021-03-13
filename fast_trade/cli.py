@@ -70,7 +70,11 @@ def main():
             archive_df = prepare_df(archive_df, strat_obj)
             res = run_backtest(strat_obj, df=archive_df)
 
-        print(json.dumps((res["summary"]), indent=2))
+        if res["summary"]:
+            print(json.dumps((res["summary"]), indent=2))
+        else:
+            print("There was an error:")
+            print(json.dumps((res["backtest_validation"]), indent=2))
 
         if args.get("save"):
             save(res, strat_obj)
