@@ -74,7 +74,6 @@ transformers_map = {
     "fish": TA.FISH,
     "ichimoku": TA.ICHIMOKU,
     "apz": TA.APZ,
-    "vr": TA.VR,
     "sqzmi": TA.SQZMI,
     "vpt": TA.VPT,
     "fve": TA.FVE,

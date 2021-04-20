@@ -7,8 +7,8 @@ README = (HERE / "README.md").read_text()
 
 setup(
     name="fast-trade",
-    version="0.2.0",
-    description="Analyze and backtest algorithmic trading strategies ohlcv data quickly and easily.",
+    version="0.2.1",
+    description="About low code backtesting library utilizing pandas and technical analysis indicators",
     long_description=README,
     long_description_content_type="text/markdown",
     url="https://github.com/jrmeier/fast-trade",
@@ -44,19 +44,8 @@ setup(
     packages=find_packages(include=["fast_trade"]),
     include_package_data=True,
     install_requires=[
-        "cycler==0.10.0",
-        "finta",
-        "kiwisolver==1.3.1",
-        "matplotlib==3.3.4",
-        "numpy",
-        "pandas",
-        "Pillow==8.1.2",
-        "pyparsing==2.4.7",
-        "python-dateutil==2.8.1",
-        "pytz",
-        "six",
-        "python-binance",
-        'service_identity',
-        'pyasn1'
+        "finta==1.3",
+        "matplotlib==3.4.1",
+        "python-binance== 0.7.10",
     ],
 )

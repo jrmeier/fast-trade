@@ -105,7 +105,12 @@ def main():
         return
 
     if command == "validate":
+        print("args: ",args)
         backtest = open_strat_file(args["backtest"])
+        if not backtest:
+            print("backtest not found! ")
+            return
+        print("backtest: ",backtest)
         backtest = {**backtest, **args}
 
         res = validate_backtest(backtest)

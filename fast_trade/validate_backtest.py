@@ -101,6 +101,7 @@ def validate_backtest(backtest):
                 log not in indicator_keys
                 and isinstance(log, str)
                 and log not in [">", "=", "<"]
+                and not log.isnumeric()
             ):
                 exit_errors.append(
                     f'Datapoint "{log}" referenced in exit logic not found in datapoints. Check datapoints and logic.'
@@ -115,6 +116,7 @@ def validate_backtest(backtest):
                 log not in indicator_keys
                 and isinstance(log, str)
                 and log not in [">", "=", "<"]
+                and not log.isnumeric()
             ):
                 enter_errors.append(
                     f'Datapoint "{log}" referenced in enter logic not found in datapoints. Check datapoints and logic.'

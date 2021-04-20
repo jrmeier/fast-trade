@@ -1,29 +1,60 @@
 {
-  "base_balance": 1000,
-  "chart_period": "5T",
+  "any_enter": [],
+  "any_exit": [],
+  "chart_period": "4H",
   "comission": 0.01,
-  "symbol": "BTCUSDT",
   "datapoints": [
-      {
-          "args": [
-              30
-          ],
-          "transformer": "sma",
-          "name": "sma_short"
-      },
-      {
-          "args": [
-              90
-          ],
-          "transformer": "sma",
-          "name": "sma_long"
-      }
+    {
+      "args": [
+        10
+      ],
+      "name": "BTCUSD_rsi",
+      "transformer": "rsi"
+    },
+    {
+      "args": [
+        10
+      ],
+      "name": "fast_zlema",
+      "transformer": "zlema"
+    },
+    {
+      "args": [
+        41.0
+      ],
+      "name": "slow_zelma",
+      "transformer": "zlema"
+    },
+    {
+      "args": [
+        10
+      ],
+      "name": "BTCUSD_ema",
+      "transformer": "ema"
+    }
   ],
   "enter": [
-    ["close", ">", "sma_long"],
-    ["close", ">", "sma_short"]
+    [
+      "fast_zlema",
+      "<",
+      "close",
+      0
+    ],
+    [
+      "BTCUSD_rsi",
+      "<",
+      30.0,
+      0
+    ]
   ],
-  "exit": [["close", "<", "sma_short"]],
-  "trailing_stop_loss": 0.05,
-  "exit_on_end": false
+  "exit": [
+    [
+      "slow_zelma",
+      "<",
+      "close",
+      0
+    ]
+  ],
+  "exit_on_end": false,
+  "trailing_stop_loss": null
 }
