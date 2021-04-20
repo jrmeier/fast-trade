@@ -347,7 +347,7 @@ Backtests include all the instructions needed to run the backtest minus the data
 - enter: list,
   - required
   - default: `None`
-  - description: a list of [Logic](#LogicDetail)'s with instructions to compare the data on each tick. ALL logic items must return True to ENTER the  trade.
+  - description: a list of [Logic](#LogicDetail)'s with instructions to compare the data on each tick. EVERY logic item must return True to ENTER the  trade.
 
 - any_enter: list,
   - optional
@@ -357,7 +357,7 @@ Backtests include all the instructions needed to run the backtest minus the data
 - exit: list
   - required
   - default: `None`
-  - description: a list of [Logic](#LogicDetail)'s with instructions to compare the data on each tick. ANY LOGIC ITEM can return True to EXIT the trade.
+  - description: a list of [Logic](#LogicDetail)'s with instructions to compare the data on each tick. EVERY LOGIC ITEM must return True to EXIT the trade.
 
 - any_exit: list
   - optional
