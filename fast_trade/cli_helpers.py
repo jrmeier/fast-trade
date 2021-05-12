@@ -52,13 +52,13 @@ def create_plot(df):
     plot_df = pd.DataFrame(
         data={
             "Date": df.index,
-            "Portfolio_Value": df["total_value"],
+            "Portfolio_Value": df["account_value"],
             "Close": df["close"],
-            "Fees": df["fee"]
+            "Fees": df["fee"],
         }
     )
 
-    plot_df.plot(x="Date", y=["Portfolio_Value", "Close","Fees"])
+    plot_df.plot(x="Date", y=["Portfolio_Value", "Close", "Fees"])
 
     return plot_df
 
@@ -98,52 +98,31 @@ help_dict = {
         "description": """Takes in a backtest object and returns
             a mirror object with errors if they exist
         """,
-        "examples": [
-            "ft validate --backtest./backtest.json"
-        ],
-        "args": {
-            "--backtest": {
-                "desc": "path to the backtest file",
-                "required": True
-            }
-        }
+        "examples": ["ft validate --backtest./backtest.json"],
+        "args": {"--backtest": {"desc": "path to the backtest file", "required": True}},
     },
     "download": {
         "description": "download data from Binance",
-        "examples": [
-            "ft download --symbol=BTCUSDT --start=2019-01-01"
-        ],
+        "examples": ["ft download --symbol=BTCUSDT --start=2019-01-01"],
         "args": {
-            "--symbol": {
-                "desc": "Symbol to download",
-                "required": False
-            },
+            "--symbol": {"desc": "Symbol to download", "required": False},
             "--archive": {
                 "desc": "Path to the archive where the CSVs live",
-                "required": False
+                "required": False,
             },
-            "--start": {
-                "desc": "date to start downloading from",
-                "required": False
-            },
-            "--end": {
-                "desc": "date to stop downloading_from",
-                "required": False
-            },
+            "--start": {"desc": "date to start downloading from", "required": False},
+            "--end": {"desc": "date to stop downloading_from", "required": False},
             "--exchange": {
                 "desc": "Exchange to use. Either binance.us or binance.com. binance.com is the default.",
-                "required": False
-            }
-
-        }
+                "required": False,
+            },
+        },
     },
     "backtest": {
         "description": """Runs a backtest with the given parameters.
             Any backtest modifications can be passed at the end of the command.
             """,
-        "examples": [
-            "ft backtest --csv=./datafile.csv/ --backtest=./backtest.json"
-        ],
+        "examples": ["ft backtest --csv=./datafile.csv/ --backtest=./backtest.json"],
         "args": {
             "--csv": {
                 "desc": "path or paths to csv_file seperated by commands",
@@ -162,5 +141,5 @@ help_dict = {
                 "required": False,
             },
         },
-    }
+    },
 }

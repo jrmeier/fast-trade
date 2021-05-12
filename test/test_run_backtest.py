@@ -1,7 +1,7 @@
 from fast_trade.run_backtest import (
     flatten_to_logics,
     prepare_new_backtest,
-    process_logic_and_actions,
+    process_logic_and_generate_actions,
     take_action,
     clean_field_type,
     process_single_logic,
@@ -480,7 +480,7 @@ def test_proccess_logic_and_actions_1():
         "any_enter": [],
     }
 
-    res = process_logic_and_actions(mock_df, mock_backtest)
+    res = process_logic_and_generate_actions(mock_df, mock_backtest)
 
     assert isinstance(res, pd.DataFrame)
 
@@ -496,7 +496,7 @@ def test_proccess_logic_and_actions_2():
         "any_enter": [],
     }
 
-    res = process_logic_and_actions(mock_df, mock_backtest)
+    res = process_logic_and_generate_actions(mock_df, mock_backtest)
     assert res.action.values[5] == "e"
 
 
@@ -511,7 +511,7 @@ def test_proccess_logic_and_actions_3():
         "any_enter": [],
     }
 
-    res = process_logic_and_actions(mock_df, mock_backtest)
+    res = process_logic_and_generate_actions(mock_df, mock_backtest)
     assert res.action.values[5] == "ax"
 
 
@@ -527,7 +527,7 @@ def test_proccess_logic_and_actions_4():
         "any_enter": [],
     }
 
-    res = process_logic_and_actions(mock_df, mock_backtest)
+    res = process_logic_and_generate_actions(mock_df, mock_backtest)
     assert res.action.values[6] == "e"
 
 

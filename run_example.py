@@ -1,8 +1,10 @@
 # flake8: noqa
+from fast_trade.build_data_frame import prepare_df
 from fast_trade import run_backtest
 from fast_trade.validate_backtest import validate_backtest
 import datetime
 import json
+import pandas as pd
 
 ds1 = "2020-06-01"
 s1 = 1590969600
@@ -28,15 +30,9 @@ ms2 = 1594339200000
 #     "any_exit": [],
 #     "chart_period": "1H",
 #     "comission": 0.00,
-#     "datapoints": [
-#         {
-#             "args": [
-
-#             ],
-#             "name": "rsi_dp",
-#             "transformer": "rsi"
-#         }
-#     ],
+#     "base_balance": 100000,
+#     "lot_size": 0.6,
+#     "datapoints": [{"args": [], "name": "rsi_dp", "transformer": "rsi"}],
 #     "enter": [
 #         [
 #             "rsi_dp",
@@ -45,66 +41,64 @@ ms2 = 1594339200000
 #         ]
 #     ],
 #     "exit": [
-#             [
-#                 "rsi_dp",
-#                 ">",
-#                 70,
-#             ]
+#         [
+#             "rsi_dp",
+#             ">",
+#             70,
+#         ]
 #     ],
 #     "exit_on_end": False,
+#     "max_lot_size": 0
 #     # "start": "2019-12-01 15:29:00",
 #     # "stop": "2021-03-08 15:29:00",
-#     "trailing_stop_loss": 0.05   # 5% stoploss
+#     # "trailing_stop_loss": 0.05,  # 5% stoploss
 # }
 
 backtest = {
     "any_enter": [],
     "any_exit": [],
-    "chart_period": "15Min",
-    "comission": 0,
+    "chart_period": "1D",
+    "comission": 0.01,
     "datapoints": [
-        {
-            "args": [
-                    14
-            ],
-            "name": "er",
-            "transformer": "er"
-        },
-        {
-            "args": [
-                13
-            ],
-            "name": "zlema",
-            "transformer": "zlema"
-        }
+        {"args": [14], "name": "er", "transformer": "er"},
+        {"args": [13], "name": "zlema", "transformer": "zlema"},
     ],
-    "enter": [
-        [
-            "zlema",
-            ">",
-            "close",
-            1
-        ]
-    ],
-    "exit": [
-            [
-                "er",
-                "<",
-                0,
-                1
-            ]
-    ],
+    "enter": [["zlema", ">", "close", 1]],
+    "exit": [["zlema", "<", "close", 1]],
     "exit_on_end": False,
-    "start": "2021-01-01 22:30:00",
-    "stop": "2021-03-11 23:30:59",
-    "trailing_stop_loss": 0
+    # "start": "2021-01-01 22:30:00",
+    # "stop": "2021-03-11 23:30:59",
+    "trailing_stop_loss": 0,
+    "max_lot_size": 1000,
+    "base_balance": 5000,
 }
 
 if __name__ == "__main__":
     # datafile = "./BTCUSDT.csv"
     datafile = "./archive/BTCUSDT_2021.csv"
-    # test = run_backtest(backtest, ohlcv_path=datafile, summary=True)
-    # print(test["summary"])
-    errors = validate_backtest(backtest)
+    # datafile = "./AAPL.csv"
+    # columns = ["date", "open", "high", "low", "close", "volume"]
+    # df = pd.read_csv(datafile)
+    # print(df.columns)
+    # new_df = pd.DataFrame()
+    # new_df["open"] = df.Open
+    # new_df["high"] = df.High
+    # new_df["low"] = df.Low
+    # new_df["close"] = df.Close
+    # new_df["volume"] = df.Volume
+    # new_df.index = pd.to_datetime(df.Date, format="%Y-%M-%d")
+    # new_df.index.name = "date"
+    # df = prepare_df(new_df, backtest)
+    # df.dropna()
 
-    print(errors)
+    # print(df)
+    # print(backtest)
+    test = run_backtest(backtest, datafile, summary=True)
+    # print(test)
+    # print(test.get("error"))
+    print(test["summary"])
+    print(test["df"])
+    # print()
+    # errors = validate_backtest(backtest)
+
+    # print(errors)

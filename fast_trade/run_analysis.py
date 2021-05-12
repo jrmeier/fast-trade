@@ -2,7 +2,7 @@ import pandas as pd
 from datetime import timedelta
 
 
-def analyze_df(df: pd.DataFrame, backtest: dict):
+def apply_logic_to_df(df: pd.DataFrame, backtest: dict):
     """Analyzes the dataframe and runs sort of a market simulation, entering and exiting positions
 
     Parameters
@@ -13,18 +13,41 @@ def analyze_df(df: pd.DataFrame, backtest: dict):
     Returns
     -------
         df, returns a dataframe with the new rows processed
+
+    Explainer
+    ---------
+    This is one of more complex parts of the library. I'm going to try to explain what's going on here.
+    Fast Trade uses what's known as "vectorized" backtesting. This is what makes Fast Trade fast. To do that all the
+    calculations (datapoints/indicators) are made before this step and all the actions have been generated,
+    meaning based on the datapoints alone, the action is determined.(see process_logic_and_action in run_backtest.py).
+
+
+    At this point, the state of backtest is as follows:
+        * datapoints/indicators ARE calculated
+        * actions (enter, exit) ARE determined
+
+    What is left is to apply the strategy to our dataframe so we can analyze the perfomance of our strategy. To do this,
+    we need to keep track of our account balance and transactions.
+
+
+
     """
     in_trade = False
-    last_base = float(backtest["base_balance"])
-    comission = float(backtest["comission"])
-    last_aux = 0.0
-    new_total_value = last_base
+    account_value = float(backtest.get("base_balance"))  #
+    comission = float(backtest.get("comission"))
+    lot_size = backtest.get("lot_size_perc")
+    max_lot_size = backtest.get("max_lot_size")
 
+    new_account_value = account_value
+
+    new_base = 0.0
+    new_aux = 0.0  #
     aux_list = []
     base_list = []
-    total_value_list = []
+    account_value_list = []
     in_trade_list = []
     fee_list = []
+    adjusted_account_value_list = []
 
     for row in df.itertuples():
         close = row.close
@@ -33,84 +56,114 @@ def analyze_df(df: pd.DataFrame, backtest: dict):
 
         if curr_action in ["e", "ae"] and not in_trade:
             # this means we should enter the trade
-            last_aux = convert_base_to_aux(last_base, close)
-            fee = calculate_fee(last_aux, comission)
+            if len(account_value_list):
+                base_transaction_amount = account_value_list[-1] * lot_size
+            else:
+                base_transaction_amount = new_base
 
-            last_aux = last_aux - fee
-            new_total_value = convert_aux_to_base(last_aux, close)
+            if max_lot_size and base_transaction_amount > max_lot_size:
+                base_transaction_amount = max_lot_size
+            new_aux = convert_base_to_aux(base_transaction_amount, close)
+            fee = calculate_fee(new_aux, comission)
 
-            # should be extremely close to 0
-            last_base = round(last_base - new_total_value, 8)
+            new_aux = new_aux - fee
+
+            if len(account_value_list):
+                new_account_value = account_value_list[-1] - convert_aux_to_base(
+                    new_aux, close
+                )
+            else:
+                base_transaction_amount = new_base
+                new_account_value = (
+                    convert_aux_to_base(new_aux, close) - base_transaction_amount
+                )
+
             in_trade = True
-            fee = convert_aux_to_base(fee, close)
 
-        if curr_action in ["x", "ax", "tsl"] and in_trade:
+        if curr_action in ["x", "ax", "tsl"] and in_trade and new_aux:
             # this means we should EXIT the trade
-            last_base = convert_aux_to_base(last_aux, close)
-            fee = calculate_fee(last_base, comission)
-            last_base = last_base - fee
-            last_aux = convert_base_to_aux(last_base, close)
+            new_base = convert_aux_to_base(new_aux, close)
+            fee = calculate_fee(new_base, comission)
+            new_base = new_base - fee
 
-            new_total_value = last_base
+            new_aux = convert_base_to_aux(new_base, close)
+
+            if len(account_value_list):
+                new_account_value = account_value_list[-1] + new_base
+            else:
+                new_account_value = new_base
+
+            if len(account_value_list):
+                new_account_value = account_value_list[-1] + convert_aux_to_base(
+                    new_aux, close
+                )
+            else:
+                new_account_value = new_base + convert_aux_to_base(new_aux, close)
+
+            new_aux = 0  # since we "converted" the auxilary values back to the base
 
             in_trade = False
 
-        aux_list.append(last_aux)
-        base_list.append(last_base)
-        total_value_list.append(new_total_value)
+        adjusted_account_value = new_account_value + convert_aux_to_base(new_aux, close)
+
+        aux_list.append(new_aux)
+        base_list.append(new_base)
+        account_value_list.append(new_account_value)
         in_trade_list.append(in_trade)
         fee_list.append(fee)
+        adjusted_account_value_list.append(adjusted_account_value)
 
     if backtest.get("exit_on_end") and in_trade:
-        last_base = convert_aux_to_base(last_aux, close)
-        last_aux = convert_base_to_aux(last_base, close)
+        new_base = convert_aux_to_base(new_aux, close)
+        new_aux = convert_base_to_aux(new_base, close)
         new_date = df.index[-1] + timedelta(minutes=1)
 
         df = df.append(pd.DataFrame(index=[new_date]))
 
-        aux_list.append(last_aux)
-        base_list.append(last_base)
-        total_value_list.append(new_total_value)
+        aux_list.append(new_aux)
+        # base_list.append(new_base)
+        account_value_list.append(new_account_value)
         in_trade_list.append(in_trade)
         fee_list.append(False)
 
     df["aux"] = aux_list
-    df["base"] = base_list
-    df["total_value"] = total_value_list
+    # df["base"] = base_list
+    df["account_value"] = account_value_list
+    df["adjusted_account_value"] = adjusted_account_value_list
     df["in_trade"] = in_trade_list
     df["fee"] = fee_list
 
     return df
 
 
-def convert_base_to_aux(last_base: float, close: float):
+def convert_base_to_aux(new_base: float, close: float):
     """converts the base coin to the aux coin
     Parameters
     ----------
-        last_base, the last amount maintained by the backtest
+        new_base, the last amount maintained by the backtest
         close, the closing price of the coin
 
     Returns
     -------
         float, amount of the last base divided by the closing price
     """
-    if last_base:
-        return round(last_base / close, 8)
+    if new_base:
+        return round(new_base / close, 8)
     return 0.0
 
 
-def convert_aux_to_base(last_aux: float, close: float):
+def convert_aux_to_base(new_aux: float, close: float):
     """converts the aux coin to the base coin
     Parameters
     ----------
-        last_base, the last amount maintained by the backtest
+        new_base, the last amount maintained by the backtest
         close, the closing price of the coin
     Returns
     -------
         float, amount of the last aux divided by the closing price
     """
-    if last_aux:
-        return round(last_aux * close, 8)
+    if new_aux:
+        return round(new_aux * close, 8)
     return 0.0
 
 

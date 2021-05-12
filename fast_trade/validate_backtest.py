@@ -153,7 +153,25 @@ def validate_backtest(backtest):
         if len(any_exit_errors):
             backtest_mirror["any_exit"] = {"error": True, "msgs": any_exit_errors}
 
-    return backtest_mirror
+    lot_size = backtest.get("lot_size", 0)
+
+    if lot_size > 1:
+        backtest_mirror["lot_size"] = {
+            "error": True,
+            "msgs": ["Lot size must be less than 1."],
+        }
+
+    if lot_size < 0:
+        backtest_mirror["lot_size"] = {
+            "error": True,
+            "msgs": ["Lot size be larger than 0."],
+        }
+
+    return_value = backtest_mirror
+    return_value["has_error"] = any(
+        [backtest_mirror[key] for key in backtest_mirror.keys()]
+    )
+    return return_value
 
 
 def match_field_type_to_value(field):

@@ -4,7 +4,7 @@ import pandas as pd
 import re
 
 from .build_data_frame import build_data_frame
-from .run_analysis import analyze_df
+from .run_analysis import apply_logic_to_df
 from .build_summary import build_summary
 
 
@@ -29,13 +29,15 @@ def run_backtest(
         if ohlcv_path:
             df = build_data_frame(backtest, ohlcv_path)
 
-        df = apply_backtest_to_dataframe(df, new_backtest)
+        df = apply_backtest_to_df(df, new_backtest)
 
         if summary:
             summary, trade_log = build_summary(df, perf_start_time, new_backtest)
         else:
             perf_stop_time = datetime.datetime.utcnow()
-            summary = {"test_duration": (perf_stop_time - perf_start_time).total_seconds()}
+            summary = {
+                "test_duration": (perf_stop_time - perf_start_time).total_seconds()
+            }
             trade_log = None
 
         return {
@@ -51,11 +53,21 @@ def run_backtest(
             "trade_df": None,
             "backtest": None,
             "error": e,
-            "backtest_validation": validate_backtest(backtest)
+            "backtest_validation": validate_backtest(backtest),
         }
 
 
 def prepare_new_backtest(backtest):
+    """
+    Parameters
+    ----------
+        backtest, a raw backest object
+
+    Returns
+    -------
+        backtest, a backtest dictionary normalized with defaults
+
+    """
     new_backtest = backtest.copy()
     new_backtest["base_balance"] = backtest.get("base_balance", 1000)
     new_backtest["exit_on_end"] = backtest.get("exit_on_end", False)
@@ -63,6 +75,8 @@ def prepare_new_backtest(backtest):
     new_backtest["trailing_stop_loss"] = backtest.get("trailing_stop_loss", 0)
     new_backtest["any_enter"] = backtest.get("any_enter", [])
     new_backtest["any_exit"] = backtest.get("any_exit", [])
+    new_backtest["lot_size_perc"] = float(backtest.get("lot_size", 1))
+    new_backtest["max_lot_size"] = int(backtest.get("max_lot_size", 0))
 
     return new_backtest
 
@@ -78,7 +92,7 @@ def flatten_to_logics(list_of_logics):
     return list_of_logics[:1] + flatten_to_logics(list_of_logics[1:])
 
 
-def apply_backtest_to_dataframe(df: pd.DataFrame, backtest: dict):
+def apply_backtest_to_df(df: pd.DataFrame, backtest: dict):
     """Processes the frame and adds the resultent rows
     Parameters
     ----------
@@ -90,17 +104,32 @@ def apply_backtest_to_dataframe(df: pd.DataFrame, backtest: dict):
         df, dataframe with with all the actions and backtest processed
     """
 
-    df = process_logic_and_actions(df, backtest)
+    df = process_logic_and_generate_actions(df, backtest)
 
-    df = analyze_df(df, backtest)
+    df = apply_logic_to_df(df, backtest)
 
-    df["aux_perc_change"] = df["total_value"].pct_change() * 100
-    df["aux_change"] = df["total_value"].diff()
+    df["aux_perc_change"] = df["account_value"].pct_change() * 100
+    df["aux_change"] = df["account_value"].diff()
 
     return df
 
 
-def process_logic_and_actions(df, backtest):
+def process_logic_and_generate_actions(df: pd.DataFrame, backtest: object):
+    """
+    Parameters
+    ----------
+        df, dataframe with the datapoints (indicators) calculated
+        backtest, backtest object
+
+    Returns
+    -------
+        df, a modified dataframe with the "actions" added
+
+    Explainer
+    ---------
+    In this function, like the name suggests, we process the logic and generate the actions.
+
+    """
     logics = [
         backtest["enter"],
         backtest["exit"],

@@ -73,18 +73,21 @@ def build_summary(df, perf_start_time, backtest):
     except ZeroDivisionError:
         loss_perc = 0
 
-    if trade_log_df.iloc[0].total_value and trade_log_df.iloc[-1].total_value:
-        return_perc = 100 - trade_log_df.iloc[0].total_value / (
-            trade_log_df.iloc[-1].total_value / 100
+    if (
+        trade_log_df.iloc[0].adjusted_account_value
+        and trade_log_df.iloc[-1].adjusted_account_value
+    ):
+        return_perc = 100 - trade_log_df.iloc[0].adjusted_account_value / (
+            trade_log_df.iloc[-1].adjusted_account_value / 100
         )
     else:
         return_perc = 0
 
-    equity_peak = df["total_value"].max()
+    equity_peak = df["adjusted_account_value"].max()
 
-    equity_final = df.iloc[-1]["total_value"]
+    equity_final = df.iloc[-1]["adjusted_account_value"]
 
-    max_drawdown = df["total_value"].min()
+    max_drawdown = df["adjusted_account_value"].min()
 
     perf_stop_time = datetime.datetime.utcnow()
     start_date = df.index[0]
