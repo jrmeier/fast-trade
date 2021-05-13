@@ -95,7 +95,7 @@ if __name__ == "__main__":
     # print(backtest)
     test = run_backtest(backtest, datafile, summary=True)
     # print(test)
-    # print(test.get("error"))
+    print(test.get("error"))
     print(test["summary"])
     print(test["df"])
     # print()

@@ -70,6 +70,8 @@ def test_apply_logic_to_df_1():
     mock_df = pd.read_csv("./test/ohlcv_data.csv.txt", parse_dates=True).set_index(
         "date"
     )
+
+    print(mock_df)
     mock_df.index = pd.to_datetime(mock_df.index, unit="s")
     mock_backtest = {"base_balance": 1000, "exit_on_end": True, "comission": 0.00}
 
