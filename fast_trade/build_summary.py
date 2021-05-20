@@ -22,6 +22,8 @@ def build_summary(df, performance_start_time, backtest):
     end_date = df.index[-1]
 
     trade_log_df = create_trade_log(df)
+    trade_log_df = trade_log_df[trade_log_df.adj_account_value_change_perc != 0]
+    print(trade_log_df)
     total_trades = len(trade_log_df.index)
 
     (
@@ -39,12 +41,9 @@ def build_summary(df, performance_start_time, backtest):
     ) = summarize_trade_perc(trade_log_df)
 
     total_fees = df.fee.sum()
-    trade_log_df = trade_log_df[trade_log_df.adj_account_value_change_perc != 0]
-    print(trade_log_df)
     win_trades = trade_log_df[trade_log_df.adj_account_value_change_perc > 0]
     loss_trades = trade_log_df[trade_log_df.adj_account_value_change_perc < 0]
 
-    print(trade_log_df)
     print(win_trades)
     print(loss_trades)
 
