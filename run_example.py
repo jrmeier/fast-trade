@@ -57,11 +57,11 @@ ms2 = 1594339200000
 backtest = {
     "any_enter": [],
     "any_exit": [],
-    "chart_period": "1D",
+    "chart_period": "1H",
     "comission": 0.01,
     "datapoints": [
         {"args": [14], "name": "er", "transformer": "er"},
-        {"args": [13], "name": "zlema", "transformer": "zlema"},
+        {"args": [35], "name": "zlema", "transformer": "sma"},
     ],
     "enter": [["zlema", ">", "close", 1]],
     "exit": [["zlema", "<", "close", 1]],
@@ -69,13 +69,14 @@ backtest = {
     # "start": "2021-01-01 22:30:00",
     # "stop": "2021-03-11 23:30:59",
     "trailing_stop_loss": 0,
-    "max_lot_size": 1000,
-    "base_balance": 5000,
+    # "max_lot_size": 1000,
+    "base_balance": 100,
 }
 
 if __name__ == "__main__":
     # datafile = "./BTCUSDT.csv"
-    datafile = "./archive/BTCUSDT_2021.csv"
+    # datafile = "./archive/BTCUSDT_2021.csv"
+    datafile = "/Users/jedmeier/Desktop/BTCUSDT_ALL/BTCUSDT_2020.csv"
     # datafile = "./AAPL.csv"
     # columns = ["date", "open", "high", "low", "close", "volume"]
     # df = pd.read_csv(datafile)
@@ -92,12 +93,17 @@ if __name__ == "__main__":
     # df.dropna()
 
     # print(df)
+    # with open("./example_backtest.json", "r") as backtest_file:
+    #     backtest = json.load(backtest_file)
     # print(backtest)
+    # backtest["start"] = "2020-12-01"
+    backtest["comission"] = 0.01
+    # backtest["chart_period"] = "1Min"
     test = run_backtest(backtest, datafile, summary=True)
     # print(test)
     print(test.get("error"))
-    print(test["summary"])
-    print(test["df"])
+    print(json.dumps(test["summary"], indent=2))
+    print(test["trade_df"])
     # print()
     # errors = validate_backtest(backtest)
 

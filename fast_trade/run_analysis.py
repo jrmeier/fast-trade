@@ -47,7 +47,7 @@ def apply_logic_to_df(df: pd.DataFrame, backtest: dict):
     account_value_list = []
     in_trade_list = []
     fee_list = []
-    adjusted_account_value_list = []
+    adj_account_value_list = []
 
     for row in df.itertuples():
         close = row.close
@@ -104,14 +104,14 @@ def apply_logic_to_df(df: pd.DataFrame, backtest: dict):
 
             in_trade = False
 
-        adjusted_account_value = new_account_value + convert_aux_to_base(new_aux, close)
+        adj_account_value = new_account_value + convert_aux_to_base(new_aux, close)
 
         aux_list.append(new_aux)
         base_list.append(new_base)
         account_value_list.append(new_account_value)
         in_trade_list.append(in_trade)
         fee_list.append(fee)
-        adjusted_account_value_list.append(adjusted_account_value)
+        adj_account_value_list.append(adj_account_value)
 
     if backtest.get("exit_on_end") and in_trade:
         new_base = convert_aux_to_base(new_aux, close)
@@ -129,7 +129,7 @@ def apply_logic_to_df(df: pd.DataFrame, backtest: dict):
     df["aux"] = aux_list
     # df["base"] = base_list
     df["account_value"] = account_value_list
-    df["adjusted_account_value"] = adjusted_account_value_list
+    df["adj_account_value"] = adj_account_value_list
     df["in_trade"] = in_trade_list
     df["fee"] = fee_list
 

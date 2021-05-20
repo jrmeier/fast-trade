@@ -23,38 +23,30 @@ def run_backtest(
             trade_log, dataframe of all the rows where transactions happened
     """
 
-    try:
-        perf_start_time = datetime.datetime.utcnow()
-        new_backtest = prepare_new_backtest(backtest)
-        if ohlcv_path:
-            df = build_data_frame(backtest, ohlcv_path)
+    performance_start_time = datetime.datetime.utcnow()
+    new_backtest = prepare_new_backtest(backtest)
+    if ohlcv_path:
+        df = build_data_frame(backtest, ohlcv_path)
 
-        df = apply_backtest_to_df(df, new_backtest)
+    df = apply_backtest_to_df(df, new_backtest)
 
-        if summary:
-            summary, trade_log = build_summary(df, perf_start_time, new_backtest)
-        else:
-            perf_stop_time = datetime.datetime.utcnow()
-            summary = {
-                "test_duration": (perf_stop_time - perf_start_time).total_seconds()
-            }
-            trade_log = None
-
-        return {
-            "summary": summary,
-            "df": df,
-            "trade_df": trade_log,
-            "backtest": new_backtest,
+    if summary:
+        summary, trade_log = build_summary(df, performance_start_time, new_backtest)
+    else:
+        performance_stop_time = datetime.datetime.utcnow()
+        summary = {
+            "test_duration": (
+                performance_stop_time - performance_start_time
+            ).total_seconds()
         }
-    except Exception as e:
-        return {
-            "summary": None,
-            "df": None,
-            "trade_df": None,
-            "backtest": None,
-            "error": e,
-            "backtest_validation": validate_backtest(backtest),
-        }
+        trade_log = None
+
+    return {
+        "summary": summary,
+        "df": df,
+        "trade_df": trade_log,
+        "backtest": new_backtest,
+    }
 
 
 def prepare_new_backtest(backtest):
@@ -108,8 +100,8 @@ def apply_backtest_to_df(df: pd.DataFrame, backtest: dict):
 
     df = apply_logic_to_df(df, backtest)
 
-    df["aux_perc_change"] = df["account_value"].pct_change() * 100
-    df["aux_change"] = df["account_value"].diff()
+    df["adj_account_value_change_perc"] = df["adj_account_value"].pct_change()
+    df["adj_account_value_change"] = df["adj_account_value"].diff()
 
     return df
 
