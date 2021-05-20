@@ -1,4 +1,5 @@
 import datetime
+from re import T
 import numpy as np
 import pandas as pd
 
@@ -38,7 +39,8 @@ def build_summary(df, performance_start_time, backtest):
     ) = summarize_trade_perc(trade_log_df)
 
     total_fees = df.fee.sum()
-
+    trade_log_df = trade_log_df[trade_log_df.adj_account_value_change_perc != 0]
+    print(trade_log_df)
     win_trades = trade_log_df[trade_log_df.adj_account_value_change_perc > 0]
     loss_trades = trade_log_df[trade_log_df.adj_account_value_change_perc < 0]
 
