@@ -22,8 +22,7 @@ def build_summary(df, performance_start_time, backtest):
     end_date = df.index[-1]
 
     trade_log_df = create_trade_log(df)
-    trade_log_df = trade_log_df[trade_log_df.adj_account_value_change_perc != 0]
-    print(trade_log_df)
+    # print(trade_log_df)
     total_trades = len(trade_log_df.index)
 
     (
@@ -44,8 +43,8 @@ def build_summary(df, performance_start_time, backtest):
     win_trades = trade_log_df[trade_log_df.adj_account_value_change_perc > 0]
     loss_trades = trade_log_df[trade_log_df.adj_account_value_change_perc < 0]
 
-    print(win_trades)
-    print(loss_trades)
+    # print(win_trades)
+    # print(loss_trades)
 
     (total_num_winning_trades, avg_win_perc, win_perc) = summarize_trades(
         win_trades, total_trades
@@ -123,6 +122,10 @@ def create_trade_log(df):
 
     trade_log_df = trade_log_df.replace([np.inf, -np.inf], np.nan)
 
+    # only get the records where the account value changed
+    # this will exclude the "enter" trades since the adj_account_value doesn't change
+    trade_log_df = trade_log_df[trade_log_df.adj_account_value_change != 0]
+
     return trade_log_df
 
 
@@ -146,7 +149,6 @@ def summarize_trade_perc(trade_log_df: pd.DataFrame):
     min_trade_perc = trade_log_df.adj_account_value_change_perc.min()
     mean_trade_perc = trade_log_df.adj_account_value_change_perc.mean()
     median_trade_perc = trade_log_df.adj_account_value_change_perc.median()
-    print("median_trade_perc: ", median_trade_perc)
 
     return (
         round(max_trade_perc, 4),
@@ -158,8 +160,6 @@ def summarize_trade_perc(trade_log_df: pd.DataFrame):
 
 def summarize_trades(trades: pd.DataFrame, total_trades):
     avg_perc = trades.adj_account_value_change_perc.mean() * 100
-    print("total_trades: ", total_trades)
-    print("trades.index len, ", len(trades.index))
     try:
         perc = (len(trades.index) / total_trades) * 100
     except ZeroDivisionError:
@@ -182,6 +182,9 @@ def calculate_return_perc(trade_log_df: pd.DataFrame):
 
 
 def calculate_buy_and_hold_perc(df):
+    """Uses the first closing price and closing price to determine
+    the return percentage if the strategy was simply buy and hold.
+    """
     first_close = df.iloc[0].close
     last_close = df.iloc[-1].close
     buy_and_hold_perc = (1 - (first_close / last_close)) * 100
@@ -190,6 +193,7 @@ def calculate_buy_and_hold_perc(df):
 
 
 def calculate_shape_ratio(df):
+    # https://towardsdatascience.com/calculating-sharpe-ratio-with-python-755dcb346805
     #  portf_val[‘Daily Return’].mean() / portf_val[‘Daily Return’].std()
     sharpe_ratio = (
         df["adj_account_value_change_perc"].mean()

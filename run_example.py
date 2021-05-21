@@ -57,8 +57,8 @@ ms2 = 1594339200000
 backtest = {
     "any_enter": [],
     "any_exit": [],
-    "chart_period": "1H",
-    "comission": 0.01,
+    "chart_period": "2Min",
+    "comission": 0.05,
     "datapoints": [
         {"args": [14], "name": "er", "transformer": "er"},
         {"args": [35], "name": "zlema", "transformer": "sma"},
@@ -70,7 +70,8 @@ backtest = {
     # "stop": "2021-03-11 23:30:59",
     "trailing_stop_loss": 0,
     # "max_lot_size": 1000,
-    "base_balance": 100,
+    "lot_size": 0.1,
+    "base_balance": 200,
 }
 
 if __name__ == "__main__":
