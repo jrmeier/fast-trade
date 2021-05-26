@@ -44,8 +44,8 @@ setup(
     packages=find_packages(include=["fast_trade"]),
     include_package_data=True,
     install_requires=[
-        "finta==1.3",
-        "matplotlib==3.4.1",
-        "python-binance== 0.7.10",
+        "finta >= 1.3",
+        "matplotlib >= 3.4.1",
+        "requests",
     ],
 )

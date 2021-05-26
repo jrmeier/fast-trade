@@ -1,5 +1,5 @@
 import datetime
-from re import T
+from .check_missing_dates import check_missing_dates
 import numpy as np
 import pandas as pd
 
@@ -12,10 +12,10 @@ def build_summary(df, performance_start_time, backtest):
     # Calmar Ratio                             0.07
 
     # Do the easy stuff first
-    equity_peak = df["account_value"].max()
-    equity_final = df.iloc[-1]["adj_account_value"]
+    equity_peak = round(df["account_value"].max(), 3)
+    equity_final = round(df.iloc[-1]["adj_account_value"], 3)
 
-    max_drawdown = df["adj_account_value"].min()
+    max_drawdown = round(df["adj_account_value"].min(), 3)
 
     performance_stop_time = datetime.datetime.utcnow()
     start_date = df.index[0]
@@ -39,7 +39,7 @@ def build_summary(df, performance_start_time, backtest):
         median_trade_perc,
     ) = summarize_trade_perc(trade_log_df)
 
-    total_fees = df.fee.sum()
+    total_fees = round(df.fee.sum(), 3)
     win_trades = trade_log_df[trade_log_df.adj_account_value_change_perc > 0]
     loss_trades = trade_log_df[trade_log_df.adj_account_value_change_perc < 0]
 
@@ -62,16 +62,18 @@ def build_summary(df, performance_start_time, backtest):
 
     buy_and_hold_perc = calculate_buy_and_hold_perc(df)
 
+    (missing_data_perc, gaps) = check_missing_dates(df)
+
     performance_stop_time = datetime.datetime.utcnow()
 
     summary = {
         "return_perc": return_perc,
         "sharpe_ratio": sharpe_ratio,  # BETA
         "buy_and_hold_perc": buy_and_hold_perc,
-        "median_trade_len": median_time_held.total_seconds(),
-        "mean_trade_len": mean_trade_time_held.total_seconds(),
-        "max_trade_held": max_trade_time_held.total_seconds(),
-        "min_trade_len": min_trade_time_held.total_seconds(),
+        "median_trade_len": round(median_time_held.total_seconds(), 3),
+        "mean_trade_len": round(mean_trade_time_held.total_seconds(), 3),
+        "max_trade_held": round(max_trade_time_held.total_seconds(), 3),
+        "min_trade_len": round(min_trade_time_held.total_seconds(), 3),
         "total_num_winning_trades": total_num_winning_trades,
         "total_num_losing_trades": total_num_losing_trades,
         "avg_win_perc": avg_win_perc,
@@ -90,12 +92,13 @@ def build_summary(df, performance_start_time, backtest):
         "first_tic": start_date.strftime("%Y-%m-%d %H:%M:%S"),
         "last_tic": end_date.strftime("%Y-%m-%d %H:%M:%S"),
         "total_tics": len(df.index),
-        "test_duration": (
-            performance_stop_time - performance_start_time
-        ).total_seconds(),
+        "test_duration": round(
+            (performance_stop_time - performance_start_time).total_seconds(), 3
+        ),
+        "missing_data_perc": missing_data_perc,
     }
 
-    return summary, trade_log_df
+    return summary, trade_log_df, gaps
 
 
 def create_trade_log(df):

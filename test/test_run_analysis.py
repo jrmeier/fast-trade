@@ -5,6 +5,8 @@ from fast_trade.run_analysis import (
     convert_base_to_aux,
     convert_aux_to_base,
     apply_logic_to_df,
+    enter_position,
+    exit_position,
 )
 
 
@@ -66,44 +68,87 @@ def test_convert_aux_to_base_2():
     assert aux == 0.0
 
 
-def test_apply_logic_to_df_1():
-    mock_df = pd.read_csv("./test/ohlcv_data.csv.txt", parse_dates=True).set_index(
-        "date"
+def test_enter_position_1():
+    mock_account_value_list = []
+    mock_lot_size = 1
+    mock_new_base = 1000
+    mock_max_lot_size = 0
+    mock_close = 10
+    mock_comission = 0
+
+    in_trade, new_aux, new_base, new_account_value, fee = enter_position(
+        mock_account_value_list,
+        mock_lot_size,
+        mock_new_base,
+        mock_max_lot_size,
+        mock_close,
+        mock_comission,
     )
 
-    mock_df.index = pd.to_datetime(mock_df.index, unit="s")
-    mock_backtest = {"base_balance": 1000, "exit_on_end": True, "comission": 0.00}
+    assert in_trade is True
+    assert new_aux == 100.0
+    assert new_base == 0
+    assert fee == 0.0
+    assert new_account_value == 1000.0
 
-    mock_df["action"] = ["e", "h", "x", "x", "x", "e", "x", "h", "h"]
+    print("aux: ", new_aux)
+    print("base: ", new_base)
+    print("new_account_value: ", new_account_value)
+    print("fee: ", fee)
 
-    df = apply_logic_to_df(mock_df, mock_backtest)
-    print(mock_df)
+    # assert True is False
 
-    print(df)
 
-    # assert list(df.aux.values) == [
-    #     100000.0,
-    #     100000.0,
-    #     100000.0,
-    #     100000.0,
-    #     100000.0,
-    #     103237.41007194,
-    #     103237.41007172,
-    #     103237.41007172,
-    #     103237.41007172,
-    # ]
+def test_exit_position_1():
+    mock_account_value_list = []
+    mock_aux = 100
+    mock_close = 11
+    mock_comission = 0
 
-    # assert list(df.account_value.values) == [
-    #     1000.0,
-    #     1000.0,
-    #     2296.0,
-    #     2296.0,
-    #     2296.0,
-    #     2296.0,
-    #     2274.32014388,
-    #     2274.32014388,
-    #     2274.32014388,
-    # ]
+    in_trade, new_aux, new_base, new_account_value, fee = exit_position(
+        mock_account_value_list, mock_close, mock_aux, mock_comission
+    )
+
+    assert in_trade is False
+    assert new_aux == 0
+    assert new_base == 1100
+    assert fee == 0.0
+    assert new_account_value == 1100
+
+    print("aux: ", new_aux)
+    print("base: ", new_base)
+    print("new_account_value: ", new_account_value)
+    print("fee: ", fee)
+
+    # assert True is False
+
+
+# def test_apply_logic_to_df_1():
+#     mock_df = pd.read_csv("./test/ohlcv_data.csv.txt", parse_dates=True).set_index(
+#         "date"
+#     )
+
+#     mock_df.index = pd.to_datetime(mock_df.index, unit="s")
+#     mock_backtest = {"base_balance": 1000, "exit_on_end": True, "comission": 0.00}
+
+#     mock_df["action"] = ["e", "h", "x", "x", "x", "e", "x", "h", "h"]
+
+#     print("df: ", mock_df)
+#     df = apply_logic_to_df(mock_df, mock_backtest)
+#     # print(mock_df)
+
+#     print("DF: ", df)
+#     assert list(df.adj_account_value.values) == [
+#         1000.0,
+#         1000.0,
+#         2296.0,
+#         2296.0,
+#         2296.0,
+#         2296.0,
+#         2274.32014388,
+#         2274.32014388,
+#         2274.32014388,
+#     ]
 
 
 # def test_apply_logic_to_df_2():

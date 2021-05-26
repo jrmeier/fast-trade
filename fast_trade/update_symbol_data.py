@@ -15,7 +15,8 @@ How to use
     - these are pretty self-explanatory
 
 3. Run the script
-    - python data_collection.py
+
+    ft download --symbol=BTCUSDT --start=2017-01-01
 
 The data takes a while to download, but once its downloaded the first time, you can just run the script and it will
 get the since the most recent download.
@@ -40,9 +41,7 @@ from json.decoder import JSONDecodeError
 import time
 import random
 
-from binance.client import (
-    Client,
-)  # requires python-binance, not included in fast-trade package
+import requests  # requires python-binance, not included in fast-trade package
 
 # ARCHIVE_PATH = "/Users/jedmeier/Desktop"  # where to store the downloaded csv
 # SYMBOL = "ETHBTC"
@@ -263,8 +262,7 @@ def update_symbol_meta(symbol, new_object={}):
     meta_obj = get_symbol_meta_obj(symbol)
     meta_obj.update(new_object)
 
-
-        # if the years don't exist, look for them in the archive folder
+    # if the years don't exist, look for them in the archive folder
     years = []
     for f in os.listdir(ARCHIVE_PATH):
         file_reg = r"^([A-Z]{3,}\_2\d{3,})"
@@ -310,17 +308,51 @@ def update_symbol_meta(symbol, new_object={}):
 
 
 def load_historical_klines_as_df(symbol, start_date, end_date):
-    client = create_binance_client()
-    klines = client.get_historical_klines(
-        symbol=symbol,
-        interval=Client.KLINE_INTERVAL_1MINUTE,
-        start_str=start_date.strftime("%b %d, %Y"),
-        end_str=end_date.strftime("%b %d, %Y"),
-    )
+    klines = get_historical_klines_binance(symbol, start_date, end_date)
 
     klines_df = binance_kline_to_df(klines)
 
     return klines_df
+
+
+def get_historical_klines_binance(symbol, start_date, end_date, EXCHANGE="us"):
+    if EXCHANGE == "us":
+        tld = "us"
+    else:
+        tld = "com"
+    base_url = f"https://api.binance.{tld}/api/v3"
+
+    curr_date = start_date
+
+    HOURS_TO_INCREMENT = 15
+
+    if end_date > datetime.datetime.utcnow():
+        end_date = datetime.datetime.utcnow().replace(second=0, microsecond=0)
+
+    total_api_calls = 0
+    klines = []
+    while curr_date < end_date:
+        next_end_date = curr_date + datetime.timedelta(hours=HOURS_TO_INCREMENT)
+        startTime = int(curr_date.timestamp()) * 1000
+        endTime = int(next_end_date.timestamp()) * 1000
+
+        url = f"{base_url}/klines?symbol={symbol}&interval=1m&startTime={startTime}&endTime={endTime}&limit=1000"
+        data = requests.get(url).json()
+        klines.extend(data)
+
+        total_api_calls += 1
+
+        sleeper = random.random() * 0.9
+        if sleeper < 0.3:
+            sleeper += 0.3
+
+        if total_api_calls % 25 == 0:
+            sleeper += random.randint(10, 60)
+
+        time.sleep(sleeper)
+        curr_date = next_end_date
+
+    return klines
 
 
 def binance_kline_to_df(klines):
@@ -339,17 +371,6 @@ def binance_kline_to_df(klines):
     new_df = new_df.drop(columns=columns_to_drop)
 
     return new_df
-
-
-def create_binance_client():
-    if EXCHANGE == "binance.us":
-        tld = "us"
-    else:
-        tld = "com"
-
-    client = Client("", "", tld=tld)
-
-    return client
 
 
 def get_existing_archives(archive_path):

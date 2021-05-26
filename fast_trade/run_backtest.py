@@ -31,7 +31,9 @@ def run_backtest(
     df = apply_backtest_to_df(df, new_backtest)
 
     if summary:
-        summary, trade_log = build_summary(df, performance_start_time, new_backtest)
+        summary, trade_log, gaps = build_summary(
+            df, performance_start_time, new_backtest
+        )
     else:
         performance_stop_time = datetime.datetime.utcnow()
         summary = {
@@ -45,6 +47,7 @@ def run_backtest(
         "summary": summary,
         "df": df,
         "trade_df": trade_log,
+        "missing_data": gaps,
         "backtest": new_backtest,
     }
 

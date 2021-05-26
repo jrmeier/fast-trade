@@ -52,57 +52,20 @@ def apply_logic_to_df(df: pd.DataFrame, backtest: dict):
     for row in df.itertuples():
         close = row.close
         curr_action = row.action
-        fee = 0
+        fee = 0.0
 
         if curr_action in ["e", "ae"] and not in_trade:
             # this means we should enter the trade
-            if len(account_value_list):
-                base_transaction_amount = account_value_list[-1] * lot_size
-            else:
-                base_transaction_amount = new_base
+            [in_trade, new_aux, new_base, new_account_value, fee] = enter_position(
+                account_value_list, lot_size, new_base, max_lot_size, close, comission
+            )
 
-            if max_lot_size and base_transaction_amount > max_lot_size:
-                base_transaction_amount = max_lot_size
-            new_aux = convert_base_to_aux(base_transaction_amount, close)
-            fee = calculate_fee(new_aux, comission)
+        if curr_action in ["x", "ax", "tsl"] and in_trade:
+            # this means we should exit the trade
 
-            new_aux = new_aux - fee
-
-            if len(account_value_list):
-                new_account_value = account_value_list[-1] - convert_aux_to_base(
-                    new_aux, close
-                )
-            else:
-                base_transaction_amount = new_base
-                new_account_value = (
-                    convert_aux_to_base(new_aux, close) - base_transaction_amount
-                )
-
-            in_trade = True
-
-        if curr_action in ["x", "ax", "tsl"] and in_trade and new_aux:
-            # this means we should EXIT the trade
-            new_base = convert_aux_to_base(new_aux, close)
-            fee = calculate_fee(new_base, comission)
-            new_base = new_base - fee
-
-            new_aux = convert_base_to_aux(new_base, close)
-
-            if len(account_value_list):
-                new_account_value = account_value_list[-1] + new_base
-            else:
-                new_account_value = new_base
-
-            if len(account_value_list):
-                new_account_value = account_value_list[-1] + convert_aux_to_base(
-                    new_aux, close
-                )
-            else:
-                new_account_value = new_base + convert_aux_to_base(new_aux, close)
-
-            new_aux = 0  # since we "converted" the auxilary values back to the base
-
-            in_trade = False
+            [in_trade, new_aux, new_base, new_account_value, fee] = exit_position(
+                account_value_list, close, new_aux, comission
+            )
 
         adj_account_value = new_account_value + convert_aux_to_base(new_aux, close)
 
@@ -114,17 +77,23 @@ def apply_logic_to_df(df: pd.DataFrame, backtest: dict):
         adj_account_value_list.append(adj_account_value)
 
     if backtest.get("exit_on_end") and in_trade:
-        new_base = convert_aux_to_base(new_aux, close)
-        new_aux = convert_base_to_aux(new_base, close)
-        new_date = df.index[-1] + timedelta(minutes=1)
+        # this means we should exit the trade
+        in_trade, new_aux, new_base, new_account_value, fee = exit_position(
+            account_value_list, close, new_aux, comission
+        )
+        new_date = df.index[-1] + timedelta(seconds=1)
 
-        df = df.append(pd.DataFrame(index=[new_date]))
+        new_row = pd.DataFrame(data=[df.iloc[-1]], index=[new_date])
 
+        df = df.append(pd.DataFrame(data=new_row))
         aux_list.append(new_aux)
-        # base_list.append(new_base)
+        base_list.append(new_base)
         account_value_list.append(new_account_value)
         in_trade_list.append(in_trade)
-        fee_list.append(False)
+        fee_list.append(fee)
+        adj_account_value = new_account_value + convert_aux_to_base(new_aux, close)
+
+        adj_account_value_list.append(adj_account_value)
 
     df["aux"] = aux_list
     # df["base"] = base_list
@@ -134,6 +103,67 @@ def apply_logic_to_df(df: pd.DataFrame, backtest: dict):
     df["fee"] = fee_list
 
     return df
+
+
+def enter_position(
+    account_value_list, lot_size, new_base, max_lot_size, close, comission
+):
+    # this check is because we will append the base_transaction amount, but it doesn't
+    # exist if its the first check
+    if len(account_value_list):
+        base_transaction_amount = account_value_list[-1] * lot_size
+    else:
+        base_transaction_amount = new_base
+
+    if max_lot_size and base_transaction_amount > max_lot_size:
+        base_transaction_amount = max_lot_size
+
+    print("base_transaction_amount: ", base_transaction_amount)
+    new_base = new_base - base_transaction_amount
+    new_aux = convert_base_to_aux(base_transaction_amount, close)
+    print("new_aux: ", new_aux)
+    fee = calculate_fee(new_aux, comission)
+
+    new_aux = new_aux - fee
+
+    if len(account_value_list):
+        new_account_value = account_value_list[-1] - convert_aux_to_base(new_aux, close)
+    else:
+        base_transaction_amount = new_base
+        new_account_value = (
+            convert_aux_to_base(new_aux, close) - base_transaction_amount
+        )
+
+    in_trade = True
+
+    return [in_trade, new_aux, new_base, new_account_value, fee]
+
+
+def exit_position(account_value_list, close, new_aux, comission):
+    # this means we should EXIT the trade
+    new_base = convert_aux_to_base(new_aux, close)
+    # exit_trade(new_aux)
+    fee = calculate_fee(new_base, comission)
+    new_base = new_base - fee
+
+    new_aux = convert_base_to_aux(new_base, close)
+
+    if len(account_value_list):
+        new_account_value = account_value_list[-1] + new_base
+    else:
+        new_account_value = new_base
+
+    if len(account_value_list):
+        new_account_value = account_value_list[-1] + convert_aux_to_base(new_aux, close)
+    else:
+        new_account_value = new_base + convert_aux_to_base(new_aux, close)
+
+    new_aux = 0  # since we "converted" the auxilary values back to the base
+
+    in_trade = False
+    print(in_trade, new_aux, new_base, new_account_value, fee)
+
+    return in_trade, new_aux, new_base, new_account_value, fee
 
 
 def convert_base_to_aux(new_base: float, close: float):

@@ -87,9 +87,11 @@ def save(result, strat_obj):
 
     # dataframe
     result["df"].to_csv(f"{new_save_dir}/dataframe.csv")
+    result["trade_df"].to_csv(f"{new_save_dir}/trade_dataframe.csv")
 
     # plot
     create_plot(result["df"])
+
     plt.savefig(f"{new_save_dir}/plot.png")
 
 
