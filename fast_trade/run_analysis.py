@@ -1,6 +1,8 @@
 import pandas as pd
 from datetime import timedelta
 
+from pandas.core import base
+
 
 def apply_logic_to_df(df: pd.DataFrame, backtest: dict):
     """Analyzes the dataframe and runs sort of a market simulation, entering and exiting positions
@@ -118,21 +120,16 @@ def enter_position(
     if max_lot_size and base_transaction_amount > max_lot_size:
         base_transaction_amount = max_lot_size
 
-    print("base_transaction_amount: ", base_transaction_amount)
-    new_base = new_base - base_transaction_amount
+    # new_base = new_base - base_transaction_amount
     new_aux = convert_base_to_aux(base_transaction_amount, close)
-    print("new_aux: ", new_aux)
     fee = calculate_fee(new_aux, comission)
 
     new_aux = new_aux - fee
-
+    new_base = 0
     if len(account_value_list):
-        new_account_value = account_value_list[-1] - convert_aux_to_base(new_aux, close)
+        new_account_value = convert_aux_to_base(new_aux, close)
     else:
-        base_transaction_amount = new_base
-        new_account_value = (
-            convert_aux_to_base(new_aux, close) - base_transaction_amount
-        )
+        new_account_value = convert_aux_to_base(new_aux, close)
 
     in_trade = True
 
@@ -146,22 +143,14 @@ def exit_position(account_value_list, close, new_aux, comission):
     fee = calculate_fee(new_base, comission)
     new_base = new_base - fee
 
-    new_aux = convert_base_to_aux(new_base, close)
-
     if len(account_value_list):
         new_account_value = account_value_list[-1] + new_base
     else:
         new_account_value = new_base
 
-    if len(account_value_list):
-        new_account_value = account_value_list[-1] + convert_aux_to_base(new_aux, close)
-    else:
-        new_account_value = new_base + convert_aux_to_base(new_aux, close)
-
     new_aux = 0  # since we "converted" the auxilary values back to the base
 
     in_trade = False
-    print(in_trade, new_aux, new_base, new_account_value, fee)
 
     return in_trade, new_aux, new_base, new_account_value, fee
 

@@ -91,12 +91,29 @@ def test_enter_position_1():
     assert fee == 0.0
     assert new_account_value == 1000.0
 
-    print("aux: ", new_aux)
-    print("base: ", new_base)
-    print("new_account_value: ", new_account_value)
-    print("fee: ", fee)
 
-    # assert True is False
+def test_enter_position_2():
+    mock_account_value_list = [1000]
+    mock_lot_size = 1
+    mock_new_base = 0
+    mock_max_lot_size = 0
+    mock_close = 10
+    mock_comission = 0
+
+    in_trade, new_aux, new_base, new_account_value, fee = enter_position(
+        mock_account_value_list,
+        mock_lot_size,
+        mock_new_base,
+        mock_max_lot_size,
+        mock_close,
+        mock_comission,
+    )
+
+    assert in_trade is True
+    assert new_aux == 100.0
+    assert new_base == 0
+    assert fee == 0.0
+    assert new_account_value == 1000.0
 
 
 def test_exit_position_1():
@@ -114,6 +131,30 @@ def test_exit_position_1():
     assert new_base == 1100
     assert fee == 0.0
     assert new_account_value == 1100
+
+    print("aux: ", new_aux)
+    print("base: ", new_base)
+    print("new_account_value: ", new_account_value)
+    print("fee: ", fee)
+
+    # assert True is False
+
+
+def test_exit_position_2():
+    mock_account_value_list = [1000]
+    mock_aux = 100
+    mock_close = 11
+    mock_comission = 0
+
+    in_trade, new_aux, new_base, new_account_value, fee = exit_position(
+        mock_account_value_list, mock_close, mock_aux, mock_comission
+    )
+
+    assert in_trade is False
+    assert new_aux == 0
+    assert new_base == 1100
+    assert fee == 0.0
+    assert new_account_value == 2100
 
     print("aux: ", new_aux)
     print("base: ", new_base)

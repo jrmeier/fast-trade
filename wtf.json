@@ -1,0 +1,41 @@
+{
+        "any_enter": [],
+	"symbol": "BTCUSDT",
+        "any_exit": [],
+        "chart_period": "1Min",
+        "comission": 0,
+        "datapoints": [
+          {
+            "args": [
+              9
+            ],
+            "name": "zlema",
+            "transformer": "zlema"
+          },
+          {
+            "args": [
+              99
+            ],
+            "name": "zlema_1",
+            "transformer": "zlema"
+          }
+        ],
+        "enter": [
+          [
+            "zlema",
+            ">",
+            "close",
+            1
+          ]
+        ],
+        "exit": [
+          [
+            "zlema_1",
+            "<",
+            "close",
+            1
+          ]
+        ],
+        "exit_on_end": false,
+        "trailing_stop_loss": null
+      }
