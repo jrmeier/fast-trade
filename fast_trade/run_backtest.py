@@ -1,7 +1,7 @@
 import datetime
-from fast_trade.validate_backtest import validate_backtest
 import pandas as pd
 import re
+import itertools
 
 from .build_data_frame import build_data_frame
 from .run_analysis import apply_logic_to_df
@@ -76,17 +76,6 @@ def prepare_new_backtest(backtest):
     return new_backtest
 
 
-def flatten_to_logics(list_of_logics):
-    if len(list_of_logics) < 2:
-        return list_of_logics
-    if isinstance(list_of_logics[0], list):
-        return flatten_to_logics(list_of_logics[0]) + flatten_to_logics(
-            list_of_logics[1:]
-        )
-
-    return list_of_logics[:1] + flatten_to_logics(list_of_logics[1:])
-
-
 def apply_backtest_to_df(df: pd.DataFrame, backtest: dict):
     """Processes the frame and adds the resultent rows
     Parameters
@@ -132,13 +121,16 @@ def process_logic_and_generate_actions(df: pd.DataFrame, backtest: object):
         backtest["any_enter"],
     ]
 
-    max_last_frames = 0
+    logics = list(itertools.chain(*logics))
 
+    max_last_frames = 0
+    print("logic: ", logics)
     for logic in logics:
         if len(logic) > 3:
             if logic[3] > max_last_frames:
                 max_last_frames = logic[3]
 
+    print("max_last_frames: ", max_last_frames)
     if max_last_frames:
         actions = []
         last_frames = []
@@ -154,6 +146,7 @@ def process_logic_and_generate_actions(df: pd.DataFrame, backtest: object):
     else:
         df["action"] = [determine_action(frame, backtest) for frame in df.itertuples()]
 
+    # print(df)
     return df
 
 

@@ -54,6 +54,8 @@ def build_summary(df, performance_start_time, backtest):
         loss_trades, total_trades
     )
 
+    print(trade_log_df)
+
     return_perc = calculate_return_perc(trade_log_df)
 
     # TODO fix this

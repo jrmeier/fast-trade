@@ -1,5 +1,4 @@
 from fast_trade.run_backtest import (
-    flatten_to_logics,
     prepare_new_backtest,
     process_logic_and_generate_actions,
     take_action,
@@ -539,24 +538,3 @@ def test_prepare_new_backtest_1():
     assert res["exit_on_end"] is False
     assert res["base_balance"] == 126
     assert res["comission"] != 0
-
-
-def test_flatten_to_logics_1():
-    mock_logics = [[["close", ">", "short"]], [["close", "=", "high"]]]
-
-    res = flatten_to_logics(mock_logics)
-
-    assert len(res) == 2
-
-
-def test_flatten_to_logics_2():
-    mock_logics = [
-        [["close", ">", "short"]],
-        [[]],
-        [["close", ">", "short"]],
-        [["close", ">", "short"]],
-    ]
-
-    res = flatten_to_logics(mock_logics)
-
-    assert len(res) == 4

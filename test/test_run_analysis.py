@@ -2,11 +2,13 @@ import pytest
 import pandas as pd
 import random
 from fast_trade.run_analysis import (
+    calculate_new_account_value_on_enter,
     convert_base_to_aux,
     convert_aux_to_base,
     apply_logic_to_df,
     enter_position,
     exit_position,
+    calculate_fee,
 )
 
 
@@ -68,18 +70,45 @@ def test_convert_aux_to_base_2():
     assert aux == 0.0
 
 
+def test_calculate_fee():
+    mock_price = 100
+    mock_comission = 0.02
+
+    fee = calculate_fee(mock_price, mock_comission)
+
+    assert fee == 0.02
+
+
+def test_calculate_fee_again():
+    mock_price = 200
+    mock_comission = 0.1
+
+    fee = calculate_fee(mock_price, mock_comission)
+
+    assert fee == 0.2
+
+
+def test_calculate_fee_no_comission():
+    mock_price = 100
+    mock_comission = 0.00
+
+    fee = calculate_fee(mock_price, mock_comission)
+
+    assert fee == 0.0
+
+
 def test_enter_position_1():
     mock_account_value_list = []
     mock_lot_size = 1
-    mock_new_base = 1000
+    mock_account_value = 1000
     mock_max_lot_size = 0
     mock_close = 10
     mock_comission = 0
 
-    in_trade, new_aux, new_base, new_account_value, fee = enter_position(
+    in_trade, new_aux, new_account_value, fee = enter_position(
         mock_account_value_list,
         mock_lot_size,
-        mock_new_base,
+        mock_account_value,
         mock_max_lot_size,
         mock_close,
         mock_comission,
@@ -87,23 +116,22 @@ def test_enter_position_1():
 
     assert in_trade is True
     assert new_aux == 100.0
-    assert new_base == 0
     assert fee == 0.0
-    assert new_account_value == 1000.0
+    assert new_account_value == 0
 
 
 def test_enter_position_2():
     mock_account_value_list = [1000]
+    mock_account_value = 0
     mock_lot_size = 1
-    mock_new_base = 0
     mock_max_lot_size = 0
     mock_close = 10
     mock_comission = 0
 
-    in_trade, new_aux, new_base, new_account_value, fee = enter_position(
+    in_trade, new_aux, new_account_value, fee = enter_position(
         mock_account_value_list,
         mock_lot_size,
-        mock_new_base,
+        mock_account_value,
         mock_max_lot_size,
         mock_close,
         mock_comission,
@@ -111,57 +139,169 @@ def test_enter_position_2():
 
     assert in_trade is True
     assert new_aux == 100.0
-    assert new_base == 0
     assert fee == 0.0
-    assert new_account_value == 1000.0
+    assert new_account_value == 0
 
 
-def test_exit_position_1():
+def test_enter_position_3():
+    mock_account_value_list = [1000, 0, 1100]
+    mock_account_value = 1100
+    mock_lot_size = 1
+    mock_max_lot_size = 0
+    mock_close = 10
+    mock_comission = 0
+
+    in_trade, new_aux, new_account_value, fee = enter_position(
+        mock_account_value_list,
+        mock_lot_size,
+        mock_account_value,
+        mock_max_lot_size,
+        mock_close,
+        mock_comission,
+    )
+
+    assert in_trade is True
+    assert new_aux == 110.0
+    assert fee == 0.0
+    assert new_account_value == 0
+
+
+def test_enter_position_lot_size():
+    mock_account_value_list = [1000, 0, 1100]
+    mock_account_value = 1100
+    mock_lot_size = 0.5
+    mock_max_lot_size = 0
+    mock_close = 10
+    mock_comission = 0
+
+    in_trade, new_aux, new_account_value, fee = enter_position(
+        mock_account_value_list,
+        mock_lot_size,
+        mock_account_value,
+        mock_max_lot_size,
+        mock_close,
+        mock_comission,
+    )
+
+    assert in_trade is True
+    assert new_aux == 55.0
+    assert fee == 0.0
+    assert new_account_value == 0
+
+
+def test_enter_position_comission():
+    mock_account_value_list = []
+    mock_lot_size = 1
+    mock_account_value = 1000
+    mock_max_lot_size = 0
+    mock_close = 10
+    mock_comission = 0.02
+
+    in_trade, new_aux, new_account_value, fee = enter_position(
+        mock_account_value_list,
+        mock_lot_size,
+        mock_account_value,
+        mock_max_lot_size,
+        mock_close,
+        mock_comission,
+    )
+
+    assert in_trade is True
+    assert new_aux == 99.98
+    assert fee == 0.02
+    assert new_account_value == 0
+
+
+def test_enter_position_comission_and_lot_size():
+    mock_account_value_list = []
+    mock_lot_size = 0.1
+    mock_account_value = 1000
+    mock_max_lot_size = 0
+    mock_close = 10
+    mock_comission = 0.02
+
+    in_trade, new_aux, new_account_value, fee = enter_position(
+        mock_account_value_list,
+        mock_lot_size,
+        mock_account_value,
+        mock_max_lot_size,
+        mock_close,
+        mock_comission,
+    )
+
+    assert in_trade is True
+    assert new_aux == 9.998
+    assert fee == 0.002
+    assert new_account_value == 0
+
+
+def test_exit_position_basic():
+    mock_account_value_list = [1000, 0]
+    mock_aux = 100
+    mock_close = 11
+    mock_comission = 0
+
+    in_trade, new_aux, new_account_value, fee = exit_position(
+        mock_account_value_list, mock_close, mock_aux, mock_comission
+    )
+
+    assert in_trade is False
+    assert new_aux == 0
+    assert fee == 0.0
+    assert new_account_value == 1100
+
+
+def test_exit_position_without_account_value():
+    # There should always be an account available if we are exiting the trade.
     mock_account_value_list = []
     mock_aux = 100
     mock_close = 11
     mock_comission = 0
 
-    in_trade, new_aux, new_base, new_account_value, fee = exit_position(
-        mock_account_value_list, mock_close, mock_aux, mock_comission
-    )
-
-    assert in_trade is False
-    assert new_aux == 0
-    assert new_base == 1100
-    assert fee == 0.0
-    assert new_account_value == 1100
-
-    print("aux: ", new_aux)
-    print("base: ", new_base)
-    print("new_account_value: ", new_account_value)
-    print("fee: ", fee)
-
-    # assert True is False
+    with pytest.raises(IndexError):
+        exit_position(mock_account_value_list, mock_close, mock_aux, mock_comission)
 
 
-def test_exit_position_2():
-    mock_account_value_list = [1000]
+def test_exit_position_as_second_tick():
+    mock_account_value_list = [500]
     mock_aux = 100
     mock_close = 11
     mock_comission = 0
 
-    in_trade, new_aux, new_base, new_account_value, fee = exit_position(
+    in_trade, new_aux, new_account_value, fee = exit_position(
         mock_account_value_list, mock_close, mock_aux, mock_comission
     )
 
     assert in_trade is False
     assert new_aux == 0
-    assert new_base == 1100
     assert fee == 0.0
-    assert new_account_value == 2100
+    assert new_account_value == 1600
 
-    print("aux: ", new_aux)
-    print("base: ", new_base)
-    print("new_account_value: ", new_account_value)
-    print("fee: ", fee)
 
-    # assert True is False
+def test_calculate_new_account_value_on_enter_basic():
+    mock_aux = 100
+    mock_close = 10
+    mock_fee = 0.0
+    mock_base_transaction_amount = 1000
+
+    new_account_value = calculate_new_account_value_on_enter(
+        mock_aux, mock_close, mock_fee, mock_base_transaction_amount
+    )
+
+    assert new_account_value == 0
+
+
+def test_calculate_new_account_value_on_enter_with_fee():
+    mock_aux = 100
+    mock_close = 10
+    mock_fee = 0.01
+    mock_base_transaction_amount = 1000
+
+    new_account_value = calculate_new_account_value_on_enter(
+        mock_aux, mock_close, mock_fee, mock_base_transaction_amount
+    )
+
+    assert new_account_value == 0
 
 
 # def test_apply_logic_to_df_1():
