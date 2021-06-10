@@ -64,10 +64,11 @@ backtest = {
     "comission": 0.02,
     "datapoints": [
         {"args": [14], "name": "er", "transformer": "er"},
-        {"args": [35], "name": "zlema", "transformer": "sma"},
+        {"args": [4], "name": "zlema_1", "transformer": "zlema"},
+        {"args": [31], "name": "zlema_2", "transformer": "zlema"},
     ],
-    "enter": [["zlema", ">", "close", 2]],
-    "exit": [["zlema", "<", "close", 2]],
+    "enter": [["zlema_1", ">", "close", 2]],
+    "exit": [["zlema_2", "<", "close", 1]],
     "exit_on_end": True,
     # "start": "2021-01-01 22:30:00",
     # "stop": "2021-03-11 23:30:59",
@@ -79,8 +80,8 @@ backtest = {
 
 if __name__ == "__main__":
     # datafile = "./BTCUSDT.csv"
-    datafile = "./archive/BTCUSDT_2021.csv"
-    # datafile = "/Users/jedmeier/Desktop/BTCUSDT_ALL/BTCUSDT_2021.csv"
+    # datafile = "./archive/BTCUSDT_2021.csv"
+    datafile = "/Users/jedmeier/Desktop/BTCUSDT_ALL/BTCUSDT_2021.csv"
     # datafile = "./archive/BCHUSDT_2021.csv"
 
     # df = pd.read_csv(datafile)
@@ -91,14 +92,17 @@ if __name__ == "__main__":
     # with open("./example_backtest.json", "r") as backtest_file:
     #     backtest = json.load(backtest_file)
     # print(backtest)
-    backtest["start"] = "2021-05-01"
+    backtest["start"] = "2021-03-01"
+    backtest["stop"] = "2021-05-01"
 
     # backtest["chart_period"] = "1Min"
     test = run_backtest(backtest, datafile, summary=True)
-    # df = test["df"]
-    df = test["trade_df"]
+    df = test["df"]
+    # df = test["trade_df"]
+    wtf = df.isnull().sum()
+    # print(wtf)
 
-    print(df)
+    # print(df)
     # print(test["trade_df"])
     # print(test.get("error"))
     print(json.dumps(test["summary"], indent=2))

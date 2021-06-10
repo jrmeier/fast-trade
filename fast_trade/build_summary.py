@@ -1,5 +1,6 @@
 import datetime
-from .check_missing_dates import check_missing_dates
+
+# from .check_missing_dates import check_missing_dates
 import numpy as np
 import pandas as pd
 
@@ -54,8 +55,6 @@ def build_summary(df, performance_start_time, backtest):
         loss_trades, total_trades
     )
 
-    print(trade_log_df)
-
     return_perc = calculate_return_perc(trade_log_df)
 
     # TODO fix this
@@ -64,7 +63,7 @@ def build_summary(df, performance_start_time, backtest):
 
     buy_and_hold_perc = calculate_buy_and_hold_perc(df)
 
-    (missing_data_perc, gaps) = check_missing_dates(df)
+    # (missing_data_perc, gaps) = check_missing_dates(df)
 
     performance_stop_time = datetime.datetime.utcnow()
 
@@ -97,10 +96,10 @@ def build_summary(df, performance_start_time, backtest):
         "test_duration": round(
             (performance_stop_time - performance_start_time).total_seconds(), 3
         ),
-        "missing_data_perc": missing_data_perc,
+        # "missing_data_perc": missing_data_perc,
     }
 
-    return summary, trade_log_df, gaps
+    return summary, trade_log_df
 
 
 def create_trade_log(df):
@@ -176,6 +175,8 @@ def summarize_trades(trades: pd.DataFrame, total_trades):
 
 
 def calculate_return_perc(trade_log_df: pd.DataFrame):
+    if trade_log_df.empty:
+        return 0.0
     if trade_log_df.iloc[0].adj_account_value:
         return_perc = 100 - trade_log_df.iloc[0].adj_account_value / (
             trade_log_df.iloc[-1].adj_account_value / 100

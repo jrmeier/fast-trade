@@ -89,7 +89,7 @@ def test_take_action_no_res():
 
 
 def test_take_action_many_frames():
-    mock_backtest = [["close", "!=", 0.0219]]
+    mock_backtest = [["close", "=", 0.0212, 2]]
     MockRow = namedtuple("MockRow", "date close open high low volume short")
     mock_row = MockRow(
         date=1523937963,
@@ -104,7 +104,7 @@ def test_take_action_many_frames():
     mock_last_frames = [mock_row, mock_row]
 
     res = take_action(
-        mock_row, mock_backtest, max_last_frames=0, last_frames=mock_last_frames
+        mock_row, mock_backtest, max_last_frames=2, last_frames=mock_last_frames
     )
     assert res is True
 
@@ -468,7 +468,7 @@ def test_determine_action_any_enter():
     assert res == "ae"
 
 
-def test_proccess_logic_and_actions_1():
+def test_proccess_logic_and_actions_():
     mock_df = pd.read_csv("./test/ohlcv_data.csv.txt", parse_dates=True).set_index(
         "date"
     )

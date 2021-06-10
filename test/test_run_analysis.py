@@ -72,11 +72,11 @@ def test_convert_aux_to_base_2():
 
 def test_calculate_fee():
     mock_price = 100
-    mock_comission = 0.02
+    mock_comission = 0.01
 
     fee = calculate_fee(mock_price, mock_comission)
 
-    assert fee == 0.02
+    assert fee == 0.01
 
 
 def test_calculate_fee_again():
@@ -86,6 +86,15 @@ def test_calculate_fee_again():
     fee = calculate_fee(mock_price, mock_comission)
 
     assert fee == 0.2
+
+
+def test_calculate_fee_larger():
+    mock_order_size = 1000
+    mock_comission = 0.1
+
+    fee = calculate_fee(mock_order_size, mock_comission)
+
+    assert fee == 1
 
 
 def test_calculate_fee_no_comission():
@@ -186,7 +195,7 @@ def test_enter_position_lot_size():
     assert in_trade is True
     assert new_aux == 55.0
     assert fee == 0.0
-    assert new_account_value == 0
+    assert new_account_value == 550.0
 
 
 def test_enter_position_comission():
@@ -195,7 +204,7 @@ def test_enter_position_comission():
     mock_account_value = 1000
     mock_max_lot_size = 0
     mock_close = 10
-    mock_comission = 0.02
+    mock_comission = 0.01
 
     in_trade, new_aux, new_account_value, fee = enter_position(
         mock_account_value_list,
@@ -207,18 +216,19 @@ def test_enter_position_comission():
     )
 
     assert in_trade is True
-    assert new_aux == 99.98
-    assert fee == 0.02
+    assert new_aux == 99.99
+
+    assert fee == 0.01
     assert new_account_value == 0
 
 
 def test_enter_position_comission_and_lot_size():
     mock_account_value_list = []
-    mock_lot_size = 0.1
+    mock_lot_size = 0.5
     mock_account_value = 1000
     mock_max_lot_size = 0
     mock_close = 10
-    mock_comission = 0.02
+    mock_comission = 0.01
 
     in_trade, new_aux, new_account_value, fee = enter_position(
         mock_account_value_list,
@@ -230,9 +240,9 @@ def test_enter_position_comission_and_lot_size():
     )
 
     assert in_trade is True
-    assert new_aux == 9.998
-    assert fee == 0.002
-    assert new_account_value == 0
+    assert new_aux == 49.995
+    assert fee == 0.005
+    assert new_account_value == 500
 
 
 def test_exit_position_basic():
@@ -279,69 +289,116 @@ def test_exit_position_as_second_tick():
 
 
 def test_calculate_new_account_value_on_enter_basic():
-    mock_aux = 100
-    mock_close = 10
-    mock_fee = 0.0
     mock_base_transaction_amount = 1000
+    mock_account_value_list = []
+    mock_account_value = 1000
 
     new_account_value = calculate_new_account_value_on_enter(
-        mock_aux, mock_close, mock_fee, mock_base_transaction_amount
+        mock_base_transaction_amount, mock_account_value_list, mock_account_value
     )
-
     assert new_account_value == 0
 
 
-def test_calculate_new_account_value_on_enter_with_fee():
-    mock_aux = 100
-    mock_close = 10
-    mock_fee = 0.01
-    mock_base_transaction_amount = 1000
+def test_calculate_new_account_value_on_enter_with_account_vaue_list():
+    mock_base_transaction_amount = 600
+    mock_account_value_list = [1000]
+    mock_account_value = 1000
 
     new_account_value = calculate_new_account_value_on_enter(
-        mock_aux, mock_close, mock_fee, mock_base_transaction_amount
+        mock_base_transaction_amount, mock_account_value_list, mock_account_value
     )
 
-    assert new_account_value == 0
+    assert new_account_value == 400
 
 
-# def test_apply_logic_to_df_1():
-#     mock_df = pd.read_csv("./test/ohlcv_data.csv.txt", parse_dates=True).set_index(
-#         "date"
-#     )
+def test_apply_logic_to_df_simple():
+    mock_df = pd.read_csv("./test/ohlcv_data.csv.txt", parse_dates=True).set_index(
+        "date"
+    )
 
-#     mock_df.index = pd.to_datetime(mock_df.index, unit="s")
-#     mock_backtest = {"base_balance": 1000, "exit_on_end": True, "comission": 0.00}
+    mock_df.index = pd.to_datetime(mock_df.index, unit="s")
+    mock_backtest = {
+        "base_balance": 1000,
+        "exit_on_end": True,
+        "comission": 0.00,
+        "lot_size_perc": 1,
+    }
+    mock_df["action"] = ["e", "h", "x", "x", "x", "e", "x", "h", "h"]
 
-#     mock_df["action"] = ["e", "h", "x", "x", "x", "e", "x", "h", "h"]
+    df = apply_logic_to_df(mock_df, mock_backtest)
 
-#     print("df: ", mock_df)
-#     df = apply_logic_to_df(mock_df, mock_backtest)
-#     # print(mock_df)
+    assert list(df.in_trade) == [
+        True,
+        True,
+        False,
+        False,
+        False,
+        True,
+        False,
+        False,
+        False,
+    ]
 
-#     print("DF: ", df)
-#     assert list(df.adj_account_value.values) == [
-#         1000.0,
-#         1000.0,
-#         2296.0,
-#         2296.0,
-#         2296.0,
-#         2296.0,
-#         2274.32014388,
-#         2274.32014388,
-#         2274.32014388,
-#     ]
+    assert list(df.account_value) == [
+        0.0,
+        0.0,
+        2296.0,
+        2296.0,
+        2296.0,
+        0.0,
+        2274.32014388,
+        2274.32014388,
+        2274.32014388,
+    ]
+
+    assert list(df.adj_account_value) == [
+        1000.0,
+        1404.0,
+        2296.0,
+        2296.0,
+        2296.0,
+        2296.0,
+        2274.32014388,
+        2274.32014388,
+        2274.32014388,
+    ]
+
+    assert df.fee.sum() == 0.0
 
 
-# def test_apply_logic_to_df_2():
-#     mock_df = pd.read_csv("./test/ohlcv_data.csv.txt", parse_dates=True).set_index(
-#         "date"
-#     )
-#     mock_df.index = pd.to_datetime(mock_df.index, unit="s")
+def test_apply_logic_to_df_lot_size():
+    mock_df = pd.read_csv("./test/ohlcv_data.csv.txt", parse_dates=True).set_index(
+        "date"
+    )
+    mock_df.index = pd.to_datetime(mock_df.index, unit="s")
 
-#     mock_backtest = {"base_balance": 1000, "exit_on_end": True, "comission": 0.00}
-#     mock_df["action"] = ["e", "h", "h", "x", "h", "h", "e", "h", "h"]
+    mock_backtest = {
+        "base_balance": 1000,
+        "exit_on_end": True,
+        "comission": 0.00,
+        "lot_size_perc": 0.5,
+    }
+    mock_df["action"] = ["e", "h", "h", "x", "h", "h", "e", "h", "h"]
 
-#     df = apply_logic_to_df(mock_df, mock_backtest)
+    df = apply_logic_to_df(mock_df, mock_backtest)
+
+    print(df)
+    print(df.columns)
+    print(list(df.in_trade))
+
+    assert list(df.in_trade) == [
+        True,
+        True,
+        True,
+        False,
+        False,
+        False,
+        True,
+        True,
+        True,
+    ]
+    # assert True is False
+
 
 #     assert list(df.aux.values) == [
 #         100000.0,

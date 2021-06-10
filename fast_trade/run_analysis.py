@@ -1,5 +1,4 @@
 import pandas as pd
-from datetime import timedelta
 
 
 def apply_logic_to_df(df: pd.DataFrame, backtest: dict):
@@ -128,7 +127,7 @@ def enter_position(
     new_aux = new_aux - fee
 
     new_account_value = calculate_new_account_value_on_enter(
-        new_aux, close, fee, base_transaction_amount
+        base_transaction_amount, account_value_list, account_value
     )
 
     in_trade = True
@@ -195,19 +194,16 @@ def calculate_fee(order_size: float, comission: float):
     return 0.0
 
 
-def calculate_new_account_value_on_enter(new_aux, close, fee, base_transaction_amount):
+def calculate_new_account_value_on_enter(
+    base_transaction_amount, account_value_list, account_value
+):
     """calulates the new account value after the transaction"""
-    aux_as_base_value = convert_aux_to_base(new_aux, close)
-    fee_as_base_value = convert_aux_to_base(fee, close)
 
     # assuming we can spend 100% of our base_transaction_amount
     # TODO: add slippage calulations
-    # print("aux_as_base_value: ", aux_as_base_value)
-    # print("fee_as_base_value: ", fee_as_base_value)
-    # print("base_transaction_amount: ", base_transaction_amount)
-    new_account_value = aux_as_base_value - (
-        base_transaction_amount - fee_as_base_value
-    )
-    # new_account_value = aux_as_base_value - fee_as_base_value
 
+    if len(account_value_list):
+        new_account_value = account_value_list[-1] - base_transaction_amount
+    else:
+        new_account_value = account_value - base_transaction_amount
     return round(new_account_value, 8)

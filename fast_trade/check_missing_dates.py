@@ -20,10 +20,13 @@ def check_missing_dates(df):
     last_date = df.tail(1)
 
     # This will have 100% of the rows that should exist
-
+    freq = pd.infer_freq(df.index)
+    # df = df.dropna()
+    print("FREQ: ", freq)
+    print(df)
     date_range = pd.date_range(
-        first_date.index[0].strftime("%Y-%m-%d"),
-        last_date.index[0].strftime("%Y-%m-%d"),
+        first_date.index[0].strftime("%Y-%m-%d %H:%M:%S"),
+        last_date.index[0].strftime("%Y-%m-%d %H:%M:%S"),
         freq=pd.infer_freq(df.index),
     )
 
@@ -32,7 +35,13 @@ def check_missing_dates(df):
     test_df.index = date_range
 
     # this is the missing date ranges
-    gaps = date_range[~date_range.isin(df.index)]
+    # gaps = date_range[~date_range.isin(df.index)]
+
+    gaps = pd.DataFrame()
+
+    print("test df len: ", len(date_range))
+    print("test test df: ", len(test_df.index))
+    # print("gaps!: ", gaps)
 
     perc_missing = (len(gaps) / len(df.index)) * 100
     perc_missing = round(perc_missing, 2)
