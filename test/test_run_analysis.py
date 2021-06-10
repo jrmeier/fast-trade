@@ -245,6 +245,29 @@ def test_enter_position_comission_and_lot_size():
     assert new_account_value == 500
 
 
+def test_enter_position_max_lot_size():
+    mock_account_value_list = []
+    mock_lot_size = 0.5
+    mock_account_value = 1000
+    mock_max_lot_size = 100
+    mock_close = 10
+    mock_comission = 0.01
+
+    in_trade, new_aux, new_account_value, fee = enter_position(
+        mock_account_value_list,
+        mock_lot_size,
+        mock_account_value,
+        mock_max_lot_size,
+        mock_close,
+        mock_comission,
+    )
+
+    assert in_trade is True
+    assert new_aux == 9.999
+    assert fee == 0.001
+    assert new_account_value == 900
+
+
 def test_exit_position_basic():
     mock_account_value_list = [1000, 0]
     mock_aux = 100
@@ -382,10 +405,6 @@ def test_apply_logic_to_df_lot_size():
 
     df = apply_logic_to_df(mock_df, mock_backtest)
 
-    print(df)
-    print(df.columns)
-    print(list(df.in_trade))
-
     assert list(df.in_trade) == [
         True,
         True,
@@ -397,31 +416,15 @@ def test_apply_logic_to_df_lot_size():
         True,
         True,
     ]
-    # assert True is False
 
-
-#     assert list(df.aux.values) == [
-#         100000.0,
-#         100000.0,
-#         100000.0,
-#         100000.0,
-#         100000.0,
-#         100000.0,
-#         96232.41034952,
-#         96232.41034952,
-#         96232.41034952,
-#         96232.41034949,
-#     ]
-
-#     assert list(df.account_value.values) == [
-#         1000.0,
-#         1000.0,
-#         1000.0,
-#         2120.0,
-#         2120.0,
-#         2120.0,
-#         2120.0,
-#         2120.0,
-#         2120.0,
-#         2120.0,
-#     ]
+    assert list(df.adj_account_value) == [
+        1000.0,
+        1202.0,
+        1648.0,
+        1560.0,
+        1560.0,
+        1560.0,
+        1560.0,
+        1555.39718566,
+        1539.8184294100001,
+    ]

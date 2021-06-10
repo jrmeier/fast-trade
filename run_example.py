@@ -61,7 +61,7 @@ backtest = {
     "any_exit": [],
     "chart_period": "37Min",
     # "chart_period": "1H",
-    "comission": 0.02,
+    "comission": 0.01,
     "datapoints": [
         {"args": [14], "name": "er", "transformer": "er"},
         {"args": [4], "name": "zlema_1", "transformer": "zlema"},
@@ -92,8 +92,8 @@ if __name__ == "__main__":
     # with open("./example_backtest.json", "r") as backtest_file:
     #     backtest = json.load(backtest_file)
     # print(backtest)
-    backtest["start"] = "2021-03-01"
-    backtest["stop"] = "2021-05-01"
+    # backtest["start"] = "2021-03-01"
+    # backtest["stop"] = "2021-05-01"
 
     # backtest["chart_period"] = "1Min"
     test = run_backtest(backtest, datafile, summary=True)
