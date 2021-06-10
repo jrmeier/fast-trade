@@ -98,13 +98,8 @@ if __name__ == "__main__":
     # backtest["chart_period"] = "1Min"
     test = run_backtest(backtest, datafile, summary=True)
     df = test["df"]
-    # df = test["trade_df"]
-    wtf = df.isnull().sum()
-    # print(wtf)
 
-    # print(df)
-    # print(test["trade_df"])
-    # print(test.get("error"))
+    print(df)
     print(json.dumps(test["summary"], indent=2))
     from fast_trade.cli_helpers import save
 
