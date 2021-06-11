@@ -112,6 +112,10 @@ def process_logic_and_generate_actions(df: pd.DataFrame, backtest: object):
     In this function, like the name suggests, we process the logic and generate the actions.
 
     """
+
+    """we need to search though all the logics and find the highest confirmation number
+    so we know how many frames to pass in
+    """
     logics = [
         backtest["enter"],
         backtest["exit"],
@@ -125,24 +129,22 @@ def process_logic_and_generate_actions(df: pd.DataFrame, backtest: object):
         if len(logic) > 3:
             if logic[3] > max_last_frames:
                 max_last_frames = logic[3]
-        if max_last_frames:
-            actions = []
-            last_frames = []
-            for frame in df.itertuples():
-                last_frames.insert(0, frame)
-                if len(last_frames) >= max_last_frames + 1:
-                    last_frames.pop()
 
-                actions.append(
-                    determine_action(frame, backtest, max_last_frames, last_frames)
-                )
-            df["action"] = actions
-        else:
-            df["action"] = [
-                determine_action(frame, backtest) for frame in df.itertuples()
-            ]
+    if max_last_frames:
+        actions = []
+        last_frames = []
+        for frame in df.itertuples():
+            last_frames.insert(0, frame)
+            if len(last_frames) >= max_last_frames + 1:
+                last_frames.pop()
 
-    # print(df)
+            actions.append(
+                determine_action(frame, backtest, max_last_frames, last_frames)
+            )
+        df["action"] = actions
+    else:
+        df["action"] = [determine_action(frame, backtest) for frame in df.itertuples()]
+
     return df
 
 

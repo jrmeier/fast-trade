@@ -469,7 +469,7 @@ def test_determine_action_any_enter():
     assert res == "ae"
 
 
-def test_proccess_logic_and_actions():
+def test_proccess_logic_and_actions_no_logics():
     mock_df = pd.read_csv("./test/ohlcv_data.csv.txt", parse_dates=True).set_index(
         "date"
     )
@@ -482,10 +482,10 @@ def test_proccess_logic_and_actions():
 
     res = process_logic_and_generate_actions(mock_df, mock_backtest)
 
-    assert isinstance(res, pd.DataFrame)
+    assert "h" in res.action.unique()
 
 
-def test_proccess_logic_and_actions_2():
+def test_proccess_logic_and_actions_single_enter():
     mock_df = pd.read_csv("./test/ohlcv_data.csv.txt", parse_dates=True).set_index(
         "date"
     )
@@ -497,55 +497,230 @@ def test_proccess_logic_and_actions_2():
     }
 
     res = process_logic_and_generate_actions(mock_df, mock_backtest)
-    assert res.action.values[5] == "e"
+    assert list(res.action.values) == ["h", "h", "h", "h", "h", "e", "e", "e", "e"]
 
 
-def test_proccess_logic_and_actions_3():
+def test_proccess_logic_and_actions_multi_enter():
     mock_df = pd.read_csv("./test/ohlcv_data.csv.txt", parse_dates=True).set_index(
         "date"
     )
+    # fake an indicator
+    mock_df["ind_1"] = [0, 1, 2, 4, 5, 6, 7, 8, 9]
     mock_backtest = {
         "exit": [],
-        "any_exit": [["close", ">", 0.02199]],
+        "any_exit": [],
+        "enter": [["ind_1", "<", 9], ["ind_1", ">", 7]],
+        "any_enter": [],
+    }
+
+    res = process_logic_and_generate_actions(mock_df, mock_backtest)
+
+    assert list(res.action.values) == [
+        "h",
+        "h",
+        "h",
+        "h",
+        "h",
+        "h",
+        "h",
+        "e",
+        "h",
+    ]
+
+
+def test_proccess_logic_and_actions_single_any_enter():
+    mock_df = pd.read_csv("./test/ohlcv_data.csv.txt", parse_dates=True).set_index(
+        "date"
+    )
+    # fake an indicator
+    mock_df["ind_1"] = [0, 1, 2, 4, 5, 6, 7, 8, 9]
+    mock_backtest = {
+        "exit": [],
+        "any_exit": [],
+        "enter": [],
+        "any_enter": [["ind_1", ">", 8]],
+    }
+
+    res = process_logic_and_generate_actions(mock_df, mock_backtest)
+    assert list(res.action.values) == [
+        "h",
+        "h",
+        "h",
+        "h",
+        "h",
+        "h",
+        "h",
+        "h",
+        "ae",
+    ]
+
+
+def test_proccess_logic_and_actions_single_exit():
+    mock_df = pd.read_csv("./test/ohlcv_data.csv.txt", parse_dates=True).set_index(
+        "date"
+    )
+    # fake an indicator
+    mock_df["ind_1"] = [0, 1, 2, 4, 5, 6, 7, 8, 9]
+    mock_backtest = {
+        "exit": [["ind_1", ">", 7]],
+        "any_exit": [],
         "enter": [],
         "any_enter": [],
     }
 
     res = process_logic_and_generate_actions(mock_df, mock_backtest)
-    assert res.action.values[5] == "ax"
+    assert list(res.action.values) == [
+        "h",
+        "h",
+        "h",
+        "h",
+        "h",
+        "h",
+        "h",
+        "x",
+        "x",
+    ]
 
 
-# def test_proccess_logic_and_actions_4():
-#     mock_df = pd.read_csv("./test/ohlcv_data.csv.txt", parse_dates=True).set_index(
-#         "date"
-#     )
-#     mock_df["ind_1"] = [0, 0, 0, 0, 1, 1, 1, 0, 0]
-#     mock_backtest = {
-#         "exit": [],
-#         "any_exit": [],
-#         "enter": [["ind_1", "=", 1, 3]],
-#         "any_enter": [],
-#     }
+def test_proccess_logic_and_actions_single_any_exit():
+    mock_df = pd.read_csv("./test/ohlcv_data.csv.txt", parse_dates=True).set_index(
+        "date"
+    )
+    mock_df["ind_1"] = [0, 0, 0, 0, 1, 1, 1, 0, 0]
+    mock_backtest = {
+        "exit": [],
+        "any_exit": [["ind_1", "=", 1]],
+        "enter": [],
+        "any_enter": [],
+    }
 
-#     res = process_logic_and_generate_actions(mock_df, mock_backtest)
-#     assert list(res.action)
+    res = process_logic_and_generate_actions(mock_df, mock_backtest)
+    assert list(res.action) == [
+        "h",
+        "h",
+        "h",
+        "h",
+        "ax",
+        "ax",
+        "ax",
+        "h",
+        "h",
+    ]
 
 
-# def test_proccess_logic_and_actions_5():
-#     mock_df = pd.read_csv("./test/ohlcv_data.csv.txt", parse_dates=True).set_index(
-#         "date"
-#     )
-#     mock_df["ind_1"] = [0, 0, 0, 0, 1, 1, 1, 0, 0]
-#     mock_backtest = {
-#         "exit": [["ind_1", "=", 1, 3]],
-#         "any_exit": [],
-#         "enter": [["ind_1", "=", 0, 3]],
-#         "any_enter": [],
-#     }
+def test_proccess_logic_and_actions_exit_enter():
+    mock_df = pd.read_csv("./test/ohlcv_data.csv.txt", parse_dates=True).set_index(
+        "date"
+    )
+    # fake an indicator
+    mock_df["ind_1"] = [0, 1, 2, 4, 5, 5, 4, 4, 3]
+    mock_backtest = {
+        "exit": [["ind_1", "=", 4]],
+        "any_exit": [],
+        "enter": [["ind_1", "=", 5]],
+        "any_enter": [],
+    }
 
-#     res = process_logic_and_generate_actions(mock_df, mock_backtest)
-# print(res)
-# assert list(res.action) == ["ax", "h", "h", "h", "h", "h", "e", "h", "h"]
+    res = process_logic_and_generate_actions(mock_df, mock_backtest)
+    assert list(res.action.values) == [
+        "h",
+        "h",
+        "h",
+        "x",
+        "e",
+        "e",
+        "x",
+        "x",
+        "h",
+    ]
+
+
+def test_proccess_logic_and_actions_multi_enter_exit():
+    mock_df = pd.read_csv("./test/ohlcv_data.csv.txt", parse_dates=True).set_index(
+        "date"
+    )
+    # fake an indicator
+    mock_df["ind_1"] = [0, 1, 2, 4, 5, 6, 7, 8, 9]
+    mock_backtest = {
+        "exit": [["ind_1", ">", 8], ["ind_1", "<", 10]],
+        "any_exit": [],
+        "enter": [["ind_1", "<", 9], ["ind_1", ">", 7]],
+        "any_enter": [],
+    }
+
+    res = process_logic_and_generate_actions(mock_df, mock_backtest)
+
+    assert list(res.action.values) == [
+        "h",
+        "h",
+        "h",
+        "h",
+        "h",
+        "h",
+        "h",
+        "e",
+        "x",
+    ]
+
+
+def test_proccess_logic_and_actions_enter_exit_confirmations():
+    mock_df = pd.read_csv("./test/ohlcv_data.csv.txt", parse_dates=True).set_index(
+        "date"
+    )
+    # fake an indicator
+    mock_df["ind_1"] = [0, 1, 2, 4, 5, 6, 7, 8, 9]
+    mock_df["ind_2"] = [5, 5, 4, 2, 6, 4, 9, 9, 1]
+    mock_backtest = {
+        "enter": [["ind_1", "<", 2]],
+        "any_enter": [],
+        "exit": [["ind_2", ">", 8, 2]],
+        "any_exit": [],
+    }
+
+    res = process_logic_and_generate_actions(mock_df, mock_backtest)
+
+    assert list(res.action.values) == [
+        "e",
+        "e",
+        "h",
+        "h",
+        "h",
+        "h",
+        "h",
+        "x",
+        "h",
+    ]
+
+
+def test_proccess_logic_and_actions_enter_exit_confirmations_multi():
+    mock_df = pd.read_csv("./test/ohlcv_data.csv.txt", parse_dates=True).set_index(
+        "date"
+    )
+    # fake an indicator
+    mock_df["ind_1"] = [0, 1, 2, 4, 5, 6, 7, 8, 9]
+    mock_df["ind_2"] = [5, 5, 4, 2, 6, 4, 9, 9, 1]
+    mock_df["ind_3"] = [1, 1, 2, 3, 5, 9, 9, 9, 8]
+
+    mock_backtest = {
+        "enter": [["ind_1", "<", 2]],
+        "any_enter": [],
+        "exit": [["ind_2", ">", 8, 2], ["ind_3", "<", 8, 3]],
+        "any_exit": [],
+    }
+
+    res = process_logic_and_generate_actions(mock_df, mock_backtest)
+
+    assert list(res.action.values) == [
+        "e",
+        "e",
+        "h",
+        "h",
+        "h",
+        "h",
+        "h",
+        "h",
+        "h",
+    ]
 
 
 def test_prepare_new_backtest_1():
