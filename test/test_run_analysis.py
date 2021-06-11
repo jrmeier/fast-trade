@@ -415,6 +415,7 @@ def test_apply_logic_to_df_lot_size():
         True,
         True,
         True,
+        False,
     ]
 
     assert list(df.adj_account_value) == [
@@ -426,5 +427,6 @@ def test_apply_logic_to_df_lot_size():
         1560.0,
         1560.0,
         1555.39718566,
+        1539.8184294100001,
         1539.8184294100001,
     ]

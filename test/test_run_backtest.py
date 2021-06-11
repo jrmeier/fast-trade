@@ -1,6 +1,7 @@
 from fast_trade.run_backtest import (
     prepare_new_backtest,
     process_logic_and_generate_actions,
+    run_backtest,
     take_action,
     clean_field_type,
     process_single_logic,
@@ -468,7 +469,7 @@ def test_determine_action_any_enter():
     assert res == "ae"
 
 
-def test_proccess_logic_and_actions_():
+def test_proccess_logic_and_actions():
     mock_df = pd.read_csv("./test/ohlcv_data.csv.txt", parse_dates=True).set_index(
         "date"
     )
@@ -514,20 +515,37 @@ def test_proccess_logic_and_actions_3():
     assert res.action.values[5] == "ax"
 
 
-def test_proccess_logic_and_actions_4():
-    mock_df = pd.read_csv("./test/ohlcv_data.csv.txt", parse_dates=True).set_index(
-        "date"
-    )
-    mock_df["ind_1"] = [0, 0, 0, 0, 1, 1, 1, 0, 0]
-    mock_backtest = {
-        "exit": [],
-        "any_exit": [],
-        "enter": [["ind_1", "=", 1, 3]],
-        "any_enter": [],
-    }
+# def test_proccess_logic_and_actions_4():
+#     mock_df = pd.read_csv("./test/ohlcv_data.csv.txt", parse_dates=True).set_index(
+#         "date"
+#     )
+#     mock_df["ind_1"] = [0, 0, 0, 0, 1, 1, 1, 0, 0]
+#     mock_backtest = {
+#         "exit": [],
+#         "any_exit": [],
+#         "enter": [["ind_1", "=", 1, 3]],
+#         "any_enter": [],
+#     }
 
-    res = process_logic_and_generate_actions(mock_df, mock_backtest)
-    assert res.action.values[6] == "e"
+#     res = process_logic_and_generate_actions(mock_df, mock_backtest)
+#     assert list(res.action)
+
+
+# def test_proccess_logic_and_actions_5():
+#     mock_df = pd.read_csv("./test/ohlcv_data.csv.txt", parse_dates=True).set_index(
+#         "date"
+#     )
+#     mock_df["ind_1"] = [0, 0, 0, 0, 1, 1, 1, 0, 0]
+#     mock_backtest = {
+#         "exit": [["ind_1", "=", 1, 3]],
+#         "any_exit": [],
+#         "enter": [["ind_1", "=", 0, 3]],
+#         "any_enter": [],
+#     }
+
+#     res = process_logic_and_generate_actions(mock_df, mock_backtest)
+# print(res)
+# assert list(res.action) == ["ax", "h", "h", "h", "h", "h", "e", "h", "h"]
 
 
 def test_prepare_new_backtest_1():
@@ -538,3 +556,22 @@ def test_prepare_new_backtest_1():
     assert res["exit_on_end"] is False
     assert res["base_balance"] == 126
     assert res["comission"] != 0
+
+
+# def test_run_backtest_simple():
+#     backtest = {
+#         "base_balance": 1000,
+#         "datapoints": [{"transformer": "sma", "args": [2], "name": "ind1"}],
+#         "enter": [["ind1", ">", "close"]],
+#         "exit": [["ind1", "<", "close"]],
+#         "exit_on_end": True,
+#     }
+#     ohlcv_path = "./test/ohlcv_data.csv.txt"
+
+#     res = run_backtest(backtest, ohlcv_path)
+
+#     print(res["df"].ind1)
+#     print(res["df"].in_trade)
+#     print(res["summary"])
+
+#     assert True is False

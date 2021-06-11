@@ -1,4 +1,5 @@
 import pandas as pd
+from datetime import timedelta
 
 
 def apply_logic_to_df(df: pd.DataFrame, backtest: dict):
@@ -78,24 +79,24 @@ def apply_logic_to_df(df: pd.DataFrame, backtest: dict):
         fee_list.append(fee)
         adj_account_value_list.append(adj_account_value)
 
-    # if backtest.get("exit_on_end") and in_trade:
-    #     # this means we should exit the trade
-    #     in_trade, new_aux, new_base, new_account_value, fee = exit_position(
-    #         account_value_list, close, new_aux, comission
-    #     )
-    #     new_date = df.index[-1] + timedelta(seconds=1)
+    if backtest.get("exit_on_end") and in_trade:
+        # this means we should exit the trade
+        [in_trade, aux, new_account_value, fee] = exit_position(
+            account_value_list, close, aux, comission
+        )
+        new_date = df.index[-1] + timedelta(seconds=1)
 
-    #     new_row = pd.DataFrame(data=[df.iloc[-1]], index=[new_date])
+        new_row = pd.DataFrame(data=[df.iloc[-1]], index=[new_date])
 
-    #     df = df.append(pd.DataFrame(data=new_row))
-    #     aux_list.append(new_aux)
-    #     base_list.append(new_base)
-    #     account_value_list.append(new_account_value)
-    #     in_trade_list.append(in_trade)
-    #     fee_list.append(fee)
-    #     adj_account_value = new_account_value + convert_aux_to_base(new_aux, close)
+        df = df.append(pd.DataFrame(data=new_row))
+        aux_list.append(fee)
 
-    #     adj_account_value_list.append(adj_account_value)
+        account_value_list.append(new_account_value)
+        in_trade_list.append(in_trade)
+        fee_list.append(fee)
+        adj_account_value = new_account_value + convert_aux_to_base(aux, close)
+
+        adj_account_value_list.append(adj_account_value)
 
     df["aux"] = aux_list
     # df["base"] = base_list

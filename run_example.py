@@ -56,28 +56,40 @@ ms2 = 1594339200000
 #     # "trailing_stop_loss": 0.05,  # 5% stoploss
 # }
 
+# backtest = {
+#     "any_enter": [],
+#     "any_exit": [],
+#     "chart_period": "37Min",
+#     # "chart_period": "1H",
+#     "comission": 0.01,
+#     "datapoints": [
+#         {"args": [14], "name": "er", "transformer": "er"},
+#         {"args": [4], "name": "zlema_1", "transformer": "zlema"},
+#         {"args": [31], "name": "zlema_2", "transformer": "zlema"},
+#     ],
+#     "enter": [["zlema_1", ">", "close", 1]],
+#     "exit": [["zlema_2", "<", "close", 8]],
+#     "exit_on_end": False,
+#     # "start": "2021-01-01 22:30:00",
+#     # "stop": "2021-03-11 23:30:59",
+#     "trailing_stop_loss": 0,
+#     # "max_lot_size": 1000,
+#     "lot_size": 1,
+#     "base_balance": 500,
+# }
 backtest = {
     "any_enter": [],
     "any_exit": [],
-    "chart_period": "37Min",
-    # "chart_period": "1H",
-    "comission": 0.01,
-    "datapoints": [
-        {"args": [14], "name": "er", "transformer": "er"},
-        {"args": [4], "name": "zlema_1", "transformer": "zlema"},
-        {"args": [31], "name": "zlema_2", "transformer": "zlema"},
-    ],
-    "enter": [["zlema_1", ">", "close", 2]],
-    "exit": [["zlema_2", "<", "close", 1]],
-    "exit_on_end": True,
-    # "start": "2021-01-01 22:30:00",
-    # "stop": "2021-03-11 23:30:59",
-    "trailing_stop_loss": 0,
-    # "max_lot_size": 1000,
-    "lot_size": 1,
-    "base_balance": 500,
+    "chart_period": "30Min",
+    "comission": 0.001,
+    "datapoints": [{"args": [22], "name": "hma", "transformer": "hma"}],
+    "enter": [["close", "<", "hma", 2]],
+    "exit": [["close", ">", "hma", 2]],
+    "exit_on_end": False,
+    "start": "2021-05-01 23:03:00",
+    "stop": "2021-06-01 00:03:00",
+    "trailing_stop_loss": None,
 }
-
 if __name__ == "__main__":
     # datafile = "./BTCUSDT.csv"
     # datafile = "./archive/BTCUSDT_2021.csv"
@@ -92,8 +104,8 @@ if __name__ == "__main__":
     # with open("./example_backtest.json", "r") as backtest_file:
     #     backtest = json.load(backtest_file)
     # print(backtest)
-    # backtest["start"] = "2021-03-01"
-    # backtest["stop"] = "2021-05-01"
+    backtest["start"] = "2021-03-01"
+    backtest["stop"] = "2021-05-01"
 
     # backtest["chart_period"] = "1Min"
     test = run_backtest(backtest, datafile, summary=True)

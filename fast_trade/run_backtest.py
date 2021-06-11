@@ -1,6 +1,7 @@
 import datetime
 import pandas as pd
 import re
+import itertools
 
 from .build_data_frame import build_data_frame
 from .run_analysis import apply_logic_to_df
@@ -27,13 +28,10 @@ def run_backtest(
     if ohlcv_path:
         df = build_data_frame(new_backtest, ohlcv_path)
 
-    # print(df)
     df = apply_backtest_to_df(df, new_backtest)
 
-    print(df)
-
     if summary:
-        summary, trade_log = build_summary(df, performance_start_time, new_backtest)
+        summary, trade_log = build_summary(df, performance_start_time)
     else:
         performance_stop_time = datetime.datetime.utcnow()
         summary = {
@@ -121,14 +119,12 @@ def process_logic_and_generate_actions(df: pd.DataFrame, backtest: object):
         backtest["any_enter"],
     ]
 
-    # logics = list(itertools.chain(*logics))
-
+    logics = list(itertools.chain(*logics))
     max_last_frames = 0  # the we need to keep the
     for logic in logics:
         if len(logic) > 3:
             if logic[3] > max_last_frames:
                 max_last_frames = logic[3]
-
         if max_last_frames:
             actions = []
             last_frames = []

@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 
-def build_summary(df, performance_start_time, backtest):
+def build_summary(df, performance_start_time):
     # Not yet implimented
     # Expectancy [%]                           6.92
     # SQN                                      1.77
@@ -58,7 +58,7 @@ def build_summary(df, performance_start_time, backtest):
     return_perc = calculate_return_perc(trade_log_df)
 
     # TODO fix this
-    sharpe_ratio = calculate_shape_ratio(df)
+    sharpe_ratio = calculate_shape_ratio(trade_log_df)
     # sharpe_ratio = 0
 
     buy_and_hold_perc = calculate_buy_and_hold_perc(df)
@@ -121,8 +121,6 @@ def create_trade_log(df):
 
     if "date" in trade_log_df.columns:
         trade_log_df = trade_log_df.set_index("date")
-    else:
-        trade_log_df = trade_log_df.set_index("index")
 
     trade_log_df = trade_log_df.replace([np.inf, -np.inf], np.nan)
 
