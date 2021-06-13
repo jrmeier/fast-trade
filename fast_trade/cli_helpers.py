@@ -20,7 +20,7 @@ def open_strat_file(fp):
 def format_command(command):
 
     command_obj = help_dict[command]
-    ret_str = f"\t{command}"
+    ret_str = f"\n\t{command}"
     ret_str += f"\n\t\t\t{command_obj['description']}"
 
     ret_str += f"\n\t\tusage"
