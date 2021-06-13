@@ -52,7 +52,7 @@ def build_summary(df, performance_start_time):
 
     return_perc = calculate_return_perc(df)
 
-    sharpe_ratio = calculate_shape_ratio(trade_log_df)
+    sharpe_ratio = calculate_shape_ratio(df)
 
     buy_and_hold_perc = calculate_buy_and_hold_perc(df)
 

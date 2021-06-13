@@ -229,7 +229,7 @@ def test_build_summary():
     res, trade_df = build_summary(mock_df, mock_performance_start_time)
 
     assert res["return_perc"] == 10.0
-    assert res["sharpe_ratio"] == 3.229
+    assert res["sharpe_ratio"] == 0.469
     assert res["equity_peak"] == 110
     assert res["max_drawdown"] == 90
     assert res["buy_and_hold_perc"] == 9.091
