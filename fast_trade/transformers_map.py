@@ -79,5 +79,5 @@ transformers_map = {
     "fve": TA.FVE,
     "vfi": TA.VFI,
     "msd": TA.MSD,
-    # "ta.wto": TA.WTO, needs a helper function
+    "wto": TA.WTO,
 }

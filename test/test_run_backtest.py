@@ -1,3 +1,4 @@
+from numpy import nan
 from fast_trade.run_backtest import (
     prepare_new_backtest,
     process_logic_and_generate_actions,
@@ -7,6 +8,7 @@ from fast_trade.run_backtest import (
     process_single_logic,
     process_single_frame,
     determine_action,
+    apply_backtest_to_df,
 )
 
 from collections import namedtuple
@@ -26,9 +28,7 @@ def test_take_action_greater_than():
         short=0.0112,
     )
 
-    res = take_action(
-        mock_row, mock_backtest, max_last_frames=0, last_frames=[mock_row]
-    )
+    res = take_action(mock_row, mock_backtest, last_frames=[mock_row])
     assert res is True
 
 
@@ -45,9 +45,7 @@ def test_take_action_less_than():
         short=0.0112,
     )
 
-    res = take_action(
-        mock_row, mock_backtest, max_last_frames=0, last_frames=[mock_row]
-    )
+    res = take_action(mock_row, mock_backtest, last_frames=[mock_row])
 
     assert res is False
 
@@ -65,9 +63,7 @@ def test_take_action_not_equal():
         short=0.0112,
     )
 
-    res = take_action(
-        mock_row, mock_backtest, max_last_frames=0, last_frames=[mock_row]
-    )
+    res = take_action(mock_row, mock_backtest, last_frames=[mock_row])
     assert res is True
 
 
@@ -85,7 +81,7 @@ def test_take_action_no_res():
         short=0.0112,
     )
 
-    res = take_action(mock_row, mock_backtest, max_last_frames=0)
+    res = take_action(mock_row, mock_backtest, last_frames=[])
     assert res is False
 
 
@@ -104,10 +100,89 @@ def test_take_action_many_frames():
 
     mock_last_frames = [mock_row, mock_row]
 
-    res = take_action(
-        mock_row, mock_backtest, max_last_frames=2, last_frames=mock_last_frames
-    )
+    res = take_action(mock_row, mock_backtest, last_frames=mock_last_frames)
     assert res is True
+
+
+def test_take_action_many_frames_fail():
+    mock_backtest = [["close", "=", 0.0212, 3]]
+    MockRow = namedtuple("MockRow", "date close open high low volume short")
+    mock_row_1 = MockRow(
+        date=1523937963,
+        close=0.0212,
+        open=0.01,
+        high=0.025,
+        low=0.01,
+        volume=36898,
+        short=0.0112,
+    )
+
+    mock_row_2 = MockRow(
+        date=1523937966,
+        close=0.0219,
+        open=0.01,
+        high=0.025,
+        low=0.01,
+        volume=36898,
+        short=0.0112,
+    )
+
+    mock_row_3 = MockRow(
+        date=1523937999,
+        close=0.0212,
+        open=0.01,
+        high=0.025,
+        low=0.01,
+        volume=36898,
+        short=0.0112,
+    )
+
+    mock_last_frames = [mock_row_1, mock_row_2, mock_row_3]
+
+    res = take_action(mock_row_1, mock_backtest, last_frames=mock_last_frames)
+
+    assert res is False
+
+
+# WTF
+def test_take_action_many_frames_diff():
+    mock_backtest = [["close", "=", 0.0212, 3]]
+    MockRow = namedtuple("MockRow", "date close open high low volume short")
+    mock_row_1 = MockRow(
+        date=1523937963,
+        close=0.0214,
+        open=0.01,
+        high=0.025,
+        low=0.01,
+        volume=36898,
+        short=0.0112,
+    )
+
+    mock_row_2 = MockRow(
+        date=1523937966,
+        close=0.0219,
+        open=0.01,
+        high=0.025,
+        low=0.01,
+        volume=36898,
+        short=0.0112,
+    )
+
+    mock_row_3 = MockRow(
+        date=1523937999,
+        close=0.0212,
+        open=0.01,
+        high=0.025,
+        low=0.01,
+        volume=36898,
+        short=0.0112,
+    )
+
+    mock_last_frames = [mock_row_1, mock_row_2, mock_row_3]
+
+    res = take_action(mock_row_1, mock_backtest, last_frames=mock_last_frames)
+
+    assert res is False
 
 
 def test_clean_field_type_num():
@@ -184,6 +259,22 @@ def test_clean_field_type_float():
     res = clean_field_type(mock_field, mock_row)
 
     assert res == 50.04
+
+
+def test_clean_field_type_no_row_bool():
+    mock_field = True
+
+    res = clean_field_type(mock_field)
+
+    assert res is True
+
+
+def test_clean_field_type_no_row():
+    mock_field = None
+
+    res = clean_field_type(mock_field)
+
+    assert res is None
 
 
 def test_process_single_logic():
@@ -678,6 +769,7 @@ def test_proccess_logic_and_actions_enter_exit_confirmations():
     }
 
     res = process_logic_and_generate_actions(mock_df, mock_backtest)
+    print(res)
 
     assert list(res.action.values) == [
         "e",
@@ -702,7 +794,7 @@ def test_proccess_logic_and_actions_enter_exit_confirmations_multi():
     mock_df["ind_3"] = [1, 1, 2, 3, 5, 9, 9, 9, 8]
 
     mock_backtest = {
-        "enter": [["ind_1", "<", 2]],
+        "enter": [["ind_1", "<", 2, 2]],
         "any_enter": [],
         "exit": [["ind_2", ">", 8, 2], ["ind_3", "<", 8, 3]],
         "any_exit": [],
@@ -711,7 +803,7 @@ def test_proccess_logic_and_actions_enter_exit_confirmations_multi():
     res = process_logic_and_generate_actions(mock_df, mock_backtest)
 
     assert list(res.action.values) == [
-        "e",
+        "h",
         "e",
         "h",
         "h",
@@ -723,7 +815,37 @@ def test_proccess_logic_and_actions_enter_exit_confirmations_multi():
     ]
 
 
-def test_prepare_new_backtest_1():
+def test_proccess_logic_and_actions_enter_exit_confirmations_multi_2():
+    mock_df = pd.read_csv("./test/ohlcv_data.csv.txt", parse_dates=True).set_index(
+        "date"
+    )
+    # fake an indicator
+    mock_df["ind_1"] = [5, 5, 5, 2, 6, 7, 9, 9, 1]
+
+    mock_backtest = {
+        "enter": [["ind_1", "=", 5, 2]],
+        "any_enter": [],
+        "exit": [["ind_1", ">", 6, 3]],
+        "any_exit": [],
+    }
+
+    res = process_logic_and_generate_actions(mock_df, mock_backtest)
+
+    print(res)
+    assert list(res.action.values) == [
+        "h",
+        "e",
+        "e",
+        "h",
+        "h",
+        "h",
+        "h",
+        "x",
+        "h",
+    ]
+
+
+def test_prepare_new_backtest_simple():
     mock_backtest = {"base_balance": 126, "exit_on_end": False, "comission": 0.022}
 
     res = prepare_new_backtest(mock_backtest)
@@ -733,20 +855,25 @@ def test_prepare_new_backtest_1():
     assert res["comission"] != 0
 
 
-# def test_run_backtest_simple():
-#     backtest = {
-#         "base_balance": 1000,
-#         "datapoints": [{"transformer": "sma", "args": [2], "name": "ind1"}],
-#         "enter": [["ind1", ">", "close"]],
-#         "exit": [["ind1", "<", "close"]],
-#         "exit_on_end": True,
-#     }
-#     ohlcv_path = "./test/ohlcv_data.csv.txt"
+def test_apply_backtest_to_df():
+    mock_df = pd.read_csv("./test/ohlcv_data.csv.txt", parse_dates=True).set_index(
+        "date"
+    )
+    # fake an indicator
+    mock_df["ind_1"] = [5, 5, 5, 2, 6, 7, 9, 9, 1]
 
-#     res = run_backtest(backtest, ohlcv_path)
+    mock_backtest = {
+        "base_balance": 1000,
+        "exit_on_end": False,
+        "comission": 0.01,
+        "lot_size_perc": 1,
+        "enter": [["ind_1", "=", 5, 2]],
+        "any_enter": [],
+        "exit": [["ind_1", ">", 6, 3]],
+        "any_exit": [],
+    }
 
-#     print(res["df"].ind1)
-#     print(res["df"].in_trade)
-#     print(res["summary"])
+    res = apply_backtest_to_df(mock_df, mock_backtest)
 
-#     assert True is False
+    assert "adj_account_value_change_perc" in list(res.columns)
+    assert "adj_account_value_change" in list(res.columns)

@@ -137,10 +137,8 @@ def process_logic_and_generate_actions(df: pd.DataFrame, backtest: object):
             last_frames.insert(0, frame)
             if len(last_frames) >= max_last_frames + 1:
                 last_frames.pop()
-
-            actions.append(
-                determine_action(frame, backtest, max_last_frames, last_frames)
-            )
+            wtf = determine_action(frame, backtest, last_frames)
+            actions.append(wtf)
         df["action"] = actions
     else:
         df["action"] = [determine_action(frame, backtest) for frame in df.itertuples()]
@@ -148,9 +146,7 @@ def process_logic_and_generate_actions(df: pd.DataFrame, backtest: object):
     return df
 
 
-def determine_action(
-    frame: pd.DataFrame, backtest: dict, max_last_frames=0, last_frames=[]
-):
+def determine_action(frame: pd.DataFrame, backtest: dict, last_frames=[]):
     """processes the actions with the applied logic
     Parameters
     ----------
@@ -169,28 +165,22 @@ def determine_action(
         if frame.close <= frame.trailing_stop_loss:
             return "tsl"
 
-    if take_action(frame, backtest["exit"], max_last_frames, last_frames):
+    if take_action(frame, backtest["exit"], last_frames):
         return "x"
 
-    if take_action(
-        frame, backtest["any_exit"], max_last_frames, last_frames, require_any=True
-    ):
+    if take_action(frame, backtest["any_exit"], last_frames, require_any=True):
         return "ax"
 
-    if take_action(frame, backtest["enter"], max_last_frames, last_frames):
+    if take_action(frame, backtest["enter"], last_frames):
         return "e"
 
-    if take_action(
-        frame, backtest["any_enter"], max_last_frames, last_frames, require_any=True
-    ):
+    if take_action(frame, backtest["any_enter"], last_frames, require_any=True):
         return "ae"
 
     return "h"
 
 
-def take_action(
-    current_frame, logics, max_last_frames, last_frames=[], require_any=False
-):
+def take_action(current_frame, logics, last_frames=[], require_any=False):
     """determines whether to take action based on the logic in the backtest
     Parameters
     ----------
@@ -206,15 +196,36 @@ def take_action(
     results = []
 
     if len(last_frames):
-        for last_frame in last_frames:
-            res = process_single_frame(logics, last_frame, require_any)
-            results.append(res)
+        for logic in logics:
+            if len(logic) > 3:
+                frames = logic[3]
+                lcl_frames = last_frames[:frames]
+                lcl_results = []
 
+                if len(lcl_frames) < frames:
+                    res = False
+                else:
+                    for lcl_frame in lcl_frames:
+                        lcl_res = process_single_frame(
+                            [logic], lcl_frame, require_any=False
+                        )
+                        lcl_results.append(lcl_res)
+                    res = all(lcl_results)
+                results.append(res)
+            else:
+                res = process_single_frame([logic], current_frame, require_any)
+                results.append(res)
     else:
         res = process_single_frame(logics, current_frame, require_any)
         results.append(res)
 
-    return all(results)
+    ret_value = False
+    if len(results):
+        if require_any:
+            ret_value = any(results)
+        else:
+            ret_value = all(results)
+    return ret_value
 
 
 def process_single_frame(logics, row, require_any):
@@ -231,6 +242,22 @@ def process_single_frame(logics, row, require_any):
             return_value = any(results)
         else:
             return_value = all(results)
+
+    return return_value
+
+
+def process_single_logic(logic, row):
+    val0 = clean_field_type(logic[0], row=row)
+    val1 = clean_field_type(logic[2], row=row)
+
+    if logic[1] == ">":
+        return_value = bool(val0 > val1)
+    if logic[1] == "<":
+        return_value = bool(val0 < val1)
+    if logic[1] == "=":
+        return_value = bool(val0 == val1)
+    if logic[1] == "!=":
+        return_value = bool(val0 != val1)
 
     return return_value
 
@@ -259,26 +286,15 @@ def clean_field_type(field, row=None):
             return int(field)
         if re.match(r"^-?\d+(?:\.\d+)$", field):  # if its a string in a float
             return float(field)
-    elif isinstance(field, int) or isinstance(field, float):
+
+    if type(field) is bool:
+        return field
+
+    if isinstance(field, int) or isinstance(field, float):
+
         return field
 
     if row:
         return row[field]
 
     return row
-
-
-def process_single_logic(logic, row):
-    val0 = clean_field_type(logic[0], row=row)
-    val1 = clean_field_type(logic[2], row=row)
-
-    if logic[1] == ">":
-        return_value = bool(val0 > val1)
-    if logic[1] == "<":
-        return_value = bool(val0 < val1)
-    if logic[1] == "=":
-        return_value = bool(val0 == val1)
-    if logic[1] == "!=":
-        return_value = bool(val0 != val1)
-
-    return return_value

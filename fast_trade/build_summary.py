@@ -1,6 +1,5 @@
 import datetime
 
-# from .check_missing_dates import check_missing_dates
 import numpy as np
 import pandas as pd
 
@@ -23,7 +22,6 @@ def build_summary(df, performance_start_time):
     end_date = df.index[-1]
 
     trade_log_df = create_trade_log(df)
-    # print(trade_log_df)
     total_trades = len(trade_log_df.index)
 
     (
@@ -44,9 +42,6 @@ def build_summary(df, performance_start_time):
     win_trades = trade_log_df[trade_log_df.adj_account_value_change_perc > 0]
     loss_trades = trade_log_df[trade_log_df.adj_account_value_change_perc < 0]
 
-    # print(win_trades)
-    # print(loss_trades)
-
     (total_num_winning_trades, avg_win_perc, win_perc) = summarize_trades(
         win_trades, total_trades
     )
@@ -55,15 +50,11 @@ def build_summary(df, performance_start_time):
         loss_trades, total_trades
     )
 
-    return_perc = calculate_return_perc(trade_log_df)
+    return_perc = calculate_return_perc(df)
 
-    # TODO fix this
     sharpe_ratio = calculate_shape_ratio(trade_log_df)
-    # sharpe_ratio = 0
 
     buy_and_hold_perc = calculate_buy_and_hold_perc(df)
-
-    # (missing_data_perc, gaps) = check_missing_dates(df)
 
     performance_stop_time = datetime.datetime.utcnow()
 
@@ -96,7 +87,6 @@ def build_summary(df, performance_start_time):
         "test_duration": round(
             (performance_stop_time - performance_start_time).total_seconds(), 3
         ),
-        # "missing_data_perc": missing_data_perc,
     }
 
     return summary, trade_log_df
@@ -166,8 +156,6 @@ def summarize_trades(trades: pd.DataFrame, total_trades):
         perc = (len(trades.index) / total_trades) * 100
     except ZeroDivisionError:
         perc = 0.0
-    except TypeError:
-        perc = 0.0
 
     return (len(trades.index), round(avg_perc, 3), round(perc, 3))
 
@@ -176,11 +164,10 @@ def calculate_return_perc(trade_log_df: pd.DataFrame):
     if trade_log_df.empty:
         return 0.0
     if trade_log_df.iloc[0].adj_account_value:
-        return_perc = 100 - trade_log_df.iloc[0].adj_account_value / (
-            trade_log_df.iloc[-1].adj_account_value / 100
-        )
-    else:
-        return_perc = 0
+        first_val = trade_log_df.iloc[0].adj_account_value
+        last_val = trade_log_df.iloc[-1].adj_account_value
+
+        return_perc = 100 - (first_val / last_val) * 100
 
     return round(return_perc, 3)
 

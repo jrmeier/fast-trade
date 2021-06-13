@@ -20,10 +20,10 @@ def build_data_frame(backtest: dict, csv_path: str):
     """
     df = load_basic_df_from_csv(csv_path)
 
-    df = prepare_df(df, backtest)
-
     if df.empty:
         raise Exception("Dataframe is empty. Check the start and end dates")
+
+    df = prepare_df(df, backtest)
 
     return df
 
@@ -93,12 +93,6 @@ def apply_charting_to_df(
     Returns
         DataFrame, a sorted dataframe ready for consumption by run_backtest
     """
-
-    if not isinstance(df.index, pd.DatetimeIndex):
-        time_unit = detect_time_unit(df.iloc[-1].values[0])
-        df.index = pd.to_datetime(df.index, unit=time_unit)
-    else:
-        df.index = pd.to_datetime(df.index)
 
     if start_time:
         if isinstance(start_time, datetime) or type(start_time) is int:
@@ -181,6 +175,7 @@ def process_res_df(df, ind, trans_res):
         i_name = ind.get("name")
         clean_key = key.lower()
         clean_key = clean_key.replace(".", "")
+        clean_key = clean_key.replace(" ", "_")
         df_key = f"{i_name}_{clean_key}"
         df[df_key] = trans_res[key]
 
