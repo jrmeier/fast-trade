@@ -2,6 +2,7 @@ import datetime
 
 import numpy as np
 import pandas as pd
+from .calculate_perc_missing import calculate_perc_missing
 
 
 def build_summary(df, performance_start_time):
@@ -58,6 +59,8 @@ def build_summary(df, performance_start_time):
 
     performance_stop_time = datetime.datetime.utcnow()
 
+    perc_missing = calculate_perc_missing(df)
+
     summary = {
         "return_perc": return_perc,
         "sharpe_ratio": sharpe_ratio,  # BETA
@@ -84,6 +87,7 @@ def build_summary(df, performance_start_time):
         "first_tic": start_date.strftime("%Y-%m-%d %H:%M:%S"),
         "last_tic": end_date.strftime("%Y-%m-%d %H:%M:%S"),
         "total_tics": len(df.index),
+        "perc_missing": perc_missing,
         "test_duration": round(
             (performance_stop_time - performance_start_time).total_seconds(), 3
         ),

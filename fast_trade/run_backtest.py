@@ -45,7 +45,6 @@ def run_backtest(
         "summary": summary,
         "df": df,
         "trade_df": trade_log,
-        # "missing_data": gaps,
         "backtest": new_backtest,
     }
 

@@ -73,7 +73,6 @@ def apply_logic_to_df(df: pd.DataFrame, backtest: dict):
         adj_account_value = new_account_value + convert_aux_to_base(aux, close)
 
         aux_list.append(aux)
-        # base_list.append(new_base)
         account_value_list.append(new_account_value)
         in_trade_list.append(in_trade)
         fee_list.append(fee)
@@ -99,7 +98,6 @@ def apply_logic_to_df(df: pd.DataFrame, backtest: dict):
         adj_account_value_list.append(adj_account_value)
 
     df["aux"] = aux_list
-    # df["base"] = base_list
     df["account_value"] = account_value_list
     df["adj_account_value"] = adj_account_value_list
     df["in_trade"] = in_trade_list

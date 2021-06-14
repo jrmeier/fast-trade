@@ -5,4 +5,4 @@ from .cli import main
 from .transformers_map import transformers_map
 from .validate_backtest import validate_backtest
 from .update_symbol_data import update_symbol_data, load_archive_to_df
-from .check_missing_dates import check_missing_dates
+from .calculate_perc_missing import calculate_perc_missing
