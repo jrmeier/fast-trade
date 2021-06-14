@@ -60,7 +60,6 @@ def build_summary(df, performance_start_time):
     performance_stop_time = datetime.datetime.utcnow()
 
     [perc_missing, total_missing_dates] = calculate_perc_missing(df)
-    # perc_missing = calculate_perc_missing(df)
 
     summary = {
         "return_perc": float(return_perc),
