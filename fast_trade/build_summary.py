@@ -59,35 +59,37 @@ def build_summary(df, performance_start_time):
 
     performance_stop_time = datetime.datetime.utcnow()
 
-    perc_missing = calculate_perc_missing(df)
+    [perc_missing, total_missing_dates] = calculate_perc_missing(df)
+    # perc_missing = calculate_perc_missing(df)
 
     summary = {
-        "return_perc": return_perc,
-        "sharpe_ratio": sharpe_ratio,  # BETA
-        "buy_and_hold_perc": buy_and_hold_perc,
+        "return_perc": float(return_perc),
+        "sharpe_ratio": float(sharpe_ratio),  # BETA
+        "buy_and_hold_perc": float(buy_and_hold_perc),
         "median_trade_len": round(median_time_held.total_seconds(), 3),
         "mean_trade_len": round(mean_trade_time_held.total_seconds(), 3),
         "max_trade_held": round(max_trade_time_held.total_seconds(), 3),
         "min_trade_len": round(min_trade_time_held.total_seconds(), 3),
-        "total_num_winning_trades": total_num_winning_trades,
-        "total_num_losing_trades": total_num_losing_trades,
-        "avg_win_perc": avg_win_perc,
-        "avg_loss_perc": avg_loss_perc,
-        "best_trade_perc": max_trade_perc,
-        "min_trade_perc": min_trade_perc,
-        "median_trade_perc": median_trade_perc,
-        "mean_trade_perc": mean_trade_perc,
-        "num_trades": total_trades,
-        "win_perc": win_perc,
-        "loss_perc": loss_perc,
-        "equity_peak": equity_peak,
-        "equity_final": equity_final,
-        "max_drawdown": max_drawdown,
+        "total_num_winning_trades": float(total_num_winning_trades),
+        "total_num_losing_trades": float(total_num_losing_trades),
+        "avg_win_perc": float(avg_win_perc),
+        "avg_loss_perc": float(avg_loss_perc),
+        "best_trade_perc": float(max_trade_perc),
+        "min_trade_perc": float(min_trade_perc),
+        "median_trade_perc": float(median_trade_perc),
+        "mean_trade_perc": float(mean_trade_perc),
+        "num_trades": int(total_trades),
+        "win_perc": float(win_perc),
+        "loss_perc": float(loss_perc),
+        "equity_peak": float(equity_peak),
+        "equity_final": float(equity_final),
+        "max_drawdown": float(max_drawdown),
         "total_fees": float(total_fees),
         "first_tic": start_date.strftime("%Y-%m-%d %H:%M:%S"),
         "last_tic": end_date.strftime("%Y-%m-%d %H:%M:%S"),
         "total_tics": len(df.index),
-        "perc_missing": perc_missing,
+        "perc_missing": float(perc_missing),
+        "total_missing": int(total_missing_dates),
         "test_duration": round(
             (performance_stop_time - performance_start_time).total_seconds(), 3
         ),
