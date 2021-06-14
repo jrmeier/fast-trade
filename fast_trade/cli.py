@@ -58,17 +58,34 @@ def main():
 
         strat_obj = open_strat_file(args["backtest"])
         strat_obj = {**strat_obj, **args}
-
         if args.get("data", "").endswith(".csv"):
             # use a csv file
             data = args["data"]
-            res = run_backtest(strat_obj, ohlcv_path=data)
+            try:
+                res = run_backtest(strat_obj, ohlcv_path=data)
+            except Exception as e:
+                print("Error running backtest: ", e)
+                return
         else:
             # load from the archive
             archive = args.get("archive", "./archive")
-            archive_df = load_archive_to_df(strat_obj["symbol"], archive)
-            archive_df = prepare_df(archive_df, strat_obj)
-            res = run_backtest(strat_obj, df=archive_df)
+            try:
+                archive_df = load_archive_to_df(strat_obj["symbol"], archive)
+            except Exception as e:
+                print("Error loading archive file: ", e)
+                return
+
+            try:
+
+                archive_df = prepare_df(archive_df, strat_obj)
+            except Exception as e:
+                print("Error preparing the dataframe: ", e)
+                return
+            try:
+                res = run_backtest(strat_obj, df=archive_df)
+            except Exception as e:
+                print("Error running backtest: ", e)
+                return
 
         if res["summary"]:
             print(json.dumps((res["summary"]), indent=2))

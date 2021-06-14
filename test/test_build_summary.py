@@ -1,7 +1,5 @@
 import datetime
-from numpy import median, nan
 import pandas as pd
-from pandas._libs.tslibs import Timedelta
 
 from fast_trade.build_summary import (
     build_summary,
@@ -256,3 +254,5 @@ def test_build_summary():
     assert res["total_tics"] == 9
     assert type(res["test_duration"]) is float
     assert len(trade_df.index) == 3
+    assert res["perc_missing"] == 0.0
+    assert res["total_missing"] == 0
