@@ -7,6 +7,9 @@
 
 A library built with backtest portability and performance in mind for backtest trading strategies. There is also a [DataDownloader](#DataDownloader), which can be used to download compatible kline data from Binance (.com or .us)
 
+## Beta Testing
+I'm using this library to build a platform (live data, charting, paper trading, etc.) and I'm looking for beta testers. If you like this library, send me an email at fasttrade@jedm.dev.
+
 ## Install
 
 ```bash
