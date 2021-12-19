@@ -155,7 +155,7 @@ result = run_backtest(backtest, datafile_path)
 
 summary = result["summary"]
 df = result["df"]
-trade_log_df = result["trade_log]
+trade_log_df = result["trade_df"]
 
 print(summary)
 print(df.head())
