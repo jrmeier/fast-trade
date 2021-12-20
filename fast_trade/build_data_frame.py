@@ -66,9 +66,13 @@ def prepare_df(df: pd.DataFrame, backtest: dict):
 
     trailing_stop_loss = backtest.get("trailing_stop_loss", 0)
     if trailing_stop_loss:
-        df["trailing_stop_loss"] = df["close"].cummax() * (
-            1 - float(trailing_stop_loss)
-        )
+        df["trailing_stop_loss"] = df["close"].cummax() * (1 - float(trailing_stop_loss))
+
+    # ============================================================
+    take_profit_amount = backtest.get("take_profit_amount", 0)
+    if take_profit_amount:
+        df['take_profit_amount'] = df["close"].cummax() * (1 + float(take_profit_amount))
+    # ============================================================
 
     chart_period = backtest.get("chart_period", "1Min")
 

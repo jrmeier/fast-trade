@@ -9,7 +9,7 @@ from .build_summary import build_summary
 
 
 def run_backtest(
-    backtest: dict, ohlcv_path: str = "", df: pd.DataFrame = None, summary=True
+    backtest: dict, ohlcv_path: str = "", df: pd.DataFrame = None, summary=True, trade_log=True
 ):
     """
     Parameters
@@ -70,6 +70,10 @@ def prepare_new_backtest(backtest):
     new_backtest["lot_size_perc"] = float(backtest.get("lot_size", 1))
     new_backtest["max_lot_size"] = int(backtest.get("max_lot_size", 0))
 
+    # ============================================================
+    new_backtest["take_profit_amount"] = backtest.get("take_profit_amount", 0)
+    # ============================================================
+
     return new_backtest
 
 
@@ -120,6 +124,7 @@ def process_logic_and_generate_actions(df: pd.DataFrame, backtest: object):
         backtest["exit"],
         backtest["any_exit"],
         backtest["any_enter"],
+
     ]
 
     logics = list(itertools.chain(*logics))
@@ -159,11 +164,19 @@ def determine_action(frame: pd.DataFrame, backtest: dict, last_frames=[]):
     """
 
     trailing_stop_loss = backtest.get("trailing_stop_loss")
+    # ============================================================
+    take_profit_amount = backtest.get("take_profit_amount")
+    # ============================================================
+
 
     if trailing_stop_loss:
         if frame.close <= frame.trailing_stop_loss:
             return "tsl"
-
+    # ============================================================
+    if take_profit_amount:
+        if frame.close >= frame.take_profit_amount:
+            return "tp"
+    # ============================================================
     if take_action(frame, backtest["exit"], last_frames):
         return "x"
 

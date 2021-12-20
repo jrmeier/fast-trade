@@ -63,7 +63,7 @@ def apply_logic_to_df(df: pd.DataFrame, backtest: dict):
                 comission,
             )
 
-        if curr_action in ["x", "ax", "tsl"] and in_trade:
+        if curr_action in ["x", "ax", "tsl", "tp"] and in_trade:
             # this means we should exit the trade
 
             [in_trade, aux, new_account_value, fee] = exit_position(
