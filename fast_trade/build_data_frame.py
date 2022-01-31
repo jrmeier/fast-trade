@@ -66,13 +66,16 @@ def prepare_df(df: pd.DataFrame, backtest: dict):
 
     trailing_stop_loss = backtest.get("trailing_stop_loss", 0)
     if trailing_stop_loss:
-        df["trailing_stop_loss"] = df["close"].cummax() * (1 - float(trailing_stop_loss))
+        df["trailing_stop_loss"] = df["close"].cummax() * (
+            1 - float(trailing_stop_loss)
+        )
 
-    # ============================================================
-    take_profit_amount = backtest.get("take_profit_amount", 0)
-    if take_profit_amount:
-        df['take_profit_amount'] = df["close"].cummax() * (1 + float(take_profit_amount))
-    # ============================================================
+    # take_profit = backtest.get("take_profit", 0)
+    # if take_profit:
+    #     df["take_profit"] = df["close"].cummax() * (
+    #             1 + float(take_profit)
+    #     )
+
 
     chart_period = backtest.get("chart_period", "1Min")
 
@@ -180,6 +183,8 @@ def process_res_df(df, ind, trans_res):
         clean_key = key.lower()
         clean_key = clean_key.replace(".", "")
         clean_key = clean_key.replace(" ", "_")
+        clean_key = clean_key.replace("+", "_plus") # specific for FINTA DMI
+        clean_key = clean_key.replace("-", "_minus") # specific for FINTA DMI
         df_key = f"{i_name}_{clean_key}"
         df[df_key] = trans_res[key]
 
