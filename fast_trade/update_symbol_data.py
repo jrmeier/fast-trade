@@ -50,9 +50,12 @@ import requests  # requires python-binance, not included in fast-trade package
 # START_DATE = int(datetime.datetime.fromisoformat(tmp_start_date).timestamp())
 # EXCHANGE = "binance.com"  # binance.com or binance.us
 
+default_end_date = datetime.datetime.utcnow()
+default_start_date = default_end_date - datetime.timedelta(days=30)  # by default is the last
+
 
 def update_symbol_data(
-    symbol, start_date, end_date="", arc_path="./archive", exchange="binance.us"
+    symbol, start_date=default_start_date, end_date=default_end_date, arc_path="./archive", exchange="binance.us"
 ):
     print(f"updating: {symbol}")
 
