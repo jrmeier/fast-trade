@@ -8,6 +8,7 @@
 A library built with backtest portability and performance in mind for backtest trading strategies. There is also a [DataDownloader](#DataDownloader), which can be used to download compatible kline data from Binance (.com or .us)
 
 ## Beta Testing
+
 I'm using this library to build a platform (live data, charting, paper trading, etc.) and I'm looking for beta testers. If you like this library, send me an email at fasttrade@jedm.dev.
 
 ## Install
@@ -222,15 +223,18 @@ Download 1 minute kline/ohlcv from Binance and store them in CSVs in the `archiv
 It may take awhile to download all of the data the first time, so be patient. It only need to download all of it once, then it will be updated from the most recent date.
 Check out the file [update_symbol_data.py](/fast_trade/update_symbol_data.py) if you want to see how it works.
 
-`ft download --symbol=SYMBOL --exchange=EXCHANGE --start=START --end=END --archive=ARCHIVE`
+Basic example
+Download the last 30 days of BTCUSDT from binance.com
+`python -m fast_trade download BTCUSDT`
+
+`ft download SYMBOL --archive ARCHIVE_PATH --start START_DATE --end END_DATE --exchange=EXCHANGE`
 
 Defaults are:
 
 ```python
-
-SYMBOL="BTCUSDT" # any symbol on the exchange
 EXCHANGE="binance.com" # can be binance.us
-START="2017-01-01" # the start date of when you want date. This default is the oldest for binance.com.
+START= "2020-01-01" # start date
+END= "2020-01-31" # end date
 END='current date' # you'll probably never need this
 ARCHIVE='./archive' # path the archive folder, which is where the CSVs are stored
 ```
