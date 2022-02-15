@@ -18,7 +18,7 @@ import os
 def main():
     parser = argparse.ArgumentParser(
         description="Fast Trade CLI",
-        prog="fast_trade",
+        prog="ft",
     )
 
     sub_parsers = parser.add_subparsers()

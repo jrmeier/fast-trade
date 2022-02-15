@@ -206,7 +206,7 @@ Using an archive item managed by the DataDownloader. Just pass in the symbol ins
 
 Modifying the `chart_period`
 
-`ft backtest --data=./datafile.csv --backtest=./backtest.json --chart_period=1h`
+`ft backtest --data=./datafile.csv --backtest=./backtest.json --mods chart_period 1h`
 
 Saving a test result
 This generates creates the `saved_backtest` directory (if it doesn't exist), then inside of there, is another directory with a timestamp, with a chart, the backtest file, the summary, and the raw dataframe as a csv.
