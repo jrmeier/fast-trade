@@ -8,6 +8,7 @@
 A library built with backtest portability and performance in mind for backtest trading strategies. There is also a [DataDownloader](#DataDownloader), which can be used to download compatible kline data from Binance (.com or .us)
 
 ## Beta Testing
+
 I'm using this library to build a platform (live data, charting, paper trading, etc.) and I'm looking for beta testers. If you like this library, send me an email at fasttrade@jedm.dev.
 
 ## Install
@@ -58,15 +59,14 @@ Custom datapoints can be added by setting a function name in the [datapoints](/f
 
 Note:
   
-If a transfomer function returns multiple values, the will be datapoints with the `datapointName_respective column.
+If a transfomer function returns multiple series, fast-trade will name concate the name of the series with the name of the transfomer function. 
 
-Example
+Example:
 
-Say we have a datapoint that uses the transformer `bbands`.
+The `bbands` function returns two series, one for the upper band and one for the lower band. The name of the series will be `bbands_upper` and `bbands_lower`.
 
 `bbands` returns 3 columns `upper_bb, middle_band, lower_bb`
 
-So when we want to reference these in our logic, the names we use in the logics are `bbands_upper_bb`, `bbands_middle_bb`,`bbands_lower_bb`
 
 ## Data
 
@@ -205,7 +205,7 @@ Using an archive item managed by the DataDownloader. Just pass in the symbol ins
 
 Modifying the `chart_period`
 
-`ft backtest --data=./datafile.csv --backtest=./backtest.json --chart_period=1h`
+`ft backtest --data=./datafile.csv --backtest=./backtest.json --mods chart_period 1h`
 
 Saving a test result
 This generates creates the `saved_backtest` directory (if it doesn't exist), then inside of there, is another directory with a timestamp, with a chart, the backtest file, the summary, and the raw dataframe as a csv.
@@ -222,15 +222,18 @@ Download 1 minute kline/ohlcv from Binance and store them in CSVs in the `archiv
 It may take awhile to download all of the data the first time, so be patient. It only need to download all of it once, then it will be updated from the most recent date.
 Check out the file [update_symbol_data.py](/fast_trade/update_symbol_data.py) if you want to see how it works.
 
-`ft download --symbol=SYMBOL --exchange=EXCHANGE --start=START --end=END --archive=ARCHIVE`
+Basic example
+Download the last 30 days of BTCUSDT from binance.com
+`python -m fast_trade download BTCUSDT`
+
+`ft download SYMBOL --archive ARCHIVE_PATH --start START_DATE --end END_DATE --exchange=EXCHANGE`
 
 Defaults are:
 
 ```python
-
-SYMBOL="BTCUSDT" # any symbol on the exchange
 EXCHANGE="binance.com" # can be binance.us
-START="2017-01-01" # the start date of when you want date. This default is the oldest for binance.com.
+START= "2020-01-01" # start date
+END= "2020-01-31" # end date
 END='current date' # you'll probably never need this
 ARCHIVE='./archive' # path the archive folder, which is where the CSVs are stored
 ```

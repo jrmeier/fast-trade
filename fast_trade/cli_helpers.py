@@ -17,37 +17,6 @@ def open_strat_file(fp):
         print("error: ", e)
 
 
-def format_command(command):
-
-    command_obj = help_dict[command]
-    ret_str = f"\n\t{command}"
-    ret_str += f"\n\t\t\t{command_obj['description']}"
-
-    ret_str += f"\n\t\tusage"
-    for ex in command_obj["examples"]:
-        ret_str += f"\n\t\t\t{ex}"
-
-    ret_str += f"\n\t\targs"
-    for arg in command_obj["args"].keys():
-        ret_str += f"\n\t\t\t{arg},"
-        if command_obj["args"][arg]["required"]:
-            ret_str += " required,"
-
-        ret_str += f" {command_obj['args'][arg]['desc']}"
-
-    return ret_str
-
-
-def format_all_help_text():
-
-    formated_string = "\nFast Trade Help\n\nCommands\n\n"
-
-    for command in help_dict.keys():
-        formated_string = formated_string + format_command(command)
-
-    return formated_string
-
-
 def create_plot(df):
     plot_df = pd.DataFrame(
         data={
@@ -93,55 +62,3 @@ def save(result, strat_obj):
     create_plot(result["df"])
 
     plt.savefig(f"{new_save_dir}/plot.png")
-
-
-help_dict = {
-    "validate": {
-        "description": """Takes in a backtest object and returns
-            a mirror object with errors if they exist
-        """,
-        "examples": ["ft validate --backtest./backtest.json"],
-        "args": {"--backtest": {"desc": "path to the backtest file", "required": True}},
-    },
-    "download": {
-        "description": "download data from Binance",
-        "examples": ["ft download --symbol=BTCUSDT --start=2019-01-01"],
-        "args": {
-            "--symbol": {"desc": "Symbol to download", "required": False},
-            "--archive": {
-                "desc": "Path to the archive where the CSVs live",
-                "required": False,
-            },
-            "--start": {"desc": "date to start downloading from", "required": False},
-            "--end": {"desc": "date to stop downloading_from", "required": False},
-            "--exchange": {
-                "desc": "Exchange to use. Either binance.us or binance.com. binance.com is the default.",
-                "required": False,
-            },
-        },
-    },
-    "backtest": {
-        "description": """Runs a backtest with the given parameters.
-            Any backtest modifications can be passed at the end of the command.
-            """,
-        "examples": ["ft backtest --csv=./datafile.csv/ --backtest=./backtest.json"],
-        "args": {
-            "--csv": {
-                "desc": "path or paths to csv_file seperated by commands",
-                "required": True,
-            },
-            "--backtest": {
-                "desc": "path to backtest file, must json format",
-                "required": True,
-            },
-            "--plot": {
-                "desc": "opens a basic plot using matlib.plot",
-                "required": False,
-            },
-            "--save": {
-                "desc": "saves the dataframe, backtest, and plot in to the path",
-                "required": False,
-            },
-        },
-    },
-}

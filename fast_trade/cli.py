@@ -2,140 +2,144 @@
 from fast_trade.validate_backtest import validate_backtest
 import sys
 import json
-from .build_data_frame import prepare_df
-
 from .cli_helpers import (
     open_strat_file,
-    format_all_help_text,
     save,
     create_plot,
-    format_command,
 )
-from fast_trade.update_symbol_data import load_archive_to_df, update_symbol_data
+from fast_trade.update_symbol_data import update_symbol_data
 from .run_backtest import run_backtest
 import matplotlib.pyplot as plt
 import datetime
-
-
-def parse_args(raw_args):
-    """
-    args: raw args after the command line
-
-    returns: dict of args as key value pairs
-    """
-    arg_dict = {}
-    for raw_arg in raw_args:
-        arg = raw_arg.split("=")
-        arg_key = arg[0].split("--").pop()
-        if len(arg) > 1:
-            if arg[1] == "false":
-                arg_dict[arg_key] = False
-            elif arg[1] == "true":
-                arg_dict[arg_key] == True
-                # flake8: noqa
-            elif arg[1] != "false" or arg[1] != "true":
-                arg_dict[arg_key] = arg[1]
-        else:
-            arg_dict[arg_key] = True
-
-    return arg_dict
+import argparse
+import os
 
 
 def main():
-    if len(sys.argv) < 2:
-        print(format_all_help_text())
-        return
+    parser = argparse.ArgumentParser(
+        description="Fast Trade CLI",
+        prog="ft",
+    )
 
+    sub_parsers = parser.add_subparsers()
+
+    # build the argement parser downloading stuff
+    default_archive_path = os.path.join(os.getcwd(), "archive")
+    default_end_date = datetime.datetime.utcnow()
+    default_start_date = default_end_date - datetime.timedelta(days=30)
+
+    download_parser = sub_parsers.add_parser("download", help="download data")
+    download_parser.add_argument("symbol", help="symbol to download", type=str)
+    download_parser.add_argument(
+        "--archive",
+        help="path to directory to serve as the 'archive'",
+        type=str,
+        default=default_archive_path,
+    )
+
+    download_parser.add_argument(
+        "--start",
+        help="first date to start downloading data from. Recently Listed coins might not have a lot of data.",
+        type=str,
+        default=default_start_date.strftime("%Y-%m-%d"),
+    )
+
+    download_parser.add_argument(
+        "--end",
+        help="Last date to download data. Defaults to today.",
+        type=str,
+        default=default_end_date.strftime("%Y-%m-%d"),
+    )
+
+    download_parser.add_argument(
+        "--exchange",
+        help="Which exchange to download data from. Defaults to binance.com",
+        type=str,
+        default="binance.com",
+        choices=["binance.com", "binance.us"],
+    )
+
+    backtest_parser = sub_parsers.add_parser("backtest", help="backtest a strategy")
+    backtest_parser.add_argument(
+        "strategy",
+        help="path to strategy file",
+        type=str,
+    )
+
+    backtest_parser.add_argument("data", help="path to data file for kline data.")
+    backtest_parser.add_argument(
+        "--mods", help="Modifiers for strategy/backtest", nargs="*"
+    )
+    backtest_parser.add_argument(
+        "--save",
+        help="save the backtest results to a directory",
+        action="store_true",
+        default=False,
+    )
+    backtest_parser.add_argument(
+        "--plot",
+        help="plot the backtest results",
+        action="store_true",
+        default=False,
+    )
+
+    validate_backtest_parser = sub_parsers.add_parser(
+        "validate", help="validate a strategy file"
+    )
+
+    validate_backtest_parser.add_argument(
+        "strategy",
+        help="path to strategy file",
+        type=str,
+    )
+    validate_backtest_parser.add_argument(
+        "--mods", help="Modifiers for strategy/backtest", nargs="*"
+    )
+
+    args = parser.parse_args()
     command = sys.argv[1]
 
-    args = parse_args(sys.argv[2:])
+    if command == "download":
+        update_symbol_data(
+            args.symbol, args.start, args.end, args.archive, args.exchange
+        )
 
     if command == "backtest":
-        # check for help
-        if "help" in args.keys():
-            print(format_command(command))
-            return
+        # match the mods to the kwargs
+        strat_obj = open_strat_file(args.strategy)
+        if args.mods:
+            mods = {}
+            i = 0
+            while i < len(args.mods):
+                mods[args.mods[i]] = args.mods[i + 1]
+                i += 2
 
-        strat_obj = open_strat_file(args["backtest"])
-        strat_obj = {**strat_obj, **args}
-        if args.get("data", "").endswith(".csv"):
-            # use a csv file
-            data = args["data"]
-            try:
-                res = run_backtest(strat_obj, ohlcv_path=data)
-            except Exception as e:
-                print("Error running backtest: ", e)
-                return
-        else:
-            # load from the archive
-            archive = args.get("archive", "./archive")
-            try:
-                archive_df = load_archive_to_df(strat_obj["symbol"], archive)
-            except Exception as e:
-                print("Error loading archive file: ", e)
-                return
+            strat_obj = {**strat_obj, **mods}
 
-            try:
+        backtest = run_backtest(strat_obj, ohlcv_path=args.data)
 
-                archive_df = prepare_df(archive_df, strat_obj)
-            except Exception as e:
-                print("Error preparing the dataframe: ", e)
-                return
-            try:
-                res = run_backtest(strat_obj, df=archive_df)
-            except Exception as e:
-                print("Error running backtest: ", e)
-                return
+        if args.save:
+            save(backtest, backtest["backtest"])
 
-        if res["summary"]:
-            print(json.dumps((res["summary"]), indent=2))
-        else:
-            print("There was an error:")
-            print(json.dumps((res["backtest_validation"]), indent=2))
-
-        if args.get("save"):
-            save(res, strat_obj)
-
-        if args.get("plot"):
-            create_plot(res["df"])
+        if args.plot:
+            create_plot(backtest["df"])
 
             plt.show()
 
-        return
-
-    if command == "help":
-        print(format_all_help_text())
-        return
-
-    if command == "download":
-        default_end = (
-            datetime.datetime.utcnow() + datetime.timedelta(days=1)
-        ).strftime("%Y-%m-%d")
-        symbol = args.get("symbol", "BTCUSDT")
-        arc_path = args.get("archive", "./archive/")
-        start_date = args.get("start", "2017-01-01")
-        end_date = args.get("end", default_end)
-        exchange = args.get("exchange", "binance.com")
-        update_symbol_data(symbol, start_date, end_date, arc_path, exchange)
-
-        print("Done downloading ", symbol)
-        return
-
     if command == "validate":
-        print("args: ", args)
-        backtest = open_strat_file(args["backtest"])
-        if not backtest:
-            print("backtest not found! ")
-            return
-        print("backtest: ", backtest)
-        backtest = {**backtest, **args}
+        strat_obj = open_strat_file(args.strategy)
+        if args.mods:
+            mods = {}
+            i = 0
+            while i < len(args.mods):
+                mods[args.mods[i]] = args.mods[i + 1]
+                i += 2
 
-        res = validate_backtest(backtest)
+            strat_obj = {**strat_obj, **mods}
 
-        print(json.dumps(res, indent=2))
-        return
-    print("Command not found")
-    print(format_all_help_text())
+        backtest = validate_backtest(strat_obj)
+
+        print(json.dumps(backtest, indent=2))
 
 
 if __name__ == "__main__":
