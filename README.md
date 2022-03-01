@@ -59,15 +59,14 @@ Custom datapoints can be added by setting a function name in the [datapoints](/f
 
 Note:
   
-If a transfomer function returns multiple values, the will be datapoints with the `datapointName_respective column.
+If a transfomer function returns multiple series, fast-trade will name concate the name of the series with the name of the transfomer function. 
 
-Example
+Example:
 
-Say we have a datapoint that uses the transformer `bbands`.
+The `bbands` function returns two series, one for the upper band and one for the lower band. The name of the series will be `bbands_upper` and `bbands_lower`.
 
 `bbands` returns 3 columns `upper_bb, middle_band, lower_bb`
 
-So when we want to reference these in our logic, the names we use in the logics are `bbands_upper_bb`, `bbands_middle_bb`,`bbands_lower_bb`
 
 ## Data
 
