@@ -45,7 +45,7 @@ pip install fast-trade
 
 ## Usage
 
-See [sma_strategy.json](./sma_strategy.json) and [strategy.json](./strategy.json) for an example strategy.
+See [sma_strategy.json](./sma_strategy.json) and [strategy.json](./strategy.json) for an example strategy. The basic idea is you describe the "datapoints" then compare them in the "logics". The "datapoints" describe the technical analysis functions to run, and the "logics" describe the logic to use to determine when to enter and exit trades.
 
 Example backtest script
 
@@ -100,6 +100,8 @@ from fast_trade import run_backtest, validate_backtest
 # returns a mirror of the object, with errors if any
 print(validate_backtest(backtest))
 
+# also accepts urls 
+# datafile_path =  https://raw.githubusercontent.com/jrmeier/fast-trade/master/strategy.json
 datafile_path = "./BTCUSDT.csv"
 
 # returns the summary object and the dataframe
