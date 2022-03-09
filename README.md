@@ -113,6 +113,7 @@ trade_log_df = result["trade_df"]
 
 print(summary)
 print(df.head())
+```
 ## CLI
 
 You can also use the package from the command line. Each command's specific help feature can be viewed by running `ft <command> -h`.
