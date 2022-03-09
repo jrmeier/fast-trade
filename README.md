@@ -52,7 +52,7 @@ Example backtest script
 ```python
 from fast_trade import run_backtest, validate_backtest
 
-{
+backtest = {
     "base_balance": 1000, # start with a balance of 1000
     "chart_period": "5Min", # time period selected on the chard
     "chart_start": "2021-08-30 18:00:00", # when to start the chart
@@ -96,12 +96,14 @@ from fast_trade import run_backtest, validate_backtest
     "trailing_stop_loss": 0.05, # optional trailing stop loss 
     "exit_on_end": False, # at then end of the backtest, if true, the trade will exit
 }
+# backtests can also come from urls
+# backtest = "https://raw.githubusercontent.com/jrmeier/fast-trade/master/sma_strategy.json"
 
 # returns a mirror of the object, with errors if any
 print(validate_backtest(backtest))
 
 # also accepts urls 
-# datafile_path =  https://raw.githubusercontent.com/jrmeier/fast-trade/master/strategy.json
+# datafile_path = "https://raw.githubusercontent.com/jrmeier/fast-trade/master/test/ohlcv_data.csv.txt"
 datafile_path = "./BTCUSDT.csv"
 
 # returns the summary object and the dataframe
