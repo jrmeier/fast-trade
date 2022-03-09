@@ -93,7 +93,17 @@ def apply_charting_to_df(
     Returns
         DataFrame, a sorted dataframe ready for consumption by run_backtest
     """
+    if df.index.dtype != "datetime64[ns]":
+        headers = df.columns.values.tolist()
+        headers.extend([df.index.name])
+        if "date" not in headers:
+            raise Exception(
+                "Data does not have a date column. Headers must include date, open, high, low, close, volume."
+            )
 
+        time_unit = detect_time_unit(df.date[1])
+        df.date = pd.to_datetime(df.date, unit=time_unit)
+        df.set_index("date", inplace=True)
     if start_time:
         if isinstance(start_time, datetime) or type(start_time) is int:
             time_unit = detect_time_unit(start_time)

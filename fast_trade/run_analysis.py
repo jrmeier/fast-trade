@@ -87,7 +87,7 @@ def apply_logic_to_df(df: pd.DataFrame, backtest: dict):
 
         new_row = pd.DataFrame(data=[df.iloc[-1]], index=[new_date])
 
-        df = df.append(pd.DataFrame(data=new_row))
+        df = pd.concat([df, pd.DataFrame(data=new_row)])
         aux_list.append(fee)
 
         account_value_list.append(new_account_value)

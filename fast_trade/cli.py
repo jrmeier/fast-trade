@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import datetime
 import argparse
 import os
+from pprint import pprint
 
 
 def main():
@@ -107,6 +108,10 @@ def main():
     if command == "backtest":
         # match the mods to the kwargs
         strat_obj = open_strat_file(args.strategy)
+
+        if not strat_obj:
+            print("Could not open strategy file: {}".format(args.strategy))
+            sys.exit(1)
         if args.mods:
             mods = {}
             i = 0
@@ -115,8 +120,7 @@ def main():
                 i += 2
 
             strat_obj = {**strat_obj, **mods}
-
-        backtest = run_backtest(strat_obj, ohlcv_path=args.data)
+        backtest = run_backtest(strat_obj, data_path=args.data)
 
         if args.save:
             save(backtest, backtest["backtest"])
@@ -125,6 +129,8 @@ def main():
             create_plot(backtest["df"])
 
             plt.show()
+        print(backtest)
+        pprint(backtest["summary"])
 
     if command == "validate":
         strat_obj = open_strat_file(args.strategy)
@@ -139,7 +145,7 @@ def main():
 
         backtest = validate_backtest(strat_obj)
 
-        print(json.dumps(backtest, indent=2))
+        pprint(backtest)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,43 @@
+{
+    "base_balance": 1000,
+    "chart_period": "1Min",
+    "chart_start": "2022-01-01 18:00:00",
+    "chart_stop": "2022-02-06 18:00:00",
+    "comission": 0.01,
+    "datapoints": [
+        {
+            "args": [
+                30
+            ],
+            "transformer": "sma",
+            "name": "sma_short"
+        },
+        {
+            "args": [
+                90
+            ],
+            "transformer": "sma",
+            "name": "sma_long"
+        }
+    ],
+    "enter": [
+      [
+        "close",
+        ">",
+        "sma_long"
+      ],
+      [
+        "close",
+        ">",
+        "sma_short"
+      ]
+    ],
+    "exit": [
+      [
+        "close",
+        "<",
+        "sma_long"
+      ]
+    ],
+    "exit_on_end": false
+}

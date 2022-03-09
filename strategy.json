@@ -1,8 +1,7 @@
 {
         "any_enter": [],
-	"symbol": "BTCUSDT",
         "any_exit": [],
-        "chart_period": "1Min",
+        "chart_period": "15Min",
         "comission": 0,
         "datapoints": [
           {

@@ -4,17 +4,36 @@ import os
 import datetime
 import pandas as pd
 import matplotlib.pyplot as plt
+import requests
+import re
+
+
+class MissingStrategyFile(Exception):
+    pass
 
 
 def open_strat_file(fp):
+    reg = r"https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)"
 
+    is_url = re.search(reg, fp)
+    if is_url:
+        # url
+        req = requests.get(fp)
+        if req.status_code in [200, 201, 202, 301]:
+            return req.json()
+        else:
+            raise MissingStrategyFile(
+                "Could not open strategy file at url: {}".format(fp)
+            )
+
+    strat_obj = {}
     try:
         with open(fp, "r") as json_file:
-            backtest = json.load(json_file)
+            strat_obj = json.load(json_file)
+            return strat_obj
 
-        return backtest
-    except Exception as e:
-        print("error: ", e)
+    except FileNotFoundError:
+        raise MissingStrategyFile("Could not open strategy file at path: {}".format(fp))
 
 
 def create_plot(df):

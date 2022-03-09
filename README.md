@@ -7,23 +7,14 @@
 
 A library built with backtest portability and performance in mind for backtest trading strategies. There is also a [DataDownloader](#DataDownloader), which can be used to download compatible kline data from Binance (.com or .us)
 
+## Motivations
+
+Strategies are cheap. This is the main motivation behind fast-trade. Since a backtest is just a JSON object, strategies can be created, stored, modified, versioned, and re-run easily. Ideally, a backtest could be generated and tested quickly; fast-trade is just the library to handle that.
+Fast Trade is also useful for quickly analyzing chart (`ohlcv`) data and downloading it.
+
 ## Beta Testing
 
 I'm using this library to build a platform (live data, charting, paper trading, etc.) and I'm looking for beta testers. If you like this library, send me an email at fasttrade@jedm.dev.
-
-## Install
-
-```bash
-pip install fast-trade
-```
-
-Or
-
-```bash
-python -m venv .fast_trade
-source .fast_trade/bin/activate
-pip install -r requirements.txt
-```
 
 ## Contributing
 
@@ -46,65 +37,26 @@ coverage run -m pytest
 coverage report -m
 ```
 
-## Motivations
+## Install
 
-Strategies are cheap. This is the main motivation behind fast-trade. Since a backtest is just a JSON object, strategies can be created, stored, modified, versioned, and re-run easily. Ideally, a backtest could be generated and tested quickly; fast-trade is just the library to handle that.
-Fast Trade is also useful for quickly analyzing chart (`ohlcv`) data and downloading it.
-
-## Transfomers (Technical Indicators)
-
-Available transformer functions are from [FinTA](https://github.com/peerchemist/finta)
-
-Custom datapoints can be added by setting a function name in the [datapoints](/fast_trade/transformers_map.py), then setting that equal to a function that takes in a dataframe as the first argument and whatever arguments passed in.
-
-Note:
-  
-If a transfomer function returns multiple series, fast-trade will name concate the name of the series with the name of the transfomer function. 
-
-Example:
-
-The `bbands` function returns two series, one for the upper band and one for the lower band. The name of the series will be `bbands_upper` and `bbands_lower`.
-
-`bbands` returns 3 columns `upper_bb, middle_band, lower_bb`
-
-
-## Data
-
-[DataDownloader](#DataDownloader) for those details.
-
-I use minute kline data, but end-of-day data can be used as well. If you set a lower `chart_period` than the actual data frequency, fast-trade will throw an `Exception`.
-
-Datafiles are expected but come with `ohlcv` candlestick minute data in a csv file, but will not work as expected. Please open an issue if this is a problem for you.
-
-Example file format
-
-```csv
-date,close,open,high,low,volume
-1575150241610,7525.50000000,7699.25000000,7810.00000000,7441.00000000,46477.74085300
-1575150301160,7529.99000000,7693.41000000,7810.00000000,7441.00000000,46475.81690400
-1575150361151,7528.93000000,7693.12000000,7810.00000000,7441.00000000,46473.78656500
-1575150421124,7532.01000000,7696.08000000,7810.00000000,7441.00000000,46466.46236100
-1575150481623,7530.04000000,7710.00000000,7810.00000000,7441.00000000,46455.85758200
-1575150541200,7532.07000000,7720.16000000,7810.00000000,7441.00000000,46448.47469000
-1575150601026,7533.69000000,7723.27000000,7810.00000000,7441.00000000,46432.03855300
-1575150661595,7533.06000000,7714.92000000,7810.00000000,7441.00000000,46407.97286100
-1575150721337,7529.04000000,7708.14000000,7810.00000000,7441.00000000,46409.79564500
+```bash
+pip install fast-trade
 ```
-
-A dataframe can also be passed to `run_backtest(...)` function such as `run_backtest(backtest, df=<your data frame>)`.
 
 ## Usage
 
-Example Backtest
+See [sma_strategy.json](./sma_strategy.json) and [strategy.json](./strategy.json) for an example strategy.
+
+Example backtest script
 
 ```python
 from fast_trade import run_backtest, validate_backtest
 
 {
     "base_balance": 1000, # start with a balance of 1000
-    "chart_period": "5T", # time period selected on the chard
-    "chart_start": "2020-08-30 18:00:00", # when to start the chart
-    "chart_stop": "2020-09-06 16:39:00", # when to stop the chart
+    "chart_period": "5Min", # time period selected on the chard
+    "chart_start": "2021-08-30 18:00:00", # when to start the chart
+    "chart_stop": "2021-09-06 16:39:00", # when to stop the chart
     "comission": 0.01, # a comission to pay per transaction 
     "datapoints": [ # describes the data to use in the logic
         {
@@ -159,62 +111,45 @@ trade_log_df = result["trade_df"]
 
 print(summary)
 print(df.head())
-```
-
 ## CLI
 
-You can also use the package from the command line.
+You can also use the package from the command line. Each command's specific help feature can be viewed by running `ft <command> -h`.
 
-`ft help`
+List the commands and their help.
+`ft -h`
 
 ### Basic usage
 
-Validate a backtest
+This will download the last month of data for BTCUSD from binance.us and store in a `archive/` directory.
 
-`ft validate --backtest=./example_backtest.json`
+`ft download BTCUD --exchange binance.us`
 
-```json
-{
-  "base_balance": null,
-  "chart_period": null,
-  "chart_start": null,
-  "chart_stop": null,
-  "comission": null,
-  "datapoints": null,
-  "enter": {
-    "error": true,
-    "msgs": [
-      "Datapoint \"closes\" referenced in enter logic not found in datapoints. Check datapoints and logic."
-    ]
-  },
-  "exit": null,
-  "any_enter": null,
-  "any_exit": null,
-  "trailing_stop_loss": null,
-  "exit_on_end": null
-}
-```
+This will backtest a file with a strategy. By default, it will only show a summary of the backtest. However, if you want to save the results, add the `--save` flag and it will go the `saved_backtests/` directory.
 
-Using a custom file
+`ft backtest ./strategy.json ./archive/BTCUSD_2022.csv`
 
-`ft backtest --data=./BTCUSDT.csv --backtest=./example_backtest.json`
+You can also pass in url instead of files.
 
-Using an archive item managed by the DataDownloader. Just pass in the symbol instead of the path.
+`ft backtest https://raw.githubusercontent.com/jrmeier/fast-trade/master/strategy.json ./archive/BTCUSD_2022.csv`
 
-`ft backtest --data=BTCUSDT --backtest=./example_backtest.json`
+`ft backtest strategy.json https://example.com/BTCUSDT_2022.csv`
+
+You can validate a backtest before you run it. This doesn't help with the data, but does help with the logic.
+`ft validate stategy.json`
+
+### Backteset Modifiers
 
 Modifying the `chart_period`
 
-`ft backtest --data=./datafile.csv --backtest=./backtest.json --mods chart_period 1h`
+`ft backtest ./strategy.json ./archive/BTCUSD_2022.csv --mods chart_period 1H`
+
+Modifying the `chart_period` and the `trailing_stop_loss`
+
+`ft backtest ./strategy.json ./archive/BTCUSD_2022.csv --mods chart_period 1H trailing_stop_loss .05`
 
 Saving a test result
 This generates creates the `saved_backtest` directory (if it doesn't exist), then inside of there, is another directory with a timestamp, with a chart, the backtest file, the summary, and the raw dataframe as a csv.
-
-`ft backtest --data=./datafile.csv --backtest=./backtest.json --save`
-
-Viewing a plot of the result
-
-`ft backtest --data=./datafile.csv --backtest=./backtest.json --plot`
+`ft backtest ./strategy.json ./archive/BTCUSD_2022.csv --save`
 
 ### DataDownloader
 
@@ -246,10 +181,10 @@ downloads according to the defaults
 
 download data for the symbol LTCBTC using the other defaults
 
-`ft download --symbol=LTCBTC`
+`ft download LTCBTC`
 
 download data starting January 2021
-`ft download --start=2021-01-01`
+`ft download LTCBTC --start=2021-01-01`
 
 ## Testing
 
@@ -479,7 +414,7 @@ Logic lookbacks allow you to confirm a signal by checking the last N periods.
 
 ### Datapoints
 
-Datapoints are user defined technical indicators. You can select a defined [transformer](#Transformer) function to apply the technical analysis. They can reference data and calculate the new values to be referenced inside of any of the logics.
+Datapoints are user defined technical indicators. You can select a defined [transformer](##Transformer) function to apply the technical analysis. They can reference data and calculate the new values to be referenced inside of any of the logics.
 
 Simple SMA example
 
@@ -490,3 +425,19 @@ Simple SMA example
          "args": [20], # arguments to pass to the function, for multiple args, add a "," behind each
       }
 ```
+
+## Transfomers (Technical Indicators)
+
+Available transformer functions are from [FinTA](https://github.com/peerchemist/finta)
+
+Custom datapoints can be added by setting a function name in the [datapoints](/fast_trade/transformers_map.py), then setting that equal to a function that takes in a dataframe as the first argument and whatever arguments passed in.
+
+Note:
+  
+If a transfomer function returns multiple series, fast-trade will name concate the name of the series with the name of the transfomer function.
+
+Example:
+
+The `bbands` function returns two series, one for the upper band and one for the lower band. The name of the series will be `bbands_upper` and `bbands_lower`.
+
+`bbands` returns 3 columns `upper_bb, middle_band, lower_bb`

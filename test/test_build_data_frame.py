@@ -29,9 +29,9 @@ def test_detect_time_unit_ms():
 
 
 def test_load_basic_df_from_csv_str_1():
-    mock_ohlcv_path = "./test/ohlcv_data.csv.txt"
+    mock_data_path = "./test/ohlcv_data.csv.txt"
 
-    result_df = load_basic_df_from_csv(mock_ohlcv_path)
+    result_df = load_basic_df_from_csv(mock_data_path)
     header = list(result_df.head())
     assert "close" in header
     assert "open" in header
@@ -43,9 +43,9 @@ def test_load_basic_df_from_csv_str_1():
 
 
 def test_load_basic_df_from_csv_list_1():
-    mock_ohlcv_path = "./test/ohlcv_data.csv.txt"
+    mock_data_path = "./test/ohlcv_data.csv.txt"
 
-    result_df = load_basic_df_from_csv(mock_ohlcv_path)
+    result_df = load_basic_df_from_csv(mock_data_path)
 
     expected_line = [0.01404, 0.01, 0.025, 0.01, 3117.0]
 
@@ -53,10 +53,10 @@ def test_load_basic_df_from_csv_list_1():
 
 
 def test_load_basic_df_from_csv_str_error_1():
-    mock_ohlcv_path = "./test/SomeFakeNews.csv.txt"
+    mock_data_path = "./test/SomeFakeNews.csv.txt"
 
     with pytest.raises(Exception, match=r"File not found:*"):
-        load_basic_df_from_csv(mock_ohlcv_path)
+        load_basic_df_from_csv(mock_data_path)
 
 
 def test_apply_transformers_to_dataframe_1_ind():
