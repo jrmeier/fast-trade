@@ -127,7 +127,7 @@ List the commands and their help.
 
 This will download the last month of data for BTCUSD from binance.us and store in a `archive/` directory.
 
-`ft download BTCUD --exchange binance.us`
+`ft download BTCUSD --exchange binance.us`
 
 This will backtest a file with a strategy. By default, it will only show a summary of the backtest. However, if you want to save the results, add the `--save` flag and it will go the `saved_backtests/` directory.
 
