@@ -337,7 +337,12 @@ def get_historical_klines_binance(symbol, start_date, end_date, exchange="binanc
         endTime = int(next_end_date.timestamp()) * 1000
 
         url = f"{base_url}/klines?symbol={symbol}&interval=1m&startTime={startTime}&endTime={endTime}&limit=1000"
-        data = requests.get(url).json()
+        req = requests.get(url).json()
+        if req.status_code == 200:
+            data = req.json()
+        else:
+            print("error getting klines", req.status_code, req.text)
+            data = []
         klines.extend(data)
 
         total_api_calls += 1
