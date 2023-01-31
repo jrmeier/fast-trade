@@ -178,7 +178,7 @@ def update_archive_csv_by_df(archive_csv_filename, new_df):
     rows_to_write = [process_row(row) for row in combined_df.itertuples()]
 
     # write the new rows to a CSV
-    with open(archive_csv_path, "w") as archive_file:
+    with open(archive_csv_path, "w", newline='') as archive_file:
         writer = csv.writer(archive_file)
         writer.writerow(CSV_HEADER)
         writer.writerows(rows_to_write)
@@ -337,7 +337,7 @@ def get_historical_klines_binance(symbol, start_date, end_date, exchange="binanc
         endTime = int(next_end_date.timestamp()) * 1000
 
         url = f"{base_url}/klines?symbol={symbol}&interval=1m&startTime={startTime}&endTime={endTime}&limit=1000"
-        req = requests.get(url).json()
+        req = requests.get(url)
         if req.status_code == 200:
             data = req.json()
         else:
