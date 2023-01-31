@@ -7,7 +7,7 @@ README = (HERE / "README.md").read_text()
 
 setup(
     name="fast-trade",
-    version="0.4.0",
+    version="0.4.1",
     description="About low code backtesting library utilizing pandas and technical analysis indicators",
     long_description=README,
     long_description_content_type="text/markdown",
@@ -29,7 +29,6 @@ setup(
     python_requires=">=3",
     entry_points={"console_scripts": ["ft = fast_trade.cli:main"]},
     classifiers=[
-        "Development Status :: 4 - Beta",
         "Intended Audience :: Financial and Insurance Industry",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
