@@ -48,7 +48,6 @@ import requests  # requires python-binance, not included in fast-trade package
 # tmp_start_date = '2017-01-01' # the date which it start asking for the data you want
 
 # START_DATE = int(datetime.datetime.fromisoformat(tmp_start_date).timestamp())
-# EXCHANGE = "binance.com"  # binance.com or binance.us
 
 default_end_date = datetime.datetime.utcnow()
 default_start_date = default_end_date - datetime.timedelta(days=30)  # by default is the last
@@ -66,8 +65,6 @@ def update_symbol_data(
     global START_DATE
     START_DATE = int(datetime.datetime.fromisoformat(start_date).timestamp())
 
-    global EXCHANGE
-    EXCHANGE = exchange  # binance.com or binance.us
     update_symbol_meta(symbol)
     meta_obj = get_symbol_meta_obj(symbol)
     last_date = meta_obj.get("last_date")
@@ -318,8 +315,8 @@ def load_historical_klines_as_df(symbol, start_date, end_date):
     return klines_df
 
 
-def get_historical_klines_binance(symbol, start_date, end_date, EXCHANGE="us"):
-    if EXCHANGE == "us":
+def get_historical_klines_binance(symbol, start_date, end_date, exchange="binance.us"):
+    if exchange == "binance.us":
         tld = "us"
     else:
         tld = "com"
