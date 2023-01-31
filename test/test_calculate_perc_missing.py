@@ -1,7 +1,6 @@
 from datetime import datetime
 import pandas as pd
 import numpy as np
-from pandas.core.base import DataError
 from fast_trade.calculate_perc_missing import calculate_perc_missing
 
 
