@@ -47,7 +47,7 @@ def load_basic_df_from_csv(csv_path: str):
     return df
 
 
-def prepare_df(df: pd.DataFrame, backtest: dict):
+def prepare_df(df: pd.DataFrame, backtest: dict, limit: int = -1):
     """Prepares the provided dataframe for a backtest by applying the datapoints and splicing based on the given backtest.
         Useful when loading an existing dataframe (ex. from a cache).
 
@@ -55,6 +55,7 @@ def prepare_df(df: pd.DataFrame, backtest: dict):
     ----------
         df: DataFrame, should have all the open, high, low, close, volume data set as headers and indexed by date
         backtest: dict, provides instructions on how to build the dataframe
+        limit: int, row count of to backtest Default:-1 which is use all data
 
     Returns
     ------
@@ -74,13 +75,13 @@ def prepare_df(df: pd.DataFrame, backtest: dict):
 
     start_time = backtest.get("start")
     stop_time = backtest.get("stop")
-    df = apply_charting_to_df(df, chart_period, start_time, stop_time)
+    df = apply_charting_to_df(df, chart_period, start_time, stop_time, limit)
 
     return df
 
 
 def apply_charting_to_df(
-    df: pd.DataFrame, chart_period: str, start_time: str, stop_time: str
+    df: pd.DataFrame, chart_period: str, start_time: str, stop_time: str, limit: int = -1
 ):
     """Modifies the dataframe based on the chart_period, start dates and end dates
     Parameters
@@ -90,6 +91,7 @@ def apply_charting_to_df(
             see https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#dateoffset-objects
         start_time: datestring in YYYY-MM-DD HH:MM (ex. 2020-08-31 04:00) of when to begin the backtest
         stop_time: datestring of YYYY-MM-DD HH:MM when to stop the backtest
+        limit: int, row count of to backtest Default:-1 which is use all data
     Returns
         DataFrame, a sorted dataframe ready for consumption by run_backtest
     """
@@ -124,6 +126,9 @@ def apply_charting_to_df(
         df = df[start_time:]  # noqa
     elif not start_time and stop_time:
         df = df[:stop_time]
+        
+    if limit > 0:
+        df = df.iloc[:limit]
 
     return df
 

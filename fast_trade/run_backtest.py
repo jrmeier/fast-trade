@@ -15,13 +15,14 @@ class MissingData(Exception):
 
 
 def run_backtest(
-    backtest: dict, data_path: str = "", df: pd.DataFrame = None, summary=True
+    backtest: dict, data_path: str = "", df: pd.DataFrame = None, summary=True, limit: int = -1
 ):
     """
     Parameters
         backtest: dict, required, object containing the logic to test and other details
         data_path: string or list, required, where to find the csv file of the ohlcv data
         df: pandas dataframe indexed by date
+        limit: int, row count of to backtest Default:-1 which is use all data
     Returns
         dict
             summary dict, summary of the performace of backtest
@@ -39,7 +40,7 @@ def run_backtest(
         if is_url:
             # url
             df = pd.read_csv(data_path)
-            df = prepare_df(df, new_backtest)
+            df = prepare_df(df, new_backtest, limit)
         else:
             df = build_data_frame(new_backtest, data_path)
 
