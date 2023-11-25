@@ -129,7 +129,7 @@ def main():
             create_plot(backtest["df"])
 
             plt.show()
-        print(backtest)
+        pprint(backtest)
         pprint(backtest["summary"])
 
     if command == "validate":

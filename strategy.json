@@ -1,37 +1,30 @@
 {
         "any_enter": [],
         "any_exit": [],
-        "chart_period": "15Min",
+        "chart_period": "16h",
         "comission": 0,
         "datapoints": [
           {
             "args": [
-              9
+              2
             ],
-            "name": "zlema",
-            "transformer": "zlema"
-          },
-          {
-            "args": [
-              99
-            ],
-            "name": "zlema_1",
-            "transformer": "zlema"
+            "name": "roc",
+            "transformer": "roc"
           }
         ],
         "enter": [
           [
-            "zlema",
+            "roc",
             ">",
-            "close",
-            2
+            2,
+            1
           ]
         ],
         "exit": [
           [
-            "zlema_1",
+            "roc",
             "<",
-            "close",
+            0,
             1
           ]
         ],

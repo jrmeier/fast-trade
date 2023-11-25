@@ -2,8 +2,6 @@ import datetime
 import pandas as pd
 import re
 import itertools
-import requests
-import json
 
 from .build_data_frame import build_data_frame, prepare_df
 from .run_analysis import apply_logic_to_df

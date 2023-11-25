@@ -14,3 +14,5 @@ saved_backtests/*
 gi_*
 .pypirc
 archive/
+.fast-trade/*
+*.db
