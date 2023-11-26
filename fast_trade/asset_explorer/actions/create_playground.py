@@ -1,6 +1,5 @@
 import datetime
 import os
-import json
 import pandas as pd
 import sqlite3
 from pprint import pprint
@@ -35,6 +34,7 @@ def create_playgroud(name: str = None, symbols: list = None, start: datetime = N
         "start": start.isoformat(),
         "end": end.isoformat(),
     }
+
     playgrounds_path = f"{os.getcwd()}/playgrounds"
     if not os.path.exists(playgrounds_path):
         os.mkdir(playgrounds_path)

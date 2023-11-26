@@ -6,8 +6,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import requests
 import re
-
-
+import sys
+from pprint import pprint
+from .validate_backtest import validate_backtest
 class MissingStrategyFile(Exception):
     pass
 
@@ -81,3 +82,45 @@ def save(result, strat_obj):
     create_plot(result["df"])
 
     plt.savefig(f"{new_save_dir}/plot.png")
+
+def run_backtest_helper(args):
+    strat_obj = open_strat_file(args.strategy)
+
+    if not strat_obj:
+        print("Could not open strategy file: {}".format(args.strategy))
+        sys.exit(1)
+    if args.mods:
+        mods = {}
+        i = 0
+        while i < len(args.mods):
+            mods[args.mods[i]] = args.mods[i + 1]
+            i += 2
+
+        strat_obj = {**strat_obj, **mods}
+    backtest = run_backtest(strat_obj, data_path=args.data)
+
+    if args.save:
+        save(backtest, backtest["backtest"])
+
+    if args.plot:
+        create_plot(backtest["df"])
+
+        plt.show()
+    pprint(backtest)
+    pprint(backtest["summary"])
+
+
+def validate_helper(args):
+    strat_obj = open_strat_file(args.strategy)
+    if args.mods:
+        mods = {}
+        i = 0
+        while i < len(args.mods):
+            mods[args.mods[i]] = args.mods[i + 1]
+            i += 2
+
+        strat_obj = {**strat_obj, **mods}
+
+    backtest = validate_backtest(strat_obj)
+
+    pprint(backtest)

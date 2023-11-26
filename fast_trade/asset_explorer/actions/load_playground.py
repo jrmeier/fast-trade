@@ -5,6 +5,13 @@ import datetime
 from fast_trade.asset_explorer.cb_api import get_product_candles, store_df_to_sql
 
 
+def get_playgrounds():
+    playground_path = os.path.join(os.getcwd(), "playgrounds")
+    playgrounds = os.listdir(playground_path)
+    playgrounds = [p.split(".")[0] for p in playgrounds if p.endswith(".db")]
+    return playgrounds
+
+
 def load_playground(name: str):
 
     playground_path = os.path.join(os.getcwd(), "playgrounds", f"{name}.db")
@@ -15,8 +22,6 @@ def load_playground(name: str):
 
     table_names = pd.read_sql("SELECT name FROM sqlite_master WHERE type='table'", conn)
     table_names = table_names.name.tolist()
-
-    print(table_names)
 
     return table_names
 
@@ -48,6 +53,13 @@ def update_playground(playground_name: str):
         print("curr_date: ", curr_date)
         data = get_product_candles(symbol, start=max_date, end=curr_date)
         store_df_to_sql(data, table_name, conn)
+
+
+def get_playground_metadata(playground_name: str):
+    playground_path = os.path.join(os.getcwd(), "playgrounds")
+    conn = sqlite3.connect(os.path.join(playground_path, f"{playground_name}.db"))
+    metadata = pd.read_sql("SELECT * FROM metadata", conn)
+    return metadata
 
 
 if __name__ == "__main__":

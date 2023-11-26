@@ -6,6 +6,8 @@ from .cli_helpers import (
     open_strat_file,
     save,
     create_plot,
+    run_backtest_helper,
+    validate_helper
 )
 from fast_trade.update_symbol_data import update_symbol_data
 from .run_backtest import run_backtest
@@ -14,7 +16,9 @@ import datetime
 import argparse
 import os
 from pprint import pprint
-
+from .asset_explorer.actions.create_playground import create_playgroud
+from .asset_explorer.actions.load_playground import load_playground
+from .gui import start_playground
 
 def main():
     parser = argparse.ArgumentParser(
@@ -23,6 +27,7 @@ def main():
     )
 
     sub_parsers = parser.add_subparsers()
+
 
     # build the argement parser downloading stuff
     default_archive_path = os.path.join(os.getcwd(), "archive")
@@ -97,55 +102,30 @@ def main():
         "--mods", help="Modifiers for strategy/backtest", nargs="*"
     )
 
+    playground_parser = sub_parsers.add_parser(
+        "playground", help="create a playground"
+    )
+
+
     args = parser.parse_args()
     command = sys.argv[1]
 
-    if command == "download":
-        update_symbol_data(
-            args.symbol, args.start, args.end, args.archive, args.exchange
-        )
+    commandMap = {
+        "download": update_symbol_data,
+        "backtest": run_backtest_helper,
+        "validate": validate_helper,
+        "create_playground": create_playgroud,
+        "playground": start_playground
 
-    if command == "backtest":
-        # match the mods to the kwargs
-        strat_obj = open_strat_file(args.strategy)
 
-        if not strat_obj:
-            print("Could not open strategy file: {}".format(args.strategy))
-            sys.exit(1)
-        if args.mods:
-            mods = {}
-            i = 0
-            while i < len(args.mods):
-                mods[args.mods[i]] = args.mods[i + 1]
-                i += 2
+    }
 
-            strat_obj = {**strat_obj, **mods}
-        backtest = run_backtest(strat_obj, data_path=args.data)
+    if command in commandMap:
+        commandMap[command](args)
+    else:
+        raise Exception(f"Command {command} not found.")
+    
 
-        if args.save:
-            save(backtest, backtest["backtest"])
-
-        if args.plot:
-            create_plot(backtest["df"])
-
-            plt.show()
-        pprint(backtest)
-        pprint(backtest["summary"])
-
-    if command == "validate":
-        strat_obj = open_strat_file(args.strategy)
-        if args.mods:
-            mods = {}
-            i = 0
-            while i < len(args.mods):
-                mods[args.mods[i]] = args.mods[i + 1]
-                i += 2
-
-            strat_obj = {**strat_obj, **mods}
-
-        backtest = validate_backtest(strat_obj)
-
-        pprint(backtest)
 
 
 if __name__ == "__main__":
