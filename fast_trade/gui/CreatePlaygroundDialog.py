@@ -2,7 +2,7 @@ from PyQt5.QtWidgets import (
     QVBoxLayout, QLabel, QPushButton, QDialog, QLineEdit, QListWidget, QDateTimeEdit,
 )
 from PyQt5.QtCore import QDateTime, QThread
-from fast_trade.asset_explorer.actions.create_playground import create_playgroud
+from fast_trade.asset_explorer.actions.create_playground import create_playground
 from fast_trade.asset_explorer.cb_api import get_asset_ids
 import datetime
 from .CreatePlaygroundWorker import CreatePlaygroundWorker
@@ -31,10 +31,10 @@ class CreatePlaygroundDialog(QDialog):
         # add a box for selecting symbols
         self.symbolBox = QListWidget(self)
         self.label = QLabel("Select symbols to include in the playground", self)
-        
+        self.statusLabel = QLabel("Status: ", self)
         layout.addWidget(self.label)
         layout.addWidget(self.symbolBox)
-    
+
         symbols = get_asset_ids()
 
         self.symbolBox.addItems(symbols)
@@ -76,15 +76,19 @@ class CreatePlaygroundDialog(QDialog):
     def on_ok(self):
         # You can handle the input here
         name = self.lineEdit.text()
-        # print(f"You entered: {input_text}")
+        if not name:
+            print("name is required")
+            return
+        if not self.symbolBox.selectedItems():
+            print("symbols are required")
+            return
+        
         selectedItems = [item.text() for item in self.symbolBox.selectedItems()]
 
         start = self.start_date.dateTime().toPyDateTime()
-        self.process()
+        stop = datetime.datetime.utcnow()
+        self.process(name, selectedItems, start, stop)
         self.accept()
-        # create_playgroud(name=name, symbols=selectedItems, start=start, end=datetime.datetime.utcnow())
-
-
 
     def on_selection_changed(self):
         selectedItems = [item.text() for item in self.symbolBox.selectedItems()]

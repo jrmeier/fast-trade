@@ -16,7 +16,7 @@ import datetime
 import argparse
 import os
 from pprint import pprint
-from .asset_explorer.actions.create_playground import create_playgroud
+from .asset_explorer.actions.create_playground import create_playground
 from .asset_explorer.actions.load_playground import load_playground
 from .gui import start_playground
 
@@ -114,7 +114,7 @@ def main():
         "download": update_symbol_data,
         "backtest": run_backtest_helper,
         "validate": validate_helper,
-        "create_playground": create_playgroud,
+        "create_playground": create_playground,
         "playground": start_playground
 
 

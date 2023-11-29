@@ -23,7 +23,8 @@ def get_asset_ids():
 def get_product_candles(product_id: str,
                         start: datetime = datetime.datetime.utcnow() - datetime.timedelta(hours=3),
                         end: datetime = datetime.datetime.utcnow(),
-                        granularity: int = 60
+                        granularity: int = 60,
+                        update_status: callable = lambda x: None
                         ):
     """Returns the candle data for a given product"""
 
@@ -45,10 +46,12 @@ def get_product_candles(product_id: str,
             "start": int(currentDate.timestamp()),
             "end": int((currentDate + datetime.timedelta(hours=3)).timestamp()),
         }
-        print(params)
         # os.system("clear")
-        perc_complete = call_count / num_calls * 100
-        print(f"Fetching data for {product_id}... {perc_complete:.2f}% complete")
+        perc_complete = round(call_count / num_calls * 100, 2)
+        # print(f"Fetching data for {product_id}... {perc_complete:.2f}% complete")
+
+        # update_status({"prodcuproduct_id, perc_complete, call_count, num_calls})
+        update_status({"product_id": product_id, "perc_complete": perc_complete, "call_count": call_count, "num_calls": num_calls})
 
         # print("fetching: ", currentDate, "to", currentDate + datetime.timedelta(hours=3), "for", product_id)
         try:
