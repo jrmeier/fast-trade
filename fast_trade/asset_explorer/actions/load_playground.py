@@ -9,6 +9,9 @@ def get_playgrounds():
     playground_path = os.path.join(os.getcwd(), "playgrounds")
     playgrounds = os.listdir(playground_path)
     playgrounds = [p.split(".")[0] for p in playgrounds if p.endswith(".db")]
+    # remove the settings file
+    playgrounds = [p for p in playgrounds if p != "settings"]
+
     return playgrounds
 
 
@@ -58,8 +61,29 @@ def update_playground(playground_name: str):
 def get_playground_metadata(playground_name: str):
     playground_path = os.path.join(os.getcwd(), "playgrounds")
     conn = sqlite3.connect(os.path.join(playground_path, f"{playground_name}.db"))
-    metadata = pd.read_sql("SELECT * FROM metadata", conn)
-    return metadata
+    # metadata = pd.read_sql("SELECT * FROM metadata", conn)
+    metadata = conn.execute("SELECT * FROM metadata").fetchall()
+    # print("metadata: ", metadata)
+    meta_dict = {}
+    for row in metadata:
+        meta_dict[row[0]] = row[1]
+    return {
+        "name": meta_dict['name'],
+        "symbols": meta_dict['symbols'].split(","),
+        "created_at": meta_dict['created_at'],
+        "start": meta_dict['start'],
+        "end": meta_dict['end'],
+    }
+    # as_dict = metadata.to_dict()
+    # print("as_dict: ", as_dict)
+    # return {
+    #     "name": as_dict['index']['name'],
+    #     "symbols": as_dict['index']['symbols'].split(","),
+    #     "created_at": as_dict['index']['created_at'],
+    #     "start": as_dict['index']['start'],
+    #     "end": as_dict['index']['end'],
+    # }
+    # return metadata.to_dict()['index']
 
 
 if __name__ == "__main__":

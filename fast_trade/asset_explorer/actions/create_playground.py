@@ -29,16 +29,17 @@ def create_playground(name: str = None, symbols: list = None, start: datetime = 
 
     playground = {
         "name": name,
-        "symbols": symbols,
+        "symbols": ",".join(symbols),
         "created_at": datetime.datetime.utcnow().isoformat(),
         "start": start.isoformat(),
         "end": end.isoformat(),
     }
-
+    print("playground: ", playground)
     # store the playgound metadatda in the db
     playgrounds_path = f"{os.getcwd()}/playgrounds"
     conn = sqlite3.connect(os.path.join(playgrounds_path, f"{name}.db"))
-    playground_df = pd.DataFrame.from_dict(playground)
+    playground_df = pd.DataFrame.from_dict(playground, orient="index")
+    # playground_df = playground_df.set_index("name")
     playground_df.to_sql("metadata", conn, if_exists="replace")
 
     if not os.path.exists(playgrounds_path):
