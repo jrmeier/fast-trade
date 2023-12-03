@@ -38,9 +38,11 @@ def create_playground(name: str = None, symbols: list = None, start: datetime = 
     # store the playgound metadatda in the db
     playgrounds_path = f"{os.getcwd()}/playgrounds"
     conn = sqlite3.connect(os.path.join(playgrounds_path, f"{name}.db"))
-    playground_df = pd.DataFrame.from_dict(playground, orient="index")
-    # playground_df = playground_df.set_index("name")
-    playground_df.to_sql("metadata", conn, if_exists="replace")
+
+    # create the metadata table
+    conn.execute("CREATE TABLE IF NOT EXISTS metadata (name, symbols, created_at, start, end)")
+    conn.execute("INSERT INTO metadata VALUES (?, ?, ?, ?, ?)", (name, playground["symbols"], playground["created_at"], playground["start"], playground["end"]))
+    conn.commit()
 
     if not os.path.exists(playgrounds_path):
         os.mkdir(playgrounds_path)

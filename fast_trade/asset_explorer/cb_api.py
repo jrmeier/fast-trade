@@ -7,12 +7,21 @@ import random
 import pandas as pd
 import os
 
-BASE_URL = "https://api.pro.coinbase.com"
+BASE_URL = "https://api.exchange.coinbase.com"
 
 
 def get_products():
     """Returns a list of all tradable assets on Coinbase Pro"""
-    return requests.get(f"{BASE_URL}/products").json()
+    try:
+        res = requests.get(f"{BASE_URL}/products")
+        if res.status_code > 399:
+            print("unauthorized")
+            return []
+        return res.json()
+    except Exception as e:
+        print(e.status_code)
+        print("Error fetching products: e")
+        return []
 
 
 def get_asset_ids():
@@ -27,9 +36,14 @@ def get_product_candles(product_id: str,
                         update_status: callable = lambda x: None
                         ):
     """Returns the candle data for a given product"""
-
-    end = end or datetime.datetime.utcnow().isoformat()
-    start = start or (datetime.datetime.utcnow() - datetime.timedelta(hours=3)).isoformat()
+    # can't be more than 1 hour in the past
+    end = end or datetime.datetime.utcnow()
+    start = start or (end - datetime.timedelta(hours=3))
+    start = start.replace(tzinfo=datetime.timezone.utc)
+    end = end.replace(tzinfo=datetime.timezone.utc)
+    
+    print("start: ", start)
+    print("end: ", end)
     # while datetime.datetime.fromisoformat(
     currentDate = start
     df = pd.DataFrame()
@@ -41,10 +55,16 @@ def get_product_candles(product_id: str,
     call_count = 0
     while currentDate < end:
         # print("currentDate: ", currentDate)
+        next_end = currentDate + datetime.timedelta(hours=3)
+        if next_end > end:
+            next_end = end - datetime.timedelta(minutes=1)
+
+        if currentDate > next_end:
+            break
         params = {
-            "granulatiry": granularity,
-            "start": int(currentDate.timestamp()),
-            "end": int((currentDate + datetime.timedelta(hours=3)).timestamp()),
+            "granularity": 60,
+            "start": str(int(currentDate.timestamp())),
+            "end": str(int(next_end.timestamp())),
         }
         # os.system("clear")
         perc_complete = round(call_count / num_calls * 100, 2)
@@ -53,9 +73,18 @@ def get_product_candles(product_id: str,
         # update_status({"prodcuproduct_id, perc_complete, call_count, num_calls})
         update_status({"product_id": product_id, "perc_complete": perc_complete, "call_count": call_count, "num_calls": num_calls})
 
+        # https://api.coinbase.com/api/v3/brokerage/products/:product_id/candles
         # print("fetching: ", currentDate, "to", currentDate + datetime.timedelta(hours=3), "for", product_id)
+        url = f"{BASE_URL}/products/{product_id}/candles"
+        headers = {
+            "Content-Type": "application/json"
+        }
         try:
-            res = requests.get(url=f"{BASE_URL}/products/{product_id}/candles", params=params).json()
+            res = requests.get(url, params=params, headers=headers)
+            if res.status_code > 399:
+                print(res.text)
+                raise Exception(res)
+            res = res.json()
             call_count += 1
             new_df = df_from_candles(res)
             df = pd.concat([df, new_df])
@@ -63,9 +92,10 @@ def get_product_candles(product_id: str,
             time.sleep(random.random() * 0.5 + 0.2)
         except Exception as e:
             print("error", e)
+            raise e
             continue
         currentDate = currentDate + datetime.timedelta(hours=3)
-
+    df.sort_index(inplace=True, ascending=False)
     return df
 
 
@@ -97,9 +127,20 @@ def store_df_to_sql(df, table_name, conn):
 
 if __name__ == "__main__":
     # print(json.dumps(res, indent=4))
-    start = datetime.datetime.fromisoformat("2023-11-02")
-    res = get_product_candles("BTC-USD", start=start)
+    start = datetime.datetime.fromisoformat("2023-12-02T19:00:00")
+    end = datetime.datetime.fromisoformat("2023-12-02T20:40:00")
+    print(start.tzinfo)
+    start = start.replace(tzinfo=datetime.timezone.utc)
+    end = end.replace(tzinfo=datetime.timezone.utc)
+    now = datetime.datetime.utcnow()
+
+    # print("start: ", start)
+    # print("end: ", end)
+    # print("now: ", now)
+    res = get_product_candles("BTC-USD", start=start, end=end)
+    # res = get_products()
+    print(res)
 
     # res.to_csv("btc.csv")
-    print(res)
+    # print(res)
     # print(res[0], res[1])

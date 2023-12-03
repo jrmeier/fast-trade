@@ -12,12 +12,13 @@ from fast_trade.asset_explorer.actions.load_playground import get_playgrounds
 from PyQt5.QtWidgets import (
     QVBoxLayout, QLabel, QWidget, QHBoxLayout, QMainWindow, QApplication, QComboBox, QTextEdit, QAction, QStackedWidget
 )
-from PyQt5.QtCore import QThread, QObject, pyqtSignal, pyqtSlot, QTimer
-
+from PyQt5.QtCore import QThread
 from fast_trade.gui.PlaygroundMain import PlaygroundMain
 from .CreatePlaygroundDialog import CreatePlaygroundDialog
 from .CreatePlaygroundWorker import CreatePlaygroundWorker
 from .PlaygroundSettings import PlaygroundSettings
+from .UpdatePlaygroundWorker import UpdatePlaygroundWorker
+
 
 def handle_playground_change(text):
     print("playground changed: ", text)
@@ -58,7 +59,7 @@ def get_settings():
         settings_df = settings_df.append(data, ignore_index=True)
         settings_df.to_sql("settings", conn, if_exists="replace")
 
-        settings = { data[0]["name"]: data[0]["value"], data[1]["name"]: data[1]["value"] }
+        settings = {data[0]["name"]: data[0]["value"], data[1]["name"]: data[1]["value"]}
 
     else:
         conn = sqlite3.connect(settings_db_path)
@@ -67,7 +68,7 @@ def get_settings():
         settings = {}
         for r in res:
             settings[r[2]] = r[1]
-    print("settings: ", settings)
+
     return settings
 
     # return the settings
@@ -111,52 +112,34 @@ class MainWindow(QMainWindow):
         new_pg_action.triggered.connect(self.show_create_playground_dialog)
         fileMenu.addAction(new_pg_action)
 
-        # fileMenu.addAction('Open Playground', lambda: print("open playground"))
         playground_menu = fileMenu.addMenu('Open Playground')
         playgrounds = get_playgrounds()
 
         # for each playground, add an action to open it to the playground menu
         for playground in playgrounds:
-            print("playground: ", playground)
             playground_menu.addAction(playground, lambda p=playground: self.show_playground(p))
-
-        # fileMenu.addAction('Save Playground')
-
-        # fileMenu.addAction('Exit', self.close)
 
         self.statusBar().showMessage('Ready')
 
         self.leftPanel = QVBoxLayout()
 
-        # if self.settings.get('last_playground'):
-        #     self.selected_playground = self.settings.get('last_playground')
-        #     self.setCentralWidget(mainWidget)
-
-        # if self.selected_playground is not None:
-        #     fileMenu.addAction('Close Playground')
-        #     # mainLayout.addLayout(self.leftPanel)
-
-        #     playground_settings = PlaygroundMain(selected_playground=self.selected_playground)
-        #     fileMenu.addAction('Update Playground', lambda: playground_settings.update_playground())
-        #     self.leftPanel.addWidget(playground_settings)
-        #     # rightPanel = QVBoxLayout()
-        #     mainLayout.addLayout(self.leftPanel)
-        #     # mainLayout.addLayout(rightPanel)
-
-        #     mainWidget.setLayout(mainLayout)
-        #     self.setCentralWidget(mainWidget)
-        #     # Window Size
-        #     # set it to a default size proportional to the screen size
-        
-        # self.mainWidget = mainWidget
+        if self.settings.get('last_playground'):
+            self.selected_playground = self.settings.get('last_playground')
+            self.show_playground(self.selected_playground)
 
     def show_playground(self, playground_name):
-        print("show playground: ", playground_name)
-        if self.stackedWidget.count() == 0:
-            self.stackedWidget.addWidget(PlaygroundMain(playground_name))
-        else:
-            self.stackedWidget.setCurrentWidget(self.MainPlayground(playground_name))
-    
+        self.clear_stacked_widgets()  # Clear existing widgets
+        playground_main = PlaygroundMain(playground_name, self.statusBar)
+        self.stackedWidget.addWidget(playground_main)
+        self.stackedWidget.setCurrentWidget(playground_main)
+        self.updateAppSettings({"last_playground": playground_name})
+
+    def clear_stacked_widgets(self):
+        while self.stackedWidget.count():
+            widget_to_remove = self.stackedWidget.widget(0)  # Get the widget
+            self.stackedWidget.removeWidget(widget_to_remove)  # Remove it from stackedWidget
+            widget_to_remove.deleteLater()  # Delete it
+
     def show_create_playground_dialog(self):
         self.dialog = CreatePlaygroundDialog(start_process=self.startCreatePlaygroundProcess).exec_()
         # self.dialog.finished.connect(lambda: self.updatePlaygrounds(self.dialog.select_playgrounds))

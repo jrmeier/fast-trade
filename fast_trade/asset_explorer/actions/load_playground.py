@@ -29,50 +29,108 @@ def load_playground(name: str):
     return table_names
 
 
-def add_symbol_to_playground(playground_name: str,  symbol: str):
+def add_symbol_to_playground(playground_name: str,  symbol: str, update_status: callable = lambda x: None):
     playground_path = os.path.join(os.getcwd(), "playgrounds")
     conn = sqlite3.connect(os.path.join(playground_path, f"{playground_name}.db"))
-    data = get_product_candles(symbol)
-    store_df_to_sql(data, f"{symbol}_ohlcv", conn)
+    meta = get_playground_metadata(playground_name)
+    start = datetime.datetime.fromisoformat(meta['start'])
+    end = datetime.datetime.fromisoformat(meta['end'])
+    data = get_product_candles(symbol, update_status=update_status, start=start, end=end)
+    store_df_to_sql(data, f"{symbol}_candles", conn)
+
+    # update the metadata
+    update_playground_metadata(playground_name)
 
 
-def update_playground(playground_name: str):
+def update_playground_metadata(playground_name: str):
     playground_path = os.path.join(os.getcwd(), "playgrounds")
-    print(playground_path)
     conn = sqlite3.connect(os.path.join(playground_path, f"{playground_name}.db"))
+    # read all file symbols
     table_names = load_playground(playground_name)
 
-    for table_name in table_names:
-        if "_candles" not in table_name:
-            continue
+    # update the metadata
+    curr_date = datetime.datetime.utcnow()
+    res = conn.execute(f"UPDATE metadata SET end='{curr_date.isoformat()}', symbols='{','.join(table_names)}'")
+    conn.commit()
+    print("res: ", res)
+
+
+def update_playground(playground_name: str, update_status: callable = lambda x: None):
+    playground_path = os.path.join(os.getcwd(), "playgrounds")
+    conn = sqlite3.connect(os.path.join(playground_path, f"{playground_name}.db"))
+    table_names = load_playground(playground_name)
+    print("table_names: ", table_names)
+    symbols = [t for t in table_names if "_candles" in t]
+    print("symbols: ", symbols)
+    for table_name in symbols:
         symbol = table_name.split("_")[0]
         # get the latest date for this symbol
         max_sql = f"SELECT MAX(date) FROM `{table_name}`"
         max_date = conn.cursor().execute(max_sql).fetchone()[0]
 
-        print("max_date: ", max_date)
         max_date = datetime.datetime.fromisoformat(max_date)
         curr_date = datetime.datetime.utcnow()
-        print("curr_date: ", curr_date)
-        data = get_product_candles(symbol, start=max_date, end=curr_date)
+        data = get_product_candles(symbol, start=max_date, end=curr_date, update_status=update_status)
         store_df_to_sql(data, table_name, conn)
+    
+    # update the metadata
+    res = conn.execute(f"UPDATE metadata SET end='{curr_date.isoformat()}', symbols='{','.join(symbols)}'")
+    conn.commit()
+    print("res: ", res)
 
+
+def get_candle_data(playground_name: str, symbol: str, start: datetime.datetime, end: datetime.datetime):
+    playground_path = os.path.join(os.getcwd(), "playgrounds")
+    conn = sqlite3.connect(os.path.join(playground_path, f"{playground_name}.db"))
+    table_name = f"{symbol}_candles"
+    data = pd.read_sql(f"`SELECT * FROM `{table_name}` WHERE date BETWEEN '{start}' AND '{end}'`", conn)
+    return data
+
+
+def get_last_candle_data(symbol: str, playground_name: str = None, conn: sqlite3.Connection = None):
+    if conn is None:
+        playground_path = os.path.join(os.getcwd(), "playgrounds")
+        conn = sqlite3.connect(os.path.join(playground_path, f"{playground_name}.db"))
+
+    if symbol.endswith("_candles"):
+        symbol = symbol.split("_")[0]
+    table_name = f"{symbol}_candles"
+    data = pd.read_sql(f"SELECT * FROM `{table_name}` ORDER BY date DESC LIMIT 1", conn)
+
+    ret = {}
+    for row in data:
+        ret[row] = data[row].values[0]
+    return ret
 
 def get_playground_metadata(playground_name: str):
     playground_path = os.path.join(os.getcwd(), "playgrounds")
     conn = sqlite3.connect(os.path.join(playground_path, f"{playground_name}.db"))
     # metadata = pd.read_sql("SELECT * FROM metadata", conn)
-    metadata = conn.execute("SELECT * FROM metadata").fetchall()
-    # print("metadata: ", metadata)
-    meta_dict = {}
-    for row in metadata:
-        meta_dict[row[0]] = row[1]
+    metadata = conn.execute("SELECT name, symbols, created_at, start, end FROM metadata").fetchone()
+    meta_dict = {
+        "name": metadata[0],
+        "symbols": metadata[1],
+        "created_at": metadata[2],
+        "start": metadata[3],
+        "end": metadata[4],
+    }
+
+    # load the symbol metadata
+
+    print("metadata: ", meta_dict)
+    symbols_data = []
+    for symbol in meta_dict['symbols'].split(","):
+        symbol_metadata = get_last_candle_data(symbol, conn=conn)
+        symbol_metadata['symbol'] = symbol
+        symbols_data.append(symbol_metadata)
+
     return {
         "name": meta_dict['name'],
         "symbols": meta_dict['symbols'].split(","),
         "created_at": meta_dict['created_at'],
         "start": meta_dict['start'],
         "end": meta_dict['end'],
+        "symbols_data": symbols_data
     }
     # as_dict = metadata.to_dict()
     # print("as_dict: ", as_dict)
