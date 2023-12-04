@@ -152,7 +152,6 @@ class PlaygroundSettings(QWidget):
 
         for i, symbol in enumerate(self.symbols_data):
             fmt_date = datetime.datetime.fromisoformat(symbol.get('date'))
-
             label_text = f"{symbol.get('symbol')} latest date: {fmt_date.isoformat()} ({human_readable_timedelta(fmt_date)})"
             symbol_label = QLabel(label_text)
             symbols_box_layout.addWidget(symbol_label, i, 0, alignment=Qt.AlignLeft)
