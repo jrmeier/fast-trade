@@ -6,7 +6,7 @@ import os
 import sqlite3
 from matplotlib.pyplot import show
 import pandas as pd
-from fast_trade.asset_explorer.actions.load_playground import get_playgrounds
+from fast_trade.asset_explorer.actions.load_playground import get_playgrounds, get_settings
 
 
 from PyQt5.QtWidgets import (
@@ -33,47 +33,6 @@ def open_playground_menu(playground_name):
     print("open playground: ", playground_name)
 
 
-def get_settings():
-    # read the settings file
-    playground_path = os.path.join(os.getcwd(), "playgrounds")
-    # if it doesn't exist, create it
-    if not os.path.exists(playground_path):
-        os.mkdir(playground_path)
-    
-    # create the settings database
-    settings_db_path = os.path.join(playground_path, "settings.db")
-    if not os.path.exists(settings_db_path):
-        conn = sqlite3.connect(settings_db_path)
-        settings_df = pd.DataFrame(columns=["name", "value"])
-        settings_df = settings_df.set_index("name")
-        data = [
-            {
-                "name": "last_playground",
-                "value": None
-            },
-            {
-                "name": "created_at",
-                "value": datetime.datetime.utcnow()
-            }
-        ]
-        settings_df = settings_df.append(data, ignore_index=True)
-        settings_df.to_sql("settings", conn, if_exists="replace")
-
-        settings = {data[0]["name"]: data[0]["value"], data[1]["name"]: data[1]["value"]}
-
-    else:
-        conn = sqlite3.connect(settings_db_path)
-        res = conn.cursor().execute("SELECT * FROM settings").fetchall()
-        # turn this into a key value pair
-        settings = {}
-        for r in res:
-            settings[r[2]] = r[1]
-
-    return settings
-
-    # return the settings
-
-
 class MainWindow(QMainWindow):
     selected_playground: str = None
     settings: dict = None
@@ -93,16 +52,11 @@ class MainWindow(QMainWindow):
         self.setWindowTitle('Fast Trade Playground')
         x = 0.8 * QApplication.desktop().screenGeometry().width()
         y = 0.8 * QApplication.desktop().screenGeometry().height()
+        x = int(x)
+        y = int(y)
         self.resize(x, y)
 
     def initUI(self):
-        # self.MainPlayground = PlaygroundMain()
-        # self.stackedWidget.addWidget(self.MainPlayground)
-        # self.stackedWidget.addWidget(PlaygroundSettings())
-
-        mainWidget = QWidget()
-        mainLayout = QHBoxLayout()
-
         self.menubar = self.menuBar()
         fileMenu = self.menubar.addMenu('File')
         # check what the last playground was
@@ -171,24 +125,11 @@ class MainWindow(QMainWindow):
         # Get the current PlaygroundSettings widget
         # update the settings database
         self.updateAppSettings({"last_playground": playground_name})
-        if self.leftPanel.itemAt(1) is None:
-            print("creating new playground settings widget")
-            playground_settings_widget = PlaygroundSettings(selected_playground=playground_name)
-            self.leftPanel.addWidget(playground_settings_widget)
-            self.leftPanel.update()
-            playground_settings_widget.show()
-            return
-        playground_settings_widget = self.leftPanel.itemAt(1).widget()
+        self.playground_settings_widget = PlaygroundSettings(selected_playground=playground_name)
         print("updating playground settings widget")
         # If it exists, update it, otherwise create a new one
-        if isinstance(playground_settings_widget, PlaygroundSettings):
-
-            playground_settings_widget.update_with_new_playground(playground_name)
-        else:
-            playground_settings_widget = PlaygroundSettings(selected_playground=playground_name)
-            self.leftPanel.addWidget(playground_settings_widget)
-        self.leftPanel.update()
-        playground_settings_widget.show()
+        self.playground_settings_widget.update()
+        self.playground_settings_widget.show()
         # self.mainWidget.deleteLater()
 
     def updateAppSettings(self, settings):

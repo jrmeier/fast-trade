@@ -8,6 +8,7 @@ import datetime
 from .helpers import human_readable_timedelta
 from fast_trade.asset_explorer.cb_api import get_asset_ids
 
+
 class PlaygroundSettings(QWidget):
     selected_playground: str = None
     settings: dict = None

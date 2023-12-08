@@ -5,6 +5,73 @@ import datetime
 from fast_trade.asset_explorer.cb_api import get_product_candles, store_df_to_sql
 
 
+def get_last_conn():
+    settings = get_settings()
+    playground_path = os.path.join(os.getcwd(), "playgrounds")
+    playground_name = settings.get('last_playground')
+    conn = sqlite3.connect(os.path.join(playground_path, f"{playground_name}.db"))
+    return conn
+
+
+def get_settings():
+    # read the settings file
+    playground_path = os.path.join(os.getcwd(), "playgrounds")
+    # if it doesn't exist, create it
+    if not os.path.exists(playground_path):
+        os.mkdir(playground_path)
+    
+    # create the settings database
+    settings_db_path = os.path.join(playground_path, "settings.db")
+    if not os.path.exists(settings_db_path):
+        conn = sqlite3.connect(settings_db_path)
+        # settings_df = pd.DataFrame(columns=["name", "value"])
+        # settings_df = settings_df.set_index("name")
+        data = [
+            {
+                "name": "last_playground",
+                "value": None
+            },
+            {
+                "name": "created_at",
+                "value": datetime.datetime.utcnow()
+            }
+        ]
+        # settings_df = settings_df.append(data, ignore_index=True)
+        # insert the data into the database
+        conn.cursor().execute("CREATE TABLE settings (name TEXT, value TEXT)")
+        for d in data:
+            conn.cursor().execute(f"INSERT INTO settings VALUES ('{d['name']}', '{d['value']}')")
+        conn.commit()
+        conn.close()
+    else:
+        print("settings db exists")
+        conn = sqlite3.connect(settings_db_path)
+        res = conn.cursor().execute("SELECT * FROM settings").fetchall()
+        # turn this into a key value pair
+        print(res)
+        settings = {}
+        for r in res:
+            # set any primates to their correct type
+            value = r[1]
+            if value == "None":
+                value = None
+            elif value == "True":
+                value = True
+            elif value == "False":
+                value = False
+            elif value.isnumeric():
+                value = int(value)
+            elif value.replace(".", "").isnumeric():
+                value = float(value)
+            
+            settings[r[0]] = value
+
+    return settings
+
+    # return the settings
+
+
+
 def get_playgrounds():
     playground_path = os.path.join(os.getcwd(), "playgrounds")
     playgrounds = os.listdir(playground_path)
@@ -25,6 +92,7 @@ def load_playground(name: str):
 
     table_names = pd.read_sql("SELECT name FROM sqlite_master WHERE type='table'", conn)
     table_names = table_names.name.tolist()
+    
 
     return table_names
 
@@ -47,10 +115,12 @@ def update_playground_metadata(playground_name: str):
     conn = sqlite3.connect(os.path.join(playground_path, f"{playground_name}.db"))
     # read all file symbols
     table_names = load_playground(playground_name)
+    symbols = [t for t in table_names if "_candles" in t]
+    symbols = [s.split("_")[0] for s in symbols]
 
     # update the metadata
     curr_date = datetime.datetime.utcnow()
-    res = conn.execute(f"UPDATE metadata SET end='{curr_date.isoformat()}', symbols='{','.join(table_names)}'")
+    res = conn.execute(f"UPDATE metadata SET end='{curr_date.isoformat()}', symbols='{','.join(symbols)}'")
     conn.commit()
     print("res: ", res)
 
@@ -79,11 +149,17 @@ def update_playground(playground_name: str, update_status: callable = lambda x: 
     print("res: ", res)
 
 
-def get_candle_data(playground_name: str, symbol: str, start: datetime.datetime, end: datetime.datetime):
-    playground_path = os.path.join(os.getcwd(), "playgrounds")
-    conn = sqlite3.connect(os.path.join(playground_path, f"{playground_name}.db"))
+def get_candle_data(symbol: str, start: datetime.datetime, end: datetime.datetime):
+    conn = get_last_conn()
     table_name = f"{symbol}_candles"
-    data = pd.read_sql(f"`SELECT * FROM `{table_name}` WHERE date BETWEEN '{start}' AND '{end}'`", conn)
+    # set the start and end dates to sql
+    start = start.isoformat()
+    end = end.isoformat()
+    data = pd.read_sql(f"SELECT * FROM `{table_name}` WHERE date BETWEEN '{start}' AND '{end}'", conn)
+    print("candle_data: ", data.columns)
+    # data.index = pd.to_datetime(data.date, unit='ms')
+    data.set_index('date', inplace=True)
+
     return data
 
 
@@ -102,6 +178,7 @@ def get_last_candle_data(symbol: str, playground_name: str = None, conn: sqlite3
         ret[row] = data[row].values[0]
     return ret
 
+
 def get_playground_metadata(playground_name: str):
     playground_path = os.path.join(os.getcwd(), "playgrounds")
     conn = sqlite3.connect(os.path.join(playground_path, f"{playground_name}.db"))
@@ -116,8 +193,6 @@ def get_playground_metadata(playground_name: str):
     }
 
     # load the symbol metadata
-
-    print("metadata: ", meta_dict)
     symbols_data = []
     for symbol in meta_dict['symbols'].split(","):
         symbol_metadata = get_last_candle_data(symbol, conn=conn)
@@ -132,16 +207,6 @@ def get_playground_metadata(playground_name: str):
         "end": meta_dict['end'],
         "symbols_data": symbols_data
     }
-    # as_dict = metadata.to_dict()
-    # print("as_dict: ", as_dict)
-    # return {
-    #     "name": as_dict['index']['name'],
-    #     "symbols": as_dict['index']['symbols'].split(","),
-    #     "created_at": as_dict['index']['created_at'],
-    #     "start": as_dict['index']['start'],
-    #     "end": as_dict['index']['end'],
-    # }
-    # return metadata.to_dict()['index']
 
 
 if __name__ == "__main__":

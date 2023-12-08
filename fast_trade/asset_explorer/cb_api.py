@@ -83,11 +83,16 @@ def get_product_candles(product_id: str,
             res = requests.get(url, params=params, headers=headers)
             if res.status_code > 399:
                 print(res.text)
-                raise Exception(res)
+                # skip this call
+                continue
             res = res.json()
             call_count += 1
             new_df = df_from_candles(res)
+            # do the new version of concat
+            if new_df.empty:
+                continue
             df = pd.concat([df, new_df])
+            df.drop_duplicates(inplace=True)
             # df = 
             time.sleep(random.random() * 0.5 + 0.2)
         except Exception as e:
