@@ -75,6 +75,7 @@ def update_archive(exchange="binance.us"):
         now = datetime.datetime.utcnow()
         # get check the metadata for the symbol
         meta = get_symbol_meta_obj(symbol=symbol)
+        print(f"{meta}")
         last_date = meta.get("last_date")
 
         if last_date > now - datetime.timedelta(hours=2):

@@ -230,7 +230,7 @@ def standardize_df(df):
 def get_symbol_meta_obj(symbol, key=None):
     ARCHIVE_PATH = './archive'
     meta_data_filename = f"{ARCHIVE_PATH}/{symbol}_meta.json"
-    START_DATE = datetime.datetime.fromisoformat("2017-01-01")
+    START_DATE = datetime.datetime.utcnow().replace(second=0, microsecond=0)
     default_meta_obj = {
         "last_date": START_DATE,
         "first_date": START_DATE,
