@@ -174,6 +174,10 @@ def update_archive_csv_by_df(archive_csv_filename, new_df):
             float(row.low),
             float(row.close),
             float(row.volume),
+            float(row.quote_asset_volume),
+            float(row.number_of_trades),
+            float(row.taker_buy_base_asset_volume),
+            float(row.taker_buy_base_a_volume),
         ]
 
     # get the rows in a usuable format
@@ -215,6 +219,10 @@ def standardize_df(df):
     new_df.high = pd.to_numeric(new_df.high)
     new_df.low = pd.to_numeric(new_df.low)
     new_df.volume = pd.to_numeric(new_df.volume)
+    new_df.quote_asset_volume = pd.to_numeric(new_df.quote_asset_volume),
+    new_df.number_of_trades = pd.to_numeric(new_df.number_of_trades),
+    new_df.taker_buy_base_asset_volume = pd.to_numeric(new_df.taker_buy_base_asset_volume),
+    new_df.taker_buy_base_a_volume = pd.to_numeric(new_df.taker_buy_base_a_volume),
 
     return new_df
 
@@ -433,7 +441,12 @@ def load_archive_to_df(symbol, archive_path):
     return new_df
 
 
-CSV_HEADER = ["date", "low", "high", "open", "close", "volume"]
+CSV_HEADER = ["date", "low", "high", "open", "close", "volume",
+            "quote_asset_volume",  # Quote asset volume
+            "number_of_trades",  # Number of trades
+            "taker_buy_base_asset_volume",  # Taker buy base asset volume
+            "taker_buy_base_a_volume",  # Taker buy quote
+        ]
 
 BINANCE_KLINE_REST_HEADER_MATCH = [
     "date",  # Open time
