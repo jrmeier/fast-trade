@@ -358,13 +358,13 @@ def get_historical_klines_binance(symbol, start_date, end_date, exchange="binanc
 
         total_api_calls += 1
 
-        sleeper = random.random() * 0.9
-        if sleeper < 0.2:
-            sleeper += 0.1
+        sleeper = random.random() * 1.3
+        if sleeper < 0.3:
+            sleeper += 0.15
 
-        if total_api_calls % 25 == 0:
-            sleeper += random.randint(5, 30)
-
+        if total_api_calls % 100 == 0:
+            sleeper += random.randint(2, 10)
+        print(f"sleeping for {sleeper} seconds")
         time.sleep(sleeper)
         curr_date = next_end_date
 
