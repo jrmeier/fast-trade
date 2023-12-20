@@ -57,7 +57,7 @@ def update_symbol_data(
 ):
     print(f"updating: {symbol}")
 
-    
+    global ARCHIVE_PATH
     ARCHIVE_PATH = arc_path  # where to store the downloaded csv
     global SYMBOL
     SYMBOL = symbol
