@@ -75,8 +75,7 @@ def update_archive(exchange="binance.us"):
         now = datetime.datetime.utcnow()
         # get check the metadata for the symbol
         meta = get_symbol_meta_obj(symbol=symbol)
-
-        last_date = datetime.datetime.fromisoformat(meta['last_date'])
+        last_date = meta.get("last_date")
 
         if last_date > now - datetime.timedelta(hours=2):
             print(f"Skipping {symbol} because it was updated recently (last update: {last_date.isoformat()})")
