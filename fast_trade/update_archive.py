@@ -6,7 +6,7 @@ import datetime
 import os
 import zipfile
 
-from .update_symbol_data import update_symbol_data
+from .update_symbol_data import get_symbol_meta_obj, update_symbol_data
 
 # from ftc.constants import BINANCE_KLINE_REST_HEADER_MATCH
 BINANCE_KLINE_REST_HEADER_MATCH = [
@@ -67,14 +67,26 @@ def update_archive(exchange="binance.us"):
     
     Warning: This could take days to complete the first time and hours daily to update.
     """
-    print(f"Updating archive for {exchange}")
     tld = exchange.split(".")[1]
     symbols = get_available_symbols(tld=tld)
     # symbols = ["1000SATSFDUSD"]
     print(f"Found {len(symbols)} symbols")
     for symbol in symbols:
         now = datetime.datetime.utcnow()
-        start_date = get_oldest_date_available(symbol, tld).isoformat()
+        # get check the metadata for the symbol
+        meta = get_symbol_meta_obj(symbol=symbol)
+
+        last_date = datetime.datetime.fromisoformat(meta['last_date'])
+
+        if last_date > now - datetime.timedelta(hours=2):
+            print(f"Skipping {symbol} because it was updated recently (last update: {last_date.isoformat()})")
+            continue
+
+        if last_date == meta.get("start_date"):
+            start_date = get_oldest_date_available(symbol, tld).isoformat()
+        else:
+            start_date = last_date.isoformat()
+
         update_symbol_data(symbol=symbol, exchange=exchange, start_date=start_date, end_date=now.isoformat())
 
 
@@ -86,7 +98,7 @@ def zip_data(symbol=None, years_to_zip=[], ARCHIVE_PATH="./archive"):
         for file in os.listdir(ARCHIVE_PATH):
             if file.endswith(".json"):
                 symbols.append(file.split("_")[0])
-    
+
     print(f"Zipping {len(symbols)} symbols")
     for symbol in symbols:
         zip_symbol(symbol=symbol, years_to_zip=years_to_zip, ARCHIVE_PATH=ARCHIVE_PATH)
