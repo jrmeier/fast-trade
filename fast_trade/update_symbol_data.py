@@ -228,6 +228,7 @@ def standardize_df(df):
 
 
 def get_symbol_meta_obj(symbol, key=None):
+    ARCHIVE_PATH = './archive'
     meta_data_filename = f"{ARCHIVE_PATH}/{symbol}_meta.json"
 
     default_meta_obj = {
