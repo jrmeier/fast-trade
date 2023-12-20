@@ -43,7 +43,7 @@ import random
 
 import requests  # requires python-binance, not included in fast-trade package
 
-# ARCHIVE_PATH = "/Users/jedmeier/Desktop"  # where to store the downloaded csv
+# ARCHIVE_PATH = "/Users/jedmeier"  # where to store the downloaded csv
 # SYMBOL = "ETHBTC"
 # tmp_start_date = '2017-01-01' # the date which it start asking for the data you want
 
@@ -52,20 +52,19 @@ import requests  # requires python-binance, not included in fast-trade package
 default_end_date = datetime.datetime.utcnow()
 default_start_date = default_end_date - datetime.timedelta(days=30)  # by default is the last
 
-
 def update_symbol_data(
     symbol, start_date=default_start_date, end_date=default_end_date, arc_path="./archive", exchange="binance.us"
 ):
     print(f"updating: {symbol}")
 
-    global ARCHIVE_PATH
+    
     ARCHIVE_PATH = arc_path  # where to store the downloaded csv
     global SYMBOL
     SYMBOL = symbol
     global START_DATE
     START_DATE = int(datetime.datetime.fromisoformat(start_date).timestamp())
 
-    update_symbol_meta(symbol)
+    update_symbol_meta(symbol, {"updating": True, exchange: exchange})
     meta_obj = get_symbol_meta_obj(symbol)
     last_date = meta_obj.get("last_date")
 
@@ -77,9 +76,9 @@ def update_symbol_data(
         start_date_dt = last_date.replace(second=0, microsecond=0)
 
     if not end_date:
-        end_date_dt = datetime.datetime.utcnow().replace(second=0, microsecond=0)
+        end_date_dt = datetime.datetime.utcnow()
     else:
-        end_date_dt = datetime.datetime.strptime(end_date, "%Y-%m-%d").replace(
+        end_date_dt = datetime.datetime.fromisoformat(end_date).replace(
             second=0, microsecond=0
         )
 
@@ -92,10 +91,13 @@ def update_symbol_data(
 
     while curr_date < end_date_dt:
         next_end_date = curr_date + datetime.timedelta(days=DAYS_TO_INCREMENT)
+        if next_end_date > datetime.datetime.utcnow():
+            next_end_date = datetime.datetime.utcnow().replace(second=0, microsecond=0)
+
         print(f"fetching klines for dates between {curr_date} and {next_end_date}")
 
         try:
-            klines_df = load_historical_klines_as_df(symbol, curr_date, next_end_date)
+            klines_df = load_historical_klines_as_df(symbol, curr_date, next_end_date, exchange=exchange)
 
             if not klines_df.empty:
                 years_in_klines = klines_df.index.strftime("%Y").unique().tolist()
@@ -197,16 +199,16 @@ def standardize_df(df):
     new_df.index = pd.to_datetime(new_df.index, unit="s")
     new_df = new_df[~new_df.index.duplicated(keep="first")]
     new_df = new_df.sort_index()
-    columns_to_drop = [
-        "quote_asset_volume",
-        "number_of_trades",
-        "taker_buy_base_asset_volume",
-        "taker_buy_base_a_volume",
-        "ignore",
-        "date",
-    ]
+    # columns_to_drop = [
+    #     "quote_asset_volume",
+    #     "number_of_trades",
+    #     "taker_buy_base_asset_volume",
+    #     "taker_buy_base_a_volume",
+    #     "ignore",
+    #     "date",
+    # ]
 
-    new_df = new_df.drop(columns=columns_to_drop, errors="ignore")
+    # new_df = new_df.drop(columns=columns_to_drop, errors="ignore")
 
     new_df.open = pd.to_numeric(new_df.open)
     new_df.close = pd.to_numeric(new_df.close)
@@ -307,8 +309,8 @@ def update_symbol_meta(symbol, new_object={}):
     return meta_obj
 
 
-def load_historical_klines_as_df(symbol, start_date, end_date):
-    klines = get_historical_klines_binance(symbol, start_date, end_date)
+def load_historical_klines_as_df(symbol, start_date, end_date, exchange="binance.us"):
+    klines = get_historical_klines_binance(symbol, start_date, end_date, exchange)
 
     klines_df = binance_kline_to_df(klines)
 

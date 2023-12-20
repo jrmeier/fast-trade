@@ -1,4 +1,5 @@
 # flake8: noqa
+from fast_trade.update_archive import update_archive
 from fast_trade.validate_backtest import validate_backtest
 import sys
 import json
@@ -97,6 +98,11 @@ def main():
         "--mods", help="Modifiers for strategy/backtest", nargs="*"
     )
 
+    update_archive_parser = sub_parsers.add_parser(
+        "update_archive", help="update the archive"
+    )
+    update_archive_parser.add_argument("--exchange", help="exchange to update", type=str, default="binance.us")
+
     args = parser.parse_args()
     command = sys.argv[1]
 
@@ -146,6 +152,10 @@ def main():
         backtest = validate_backtest(strat_obj)
 
         pprint(backtest)
+    
+    if command == "update_archive":
+        print(f"updating archive for {args.exchange}")
+        update_archive(args.exchange)
 
 
 if __name__ == "__main__":
