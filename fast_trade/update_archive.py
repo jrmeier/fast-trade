@@ -70,7 +70,7 @@ def update_archive(exchange="binance.us"):
     print(f"Updating archive for {exchange}")
     tld = exchange.split(".")[1]
     symbols = get_available_symbols(tld=tld)
-    symbols = ["1000SATSFDUSD"]
+    # symbols = ["1000SATSFDUSD"]
     print(f"Found {len(symbols)} symbols")
     for symbol in symbols:
         now = datetime.datetime.utcnow()
