@@ -80,6 +80,7 @@ def update_symbol_archive(symbol, exchange="binance.us", tld="us"):
         start_date = get_oldest_date_available(symbol, tld).isoformat()
     elif last_date > (now - datetime.timedelta(hours=2)):
         print(f"Skipping {symbol} because it was updated recently (last update: {last_date.isoformat()})")
+        return
     else:
         start_date = last_date.isoformat()
 
