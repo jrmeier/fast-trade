@@ -87,13 +87,22 @@ def update_symbol_archive(symbol, exchange="binance.us", tld="us"):
     update_symbol_data(symbol=symbol, exchange=exchange, start_date=start_date, end_date=now.isoformat())
 
 
-def update_archive(exchange="binance.us"):
+def update_archive(exchange="binance.us", symbols_file=None, skip_symbols_file=None):
     """ Fetches and dowloads all the trading symbols from the exchange 
     
     Warning: This could take days to complete the first time and hours daily to update.
     """
     tld = exchange.split(".")[1]
-    symbols = get_available_symbols(tld=tld)
+    if symbols_file:
+        with open(symbols_file, "r") as f:
+            symbols = f.read().split("\n")
+    else:
+        symbols = get_available_symbols(tld=tld)
+    
+    if skip_symbols_file:
+        with open(skip_symbols_file, "r") as f:
+            skip_symbols = f.read().split("\n")
+        symbols = [symbol for symbol in symbols if symbol not in skip_symbols]
     # symbols = ["1000SATSFDUSD"]
     print(f"Found {len(symbols)} symbols")
     for symbol in symbols:
