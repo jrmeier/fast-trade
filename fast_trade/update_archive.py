@@ -66,7 +66,13 @@ def update_symbol_archive(symbol, exchange="binance.us", tld="us"):
     now = datetime.datetime.utcnow()
     # get check the metadata for the symbol
     meta = get_symbol_meta_obj(symbol=symbol)
-    last_date = datetime.datetime.fromtimestamp(meta.get("last_date"))
+
+    if type(meta.get("last_date")) == str:
+        last_date = datetime.datetime.fromisoformat(meta.get("last_date"))
+    elif type(meta.get("last_date")) == int:
+        last_date = datetime.datetime.fromtimestamp(meta.get("last_date"))
+    else:
+        last_date = meta.get("last_date")
     # print(f"{meta}")
     # last_date = meta.get("last_date")
     print(last_date, datetime.datetime.utcnow() - datetime.timedelta(hours=2))

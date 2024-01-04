@@ -52,6 +52,7 @@ import requests  # requires python-binance, not included in fast-trade package
 default_end_date = datetime.datetime.utcnow()
 default_start_date = default_end_date - datetime.timedelta(days=30)  # by default is the last
 
+
 def update_symbol_data(
     symbol, start_date=default_start_date, end_date=default_end_date, arc_path="./archive", exchange="binance.us"
 ):
@@ -231,6 +232,7 @@ def get_symbol_meta_obj(symbol, key=None):
     ARCHIVE_PATH = './archive'
     meta_data_filename = f"{ARCHIVE_PATH}/{symbol}_meta.json"
     START_DATE = datetime.datetime.utcnow().replace(second=0, microsecond=0)
+
     default_meta_obj = {
         "last_date": START_DATE,
         "first_date": START_DATE,
