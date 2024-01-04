@@ -58,8 +58,26 @@ def get_oldest_date_available(symbol, tld="us"):
         # print(f"{symbol} oldest date: {oldest_date}")
         return oldest_date
     except Exception as e:
-        print(f"error with {symbol}")
+        print(f"error with {symbol}: {e}")
         return datetime.datetime.utcnow() - datetime.timedelta(days=1)
+
+
+def update_symbol_archive(symbol, exchange="binance.us", tld="us"):
+    now = datetime.datetime.utcnow()
+    # get check the metadata for the symbol
+    meta = get_symbol_meta_obj(symbol=symbol)
+    last_date = datetime.datetime.fromtimestamp(meta.get("last_date"))
+    # print(f"{meta}")
+    # last_date = meta.get("last_date")
+    print(last_date, datetime.datetime.utcnow() - datetime.timedelta(hours=2))
+    if last_date == now.replace(second=0, microsecond=0):
+        start_date = get_oldest_date_available(symbol, tld).isoformat()
+    elif last_date > (now - datetime.timedelta(hours=2)):
+        print(f"Skipping {symbol} because it was updated recently (last update: {last_date.isoformat()})")
+    else:
+        start_date = last_date.isoformat()
+
+        update_symbol_data(symbol=symbol, exchange=exchange, start_date=start_date, end_date=now.isoformat())
 
 
 def update_archive(exchange="binance.us"):
@@ -72,22 +90,12 @@ def update_archive(exchange="binance.us"):
     # symbols = ["1000SATSFDUSD"]
     print(f"Found {len(symbols)} symbols")
     for symbol in symbols:
-        now = datetime.datetime.utcnow()
-        # get check the metadata for the symbol
-        meta = get_symbol_meta_obj(symbol=symbol)
-        last_date = datetime.datetime.fromtimestamp(meta.get("last_date"))
-        # print(f"{meta}")
-        # last_date = meta.get("last_date")
-        print(last_date, datetime.datetime.utcnow() - datetime.timedelta(hours=2))
-        if last_date == now.replace(second=0, microsecond=0):
-            start_date = get_oldest_date_available(symbol, tld).isoformat()
-        elif last_date > (now - datetime.timedelta(hours=2)):
-            # print(f"Skipping {symbol} because it was updated recently (last update: {last_date.isoformat()})")
+        try:
+            update_symbol_archive(symbol, exchange=exchange, tld=tld)
+        except Exception as e:
+            print(f"Error with {symbol}: {e}")
             continue
-        else:
-            start_date = last_date.isoformat()
 
-        update_symbol_data(symbol=symbol, exchange=exchange, start_date=start_date, end_date=now.isoformat())
 
 
 def zip_data(symbol=None, years_to_zip=[], ARCHIVE_PATH="./archive"):
