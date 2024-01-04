@@ -83,7 +83,7 @@ def update_symbol_archive(symbol, exchange="binance.us", tld="us"):
     else:
         start_date = last_date.isoformat()
 
-        update_symbol_data(symbol=symbol, exchange=exchange, start_date=start_date, end_date=now.isoformat())
+    update_symbol_data(symbol=symbol, exchange=exchange, start_date=start_date, end_date=now.isoformat())
 
 
 def update_archive(exchange="binance.us"):
