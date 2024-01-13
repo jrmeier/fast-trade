@@ -102,6 +102,7 @@ def main():
         "update_archive", help="update the archive"
     )
     update_archive_parser.add_argument("--exchange", help="exchange to update", type=str, default="binance.us")
+    update_archive_parser.add_argument("--skip_symbols_file", help="path to file with symbols to skip", type=str, default=None)
 
     args = parser.parse_args()
     command = sys.argv[1]
@@ -155,7 +156,7 @@ def main():
     
     if command == "update_archive":
         print(f"updating archive for {args.exchange}")
-        update_archive(args.exchange)
+        update_archive(args.exchange, skip_symbols_file=args.skip_symbols_file)
 
 
 if __name__ == "__main__":

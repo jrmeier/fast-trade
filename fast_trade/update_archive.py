@@ -102,9 +102,10 @@ def update_archive(exchange="binance.us", symbols_file=None, skip_symbols_file=N
     if skip_symbols_file:
         with open(skip_symbols_file, "r") as f:
             skip_symbols = f.read().split("\n")
+            print("Skipping symbols: ", skip_symbols)
         symbols = [symbol for symbol in symbols if symbol not in skip_symbols]
     # symbols = ["1000SATSFDUSD"]
-    print(f"Found {len(symbols)} symbols")
+    print(f"Found {len(symbols)} symbols") 
     for symbol in symbols:
         try:
             update_symbol_archive(symbol, exchange=exchange, tld=tld)
