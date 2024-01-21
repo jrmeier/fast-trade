@@ -1,4 +1,10 @@
-from fast_trade.cli import main
+
+from PyQt6.QtWidgets import QApplication
+import sys
+from gui.App import MainApp
 
 if __name__ == "__main__":
-    main()
+    app = QApplication(sys.argv)
+    window = MainApp()
+    window.show()
+    sys.exit(app.exec())
