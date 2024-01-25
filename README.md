@@ -16,6 +16,8 @@ Fast Trade is also useful for quickly analyzing chart (`ohlcv`) data and downloa
 
 I'm using this library to build a platform (live data, charting, paper trading, etc.) and I'm looking for beta testers. If you like this library, send me an email at fasttrade@jedm.dev.
 
+Join the discord! https://discord.gg/Y8ypD3dcgs
+
 ## Contributing
 
 If you'd like to add a feature, fix a bug, or something else, please clone the repo and fork it. When you're ready, open a PR into this main repo.
