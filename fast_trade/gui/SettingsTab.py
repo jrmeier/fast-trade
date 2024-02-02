@@ -8,6 +8,10 @@ from PyQt6.QtWidgets import (
     QComboBox,
     QLineEdit,
     QPushButton,
+    QSizePolicy,
+    QCheckBox,
+    QScrollArea,
+    QVBoxLayout,
 )
 from ..db_helpers import get_candle_tables
 from ..cb_api import get_asset_ids
@@ -23,14 +27,14 @@ class SettingsTab(QWidget):
     def initUi(self):
         # load the symbols from the database
         self.layout = QGridLayout()
-        self.layout.setSpacing(3)
+        # self.layout.setSpacing(4)
         self.setLayout(self.layout)
+        self.build_add_symbol_form()
         self.title = QLabel("Settings")
         self.candles_table = None
         self.add_form = None
         self.preview_symbols = ["test"]
 
-        self.build_add_symbol_form()
         self.build_candles_table()
 
     def build_candles_table(self):
@@ -83,8 +87,9 @@ class SettingsTab(QWidget):
 
         # handle the exchange input change
         exchange_input.currentTextChanged.connect(self.handle_exchange_change)
-        # self.symbol_input = QComboBox()
-        self.build_symbol_imput()
+        # build the symbol checkobx
+
+        # self.build_symbol_imput()
         self.exchange_input = exchange_input
         # self.symbol_input.addItems(self.preview_symbols)
 
@@ -95,19 +100,20 @@ class SettingsTab(QWidget):
 
         add_form_layout.addWidget(title, 0, 0, alignment=Qt.AlignmentFlag.AlignTop)
         add_form_layout.addWidget(exchange_label, 1, 0)
-        add_form_layout.addWidget(symbol_label, 2, 0)
-        add_form_layout.addWidget(timeframe_label, 3, 0)
+        # add_form_layout.addWidget(symbol_label, 2, 0)
+        # add_form_layout.addWidget(timeframe_label, 3, 0)
         add_form_layout.addWidget(self.exchange_input, 1, 2)
-        add_form_layout.addWidget(self.symbol_input, 2, 2)
-        add_form_layout.addWidget(fetch_symbols_btn, 2, 3)
+        # add_form_layout.addWidget(self.symbol_input, 2, 2)
+        add_form_layout.addWidget(fetch_symbols_btn, 1, 3)
         # add_form_layout.addWidget(timeframe_input, 3, 2)
         add_form.setFixedWidth(500)
         add_form.setMinimumHeight(200)
-        add_form.setMaximumHeight(200)
+        # add_form.setMaximumHeight(200)
 
-        # form_layout.setColumnStretch(0, 1)
+        # add the form to the very top of the layout
+        self.layout.addWidget(add_form, 0, 0, alignment=Qt.AlignmentFlag.AlignTop)
 
-        self.layout.addWidget(add_form)
+        # self.layout.addWidget(add_form)
 
     def handle_exchange_change(self, exchange):
         if exchange == "Coinbase Pro":
@@ -119,19 +125,13 @@ class SettingsTab(QWidget):
         self.build_candles_table()
         self.update()
 
-    def clear_combo_box(self, combo_box):
-        for i in range(combo_box.count() - 1):
-            combo_box.removeItem(i)
-
-        combo_box.addItem("Select Symbol")
-        if combo_box.count() > 1:
-            combo_box.removeItem(1)
-
-    def build_symbol_imput(self):
-        self.symbol_input = QComboBox()
-
     def handle_fetch_avaliable_symbols(self):
         # fetch the symbols from the exchange
+        # reset
+        if hasattr(self, "scroll_area"):
+            self.layout.removeWidget(self.scroll_area)
+            # self.scroll_area.deleteLater()
+            self.scroll_area = None
         exchange = self.exchange_input.currentText()
         print("fetching symbols for exchange: ", exchange)
         preview_symbols = []
@@ -140,14 +140,46 @@ class SettingsTab(QWidget):
         elif exchange == "Coinbase Pro":
             preview_symbols = get_asset_ids()
         else:
-            preview_symbols = ["BTC-USD", "ETH-USD", "ADA-USD", "DOGE-USD"]
-        print("preview symbols: ", preview_symbols)
-        self.clear_combo_box(self.symbol_input)
-        # self.symbol_input.
-        # self.symbol_input.removeItem(0)
+            preview_symbols = ["SOMETHING FAILED"]
+        # print(preview_symbols)
+        preview_symbols = list(set(preview_symbols))
 
-        print("wtf: ", self.symbol_input.count())
-        print(preview_symbols)
-        if preview_symbols:
-            self.preview_symbols = preview_symbols
-            self.symbol_input.addItems(preview_symbols)
+        scroll_area = QScrollArea(self)
+        container = QWidget()
+        layout = QVBoxLayout()
+        self.scroll_area = scroll_area
+
+        # Add hundreds of checkboxes
+        for symbol in preview_symbols:
+            checkbox = QCheckBox(symbol, self)
+            checkbox.stateChanged.connect(self.handle_symbol_checkbox_change)
+            layout.addWidget(checkbox)
+
+        container.setLayout(layout)
+        scroll_area.setWidget(container)
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFixedHeight(300)
+
+        self.layout.addWidget(scroll_area, 1, 2)
+
+        # # now set the symbols in the checkbox
+        # symbols_to_select = []
+        # symbols_to_select_layout = QGridLayout()
+        # symbols_to_select_layout.setSpacing(0)
+        # # if self.symbols_to_select_layout:
+        # if hasattr(self, "symbols_to_select_layout"):
+        #     self.layout.removeWidget(self.symbols_to_select_layout)
+        #     self.symbols_to_select_layout.deleteLater()
+        #     self.symbols_to_select_layout = None
+
+        # self.symbols_to_select_layout = symbols_to_select_layout
+        # for symbol in preview_symbols:
+        #     # symbols_to_select.append(QCheckBox(symbol))
+        #     checkbox = QCheckBox(symbol)
+        #     checkbox.stateChanged.connect(self.handle_symbol_checkbox_change)
+        #     symbols_to_select_layout.addWidget(checkbox)
+
+        # self.layout.addWidget(symbols_to_select_layout)
+
+    def handle_symbol_checkbox_change(self):
+        print("checkbox changed")
