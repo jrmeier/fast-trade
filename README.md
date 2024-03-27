@@ -14,7 +14,7 @@ Fast Trade is also useful for quickly analyzing chart (`ohlcv`) data and downloa
 
 ## Beta Testing
 
-I'm using this library to build a whole platform (data management, backesting, scanners, signals, etc) via Jupyter Notebooks, and I'm looking for beta testers. If you like this library, send me an email at fasttrade@jedm.dev or join the discord [https://discord.gg/Y8ypD3dcgs](https://discord.gg/Y8ypD3dcgs)
+I'm using this library to build a whole platform (data management, backesting, scanners, signals, etc) via Jupyter Notebooks and a discord bot, and I'm looking for beta testers. If you like this library, send me an email at fasttrade@jedm.dev or join the discord [https://discord.gg/Y8ypD3dcgs](https://discord.gg/Y8ypD3dcgs)
 
 ## Contributing
 
