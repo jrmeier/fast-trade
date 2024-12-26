@@ -5,7 +5,7 @@
 [![Python 3.7+](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/download/releases/3.7.0/)
 [![Python application](https://github.com/jrmeier/fast-trade/workflows/Python%20application/badge.svg)](https://github.com/jrmeier/fast-trade/actions)
 
-A library built with backtest portability and performance in mind for backtest trading strategies. There is also a [DataDownloader](#DataDownloader), which can be used to download compatible kline data from Binance (.com or .us)
+A library built with backtest portability and performance in mind for backtest trading strategies. There is also an [Archive](#Archive), which can be used to download compatible kline data from Binance (.com or .us) and Coinbase into sqlite databases..
 
 ## Motivations
 
@@ -125,9 +125,9 @@ List the commands and their help.
 
 ### Basic usage
 
-This will download the last month of data for BTCUSD from binance.us and store in a `archive/` directory.
+This will download the last month of data for BTCUSD from binance.us and store in a `ft_archive/` directory as a sqlite database.
 
-`ft download BTCUSD --exchange binance.us`
+`ft download BTCUSD binanceus`
 
 This will backtest a file with a strategy. By default, it will only show a summary of the backtest. However, if you want to save the results, add the `--save` flag and it will go the `saved_backtests/` directory.
 
@@ -156,40 +156,28 @@ Saving a test result
 This generates creates the `saved_backtest` directory (if it doesn't exist), then inside of there, is another directory with a timestamp, with a chart, the backtest file, the summary, and the raw dataframe as a csv.
 `ft backtest ./strategy.json ./archive/BTCUSD_2022.csv --save`
 
-### DataDownloader
+### Archive
+You can download data directly from the CoinbaseAPI and BinanceAPI without registering for an API key.
 
-Download 1 minute kline/ohlcv from Binance and store them in CSVs in the `archive` path. You can rerun this command to keep the files updated.
-It may take awhile to download all of the data the first time, so be patient. It only need to download all of it once, then it will be updated from the most recent date.
-Check out the file [update_symbol_data.py](/fast_trade/update_symbol_data.py) if you want to see how it works.
+Get a list of assets available for download from the given exchange. Defaults to binanceus.
 
-Basic example
-Download the last 30 days of BTCUSDT from binance.com
-`python -m fast_trade download BTCUSDT`
+`ft assets --exchange=EXCHANGE`
+
+Download a single asset from the given exchange. Defaults to binanceus.
+`ft download SYMBOL EXCHANGE`
+
+Download the last 30 days of BTCUSDT from binance.us
+`ft download BTCUSDT binanceus`
 
 `ft download SYMBOL --archive ARCHIVE_PATH --start START_DATE --end END_DATE --exchange=EXCHANGE`
 
-Defaults are:
+Update the archive
+`ft update_archive`
+This update all the existing items in the archive, downloading the latest data for each symbol.
 
-```python
-EXCHANGE="binance.com" # can be binance.us
-START= "2020-01-01" # start date
-END= "2020-01-31" # end date
-END='current date' # you'll probably never need this
-ARCHIVE='./archive' # path the archive folder, which is where the CSVs are stored
-```
 
-Examples
 
-downloads according to the defaults
 
-`ft download`
-
-download data for the symbol LTCBTC using the other defaults
-
-`ft download LTCBTC`
-
-download data starting January 2021
-`ft download LTCBTC --start=2021-01-01`
 
 ## Testing
 

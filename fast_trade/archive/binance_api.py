@@ -3,8 +3,22 @@ import datetime
 import time
 import random
 import pandas as pd
-from .constants import BINANCE_KLINE_REST_HEADER_MATCH
+import math
 
+BINANCE_KLINE_REST_HEADER_MATCH = [
+    "date",  # Open time
+    "open",  # Open
+    "high",  # High
+    "low",  # Low
+    "close",  # Close
+    "volume",  # Volume
+    "close_time",  # Close time
+    "quote_asset_volume",  # Quote asset volume
+    "number_of_trades",  # Number of trades
+    "taker_buy_base_asset_volume",  # Taker buy base asset volume
+    "taker_buy_base_a_volume",  # Taker buy quote
+    "ignore",  # literally ignore this
+]
 
 def get_base_url(tld="us"):
     return f"https://api.binance.{tld}/api/v3"
@@ -46,7 +60,7 @@ def get_available_symbols(tld="us"):
     exchange_info = get_exchange_info(tld)
     symbols = []
 
-    for symbol in exchange_info["symbols"]:
+    for symbol in exchange_info.get("symbols", []):
         if symbol["status"] == "TRADING":
             symbols.append(symbol["symbol"])
 
@@ -69,33 +83,25 @@ def get_oldest_date_available(symbol, tld="us"):
         return datetime.datetime.utcnow() - datetime.timedelta(days=1)
 
 
-def load_historical_klines_as_df(
-    symbol,
-    start_date=datetime.datetime.utcnow() - datetime.timedelta(days=7),
-    end_date=datetime.datetime.utcnow(),
-    tld="us",
-):
-    klines, status_obj = get_historical_klines_binance(
-        symbol, start_date, end_date, tld
-    )
-
-    klines_df = binance_kline_to_df(klines)
-    return klines_df, status_obj
-
-
-def get_historical_klines_binance(symbol, start_date, end_date, tld="us"):
+def get_binance_klines(symbol, start_date: datetime.datetime, end_date: datetime.datetime, tld="us", status_update= lambda x: None):
+    start_date = start_date.replace(tzinfo=datetime.timezone.utc)
+    end_date = end_date.replace(tzinfo=datetime.timezone.utc)
 
     curr_date = start_date
 
     HOURS_TO_INCREMENT = 15
 
     end_date = end_date.replace(tzinfo=datetime.timezone.utc)
-    now = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
+    now = datetime.datetime.now().replace(tzinfo=datetime.timezone.utc)
     if end_date > now:
         end_date = now.replace(second=0, microsecond=0)
-
+        
+    # calculate the estimated number of calls
+    total_duration_hours = (end_date - curr_date).total_seconds() / 3600
+    num_calls = math.ceil(total_duration_hours / HOURS_TO_INCREMENT)
     total_api_calls = 0
     klines = []
+    start_time = time.time()
     while curr_date < end_date:
         next_end_date = curr_date + datetime.timedelta(hours=HOURS_TO_INCREMENT)
         startTime = int(curr_date.timestamp()) * 1000
@@ -120,20 +126,29 @@ def get_historical_klines_binance(symbol, start_date, end_date, tld="us"):
         if total_api_calls % 100 == 0:
             sleeper += random.randint(1, 3)
 
+        status_obj = {
+            "symbol": symbol,
+            "perc_complete": round(total_api_calls / num_calls * 100, 2),
+            "call_count": total_api_calls,
+            "total_calls": num_calls,
+            "total_time": round(time.time() - start_time, 2),
+            # "sleep_time": sleeper,
+            "est_time_remaining": round((time.time() - start_time) / total_api_calls * (num_calls - total_api_calls), 2),
+        }
+        status_update(status_obj)
         time.sleep(sleeper)
         curr_date = next_end_date
 
-    status_obj = {"num_calls": total_api_calls}
-
-    return klines, status_obj
-
-
-def load_last_day_klines_as_df(pair, tld="us"):
-    start_date = datetime.datetime.utcnow() - datetime.timedelta(hours=30)
-    end_date = datetime.datetime.utcnow()
-    klines, status_obj = get_historical_klines_binance(pair, start_date, end_date, tld)
+    status_obj = {
+        "symbol": symbol,
+        "perc_complete": 100,
+        "call_count": total_api_calls,
+        "total_calls": total_api_calls,
+        "total_time": time.time() - start_time,
+        "est_time_remaining": 0,
+    }
+    status_update(status_obj)
     klines_df = binance_kline_to_df(klines)
-
     return klines_df, status_obj
 
 
@@ -153,9 +168,3 @@ def binance_kline_to_df(klines):
     new_df = new_df.drop(columns=columns_to_drop)
 
     return new_df
-
-
-def get_depth_snapshot(pair, tld="us"):
-    url = f"{get_base_url(tld)}/depth?symbol={pair}&limit=1000"
-    req = requests.get(url)
-    return req.json()

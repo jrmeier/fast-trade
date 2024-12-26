@@ -13,3 +13,4 @@ dist/
 saved_backtests/*
 gi_*
 .pypirc
+ft_archive/*
