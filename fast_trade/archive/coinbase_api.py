@@ -17,7 +17,7 @@ CB_REST_HEADER_MATCH = [
 ]
 
 
-def get_products():
+def get_products() -> list[dict]:
     """Returns a list of all tradable assets on Coinbase Pro"""
     try:
         res = requests.get(f"{BASE_URL}/products")
@@ -31,7 +31,7 @@ def get_products():
         return []
 
 
-def get_asset_ids():
+def get_asset_ids() -> list[str]:
     """Returns a list of all tradable assets on Coinbase Pro"""
     ids = [asset["id"] for asset in get_products()]
     ids.sort()
@@ -75,6 +75,7 @@ def get_product_candles(
     # print("start", start, "end", end)
     status_obj = {}
     bad_errors = 0
+    start_time = time.time()
     while currentDate < end:
         # print("currentDate", currentDate, "end", end)
         currentDate = currentDate.replace(tzinfo=datetime.timezone.utc)
@@ -105,15 +106,17 @@ def get_product_candles(
             time.sleep(2 * bad_errors)
             continue
         call_count += 1
-        # print(f"Fetching data for {product_id}... {perc_complete:.2f}% complete")
-        # update_status({"prodcuproduct_id, perc_complete, call_count, num_calls})
+        # print(f"Fetching data for {product_id}... {perc_complete:.2f}% complete")'
         status_obj = {
-            "product_id": product_id,
-            "perc_complete": perc_complete,
+            "symbol": product_id,
+            "perc_complete": round(call_count / num_calls * 100, 2),
             "call_count": call_count,
-            "num_calls": num_calls,
+            "total_calls": num_calls,
+            "total_time": round(time.time() - start_time, 2),
+            # "sleep_time": sleeper,
+            "est_time_remaining": round((time.time() - start_time) / call_count * (num_calls - call_count), 2),
         }
-
+        update_status(status_obj)
         currentDate = next_end
     if not df.empty:
         df.sort_index(inplace=True, ascending=False)
@@ -127,29 +130,23 @@ def get_single_candle(product_id: str, params: dict = {}, df=pd.DataFrame()):
     headers = {"Content-Type": "application/json"}
     try:
         res = requests.get(url, params=params, headers=headers)
+        bad_errors = 0
         if res.status_code > 399:
+            bad_errors += 1
             # skip this call
             print("Error ", res.status_code, res.text)
             # bad_errors += 1
-            # if bad_errors > 1:
-            #     time.sleep(bad_errors)
-            # if bad_errors > 5:
-            raise Exception(f"Api Error: ", res.status_code, res.text)
+            if bad_errors > 1:
+                time.sleep(bad_errors * bad_errors * bad_errors)
+            
+            if bad_errors > 5:
+                raise Exception(f"Api Error: {res.status_code} {res.text}")
             # Warning("skipping call ", res.status_code, res.text)
         # print("res", res.status_code, res.text)
         res = res.json()
         new_df = df_from_candles(res)
-        # do the new version of concat
-        # print("new_df", new_df.head())
-        # df =
         sleep_time = random.random() * 0.5 + 0.1
-        # print("sleeping for", sleep_time, "seconds")
         time.sleep(sleep_time)
-        # if new_df.empty:
-        #     currentDate = currentDate + datetime.timedelta(hours=3)
-        #     next_end = currentDate + datetime.timedelta(hours=3)
-        #     raise Warning("empty df: ")
-        #     continue
         df = pd.concat([df, new_df])
         df.drop_duplicates(inplace=True)
         return df

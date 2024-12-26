@@ -1,39 +1,61 @@
-import pandas as pd
+import datetime
 import os
-import sqlite3
+from .binance_api import get_binance_klines
+from .coinbase_api import get_product_candles
+from .db_helpers import update_klines_to_db
+import pandas as pd
+
+supported_exchanges = ["binanceus", "binancecom", "coinbase"]
 
 
-# update the kline archive by the given symbol and exchange
-# get the archive path from the environment variable
-ARCHIVE_PATH = os.getenv("FT_ARCHIVE_PATH")
+def update_kline(symbol, exchange,  start_date: datetime.datetime, end_date: datetime.datetime):
+    if exchange not in supported_exchanges:
+        raise ValueError(f"Exchange {exchange} not supported")
+
+    start_date = start_date.replace(tzinfo=datetime.timezone.utc)
+    end_date = end_date.replace(tzinfo=datetime.timezone.utc)
+    now = datetime.datetime.now().replace(tzinfo=datetime.timezone.utc)
+
+    if end_date > now:
+        end_date = now.replace(second=0, microsecond=0)
+
+    klines = pd.DataFrame()
+    curr_date = start_date
+
+    def status_update(status_obj):
+        os.system("clear")
+        # print(status_obj)
+        in_seconds = status_obj['est_time_remaining']
+        in_minutes = in_seconds / 60
+        msg = f"Downloading {symbol} from {exchange}."
+        if in_seconds > 100:
+            msg += f" Remaining (in minutes): {in_minutes:.2f}"
+        else:
+            msg += f" Remaining (in seconds): {in_seconds:.2f}"
+        
+        msg += f" {status_obj['perc_complete']}% complete"
+        print(msg)
+
+    if exchange == "binanceus":
+        klines, status_obj = get_binance_klines(symbol, curr_date, end_date, "us", status_update)
+    elif exchange == "binancecom":
+        klines, status_obj = get_binance_klines(symbol, curr_date, end_date, "com", status_update)
+    elif exchange == "coinbase":
+        klines, status_obj = get_product_candles(symbol, curr_date, end_date, status_update)
+    else:
+        raise ValueError(f"Exchange {exchange} not supported")
+
+    db_path = update_klines_to_db(klines, symbol, exchange)
+
+    return db_path
 
 
-def connect_to_db(db_name: str, create: bool = False) -> sqlite3.Connection:
-    """
-    Connect to the sqlite database
-
-    Args:
-        db_name (str, optional): The name of the database to connect to. Defaults to "ftc".
-
-    Returns:
-        sqlite3.Connection: The connection to the database
-    """
-    conn_str = f"{ARCHIVE_PATH}/{db_name}"
-    # check if the db exists
-    if not os.path.exists(conn_str) and not create:
-        raise Exception(f"Database {conn_str} does not exist")
-    conn = sqlite3.connect(conn_str)
-    # if db_name == "ftc":
-    conn.execute("pragma journal_mode=WAL")
-    return conn
-
-
-def update_kline_archive(symbol, exchange):
-    # read the kline archive
-    # get the db name
-    db_name = f"{ARCHIVE_PATH}/{exchange}/{symbol}.db"
-    conn = connect_to_db(db_name)
-
-    # fetch the last date
-    last_date = pd.read_sql(f"SELECT MAX(date) FROM {symbol}_{exchange}", con=conn)
-    # get the next date
+if __name__ == "__main__":
+    # symbol = "BTCUSDT"
+    # exchange = "binanceus"
+    symbol = "BTC-USD"
+    exchange = "coinbase"
+    start_date = datetime.datetime(2024, 1, 1)
+    end_date = datetime.datetime(2024, 1, 14)
+    res = update_kline(symbol, exchange, start_date, end_date)
+    print(res)
