@@ -7,7 +7,7 @@ README = (HERE / "README.md").read_text()
 
 setup(
     name="fast-trade",
-    version="0.4.1",
+    version="1.0.0",
     description="About low code backtesting library utilizing pandas and technical analysis indicators",
     long_description=README,
     long_description_content_type="text/markdown",
