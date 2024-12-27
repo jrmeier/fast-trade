@@ -1,11 +1,30 @@
 import pandas as pd
 import os
 import sqlite3
+import typing
 
 ARCHIVE_PATH = os.getenv("ARCHIVE_PATH", os.path.join(os.getcwd(), "ft_archive"))
 
+
 # update the kline archive by the given symbol and exchange
 # get the archive path from the environment variable
+def get_local_assets() -> typing.List[typing.Tuple[str, str]]:
+    """
+    Get the local assets from the archive
+
+    Returns:
+        typing.List[typing.Tuple[str, str]]: A list of tuples containing the exchange and symbol
+    """
+    all_assets = []
+
+    for exchange in os.listdir(ARCHIVE_PATH):
+        for symbol in os.listdir(os.path.join(ARCHIVE_PATH, exchange)):
+            if symbol.startswith("_") or not symbol.endswith(".sqlite"):
+                # ignore files that start with an underscore
+                continue
+            all_assets.append((exchange, symbol.replace(".sqlite", "")))
+
+    return all_assets
 
 
 def update_klines_to_db(df, symbol, exchange) -> str:
@@ -31,7 +50,7 @@ def update_klines_to_db(df, symbol, exchange) -> str:
     symbol_path = f"{exchange_path}/{symbol}.sqlite"
     engine = connect_to_db(symbol_path, create=True)
     df = standardize_df(df)
-    # print(df)
+
     df.to_sql("klines", con=engine, if_exists="append", index=True, index_label="date")
 
     return symbol_path

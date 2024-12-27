@@ -20,18 +20,13 @@ BINANCE_KLINE_REST_HEADER_MATCH = [
     "ignore",  # literally ignore this
 ]
 
-def get_base_url(tld="us"):
-    return f"https://api.binance.{tld}/api/v3"
-
 
 def get_exchange_info(tld="us"):
-    url = get_base_url(tld)
+    url = f"https://api.binance.{tld}/api/v3"
     req = requests.get(f"{url}/exchangeInfo")
     # attempt to sort any keys that are lists
     data = req.json()
 
-    # data["symbols"] = sorted(data["symbols"], key=lambda x: x["symbol"])
-    # recursively sort any lists in any nested dictionaries
     def sort_data(data):
         if isinstance(data, dict):
             return {k: sort_data(v) for k, v in sorted(data.items())}
@@ -71,19 +66,24 @@ def get_available_symbols(tld="us"):
 def get_oldest_date_available(symbol, tld="us"):
     endTime = int(datetime.datetime.utcnow().timestamp() * 1000)
     # TODO: make this accept a tld
-    url = f"{get_base_url(tld)}/klines?symbol={symbol}&interval=1m&startTime=0&endTime={endTime}&limit=1"
+    url = f"https://api.binance.{tld}/api/v3/klines?symbol={symbol}&interval=1m&startTime=0&endTime={endTime}&limit=1"
 
     data = requests.get(url).json()
     try:
         oldest_date = datetime.datetime.fromtimestamp(data[0][0] / 1000)
-        # print(f"{symbol} oldest date: {oldest_date}")
         return oldest_date
     except Exception as e:
         print(f"error with {symbol}")
         return datetime.datetime.utcnow() - datetime.timedelta(days=1)
 
 
-def get_binance_klines(symbol, start_date: datetime.datetime, end_date: datetime.datetime, tld="us", status_update= lambda x: None):
+def get_binance_klines(
+    symbol,
+    start_date: datetime.datetime,
+    end_date: datetime.datetime,
+    tld="us",
+    status_update=lambda x: None,
+):
     start_date = start_date.replace(tzinfo=datetime.timezone.utc)
     end_date = end_date.replace(tzinfo=datetime.timezone.utc)
 
@@ -95,7 +95,7 @@ def get_binance_klines(symbol, start_date: datetime.datetime, end_date: datetime
     now = datetime.datetime.now().replace(tzinfo=datetime.timezone.utc)
     if end_date > now:
         end_date = now.replace(second=0, microsecond=0)
-        
+
     # calculate the estimated number of calls
     total_duration_hours = (end_date - curr_date).total_seconds() / 3600
     num_calls = math.ceil(total_duration_hours / HOURS_TO_INCREMENT)
@@ -107,7 +107,7 @@ def get_binance_klines(symbol, start_date: datetime.datetime, end_date: datetime
         startTime = int(curr_date.timestamp()) * 1000
         endTime = int(next_end_date.timestamp()) * 1000
 
-        url = f"{get_base_url(tld)}/klines?symbol={symbol}&interval=1m&startTime={startTime}&endTime={endTime}&limit=1000"
+        url = f"https://api.binance.{tld}/api/v3/klines?symbol={symbol}&interval=1m&startTime={startTime}&endTime={endTime}&limit=1000"
 
         req = requests.get(url)
         total_api_calls += 1
@@ -133,7 +133,12 @@ def get_binance_klines(symbol, start_date: datetime.datetime, end_date: datetime
             "total_calls": num_calls,
             "total_time": round(time.time() - start_time, 2),
             # "sleep_time": sleeper,
-            "est_time_remaining": round((time.time() - start_time) / total_api_calls * (num_calls - total_api_calls), 2),
+            "est_time_remaining": round(
+                (time.time() - start_time)
+                / total_api_calls
+                * (num_calls - total_api_calls),
+                2,
+            ),
         }
         status_update(status_obj)
         time.sleep(sleeper)

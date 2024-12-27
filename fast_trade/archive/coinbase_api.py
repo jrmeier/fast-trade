@@ -5,6 +5,7 @@ import time
 import random
 import pandas as pd
 from pprint import pprint
+import typing
 
 BASE_URL = "https://api.exchange.coinbase.com"
 CB_REST_HEADER_MATCH = [
@@ -17,7 +18,7 @@ CB_REST_HEADER_MATCH = [
 ]
 
 
-def get_products() -> list[dict]:
+def get_products() -> typing.List[dict]:
     """Returns a list of all tradable assets on Coinbase Pro"""
     try:
         res = requests.get(f"{BASE_URL}/products")
@@ -31,7 +32,7 @@ def get_products() -> list[dict]:
         return []
 
 
-def get_asset_ids() -> list[str]:
+def get_asset_ids() -> typing.List[str]:
     """Returns a list of all tradable assets on Coinbase Pro"""
     ids = [asset["id"] for asset in get_products()]
     ids.sort()
@@ -114,7 +115,9 @@ def get_product_candles(
             "total_calls": num_calls,
             "total_time": round(time.time() - start_time, 2),
             # "sleep_time": sleeper,
-            "est_time_remaining": round((time.time() - start_time) / call_count * (num_calls - call_count), 2),
+            "est_time_remaining": round(
+                (time.time() - start_time) / call_count * (num_calls - call_count), 2
+            ),
         }
         update_status(status_obj)
         currentDate = next_end
@@ -138,7 +141,7 @@ def get_single_candle(product_id: str, params: dict = {}, df=pd.DataFrame()):
             # bad_errors += 1
             if bad_errors > 1:
                 time.sleep(bad_errors * bad_errors * bad_errors)
-            
+
             if bad_errors > 5:
                 raise Exception(f"Api Error: {res.status_code} {res.text}")
             # Warning("skipping call ", res.status_code, res.text)

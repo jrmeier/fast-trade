@@ -8,6 +8,7 @@ from .update_kline import update_kline
 ARCHIVE_PATH = os.getenv("ARCHIVE_PATH", os.path.join(os.getcwd(), "ft_archive"))
 
 
+
 def update_single_archive(symbol: str, exchange: str):
     # check the oldest date in the existing archive
     if not symbol.endswith(".sqlite"):
@@ -34,10 +35,10 @@ def update_single_archive(symbol: str, exchange: str):
 
 
 def update_archive():
-    """ Read the archive and update the klines"""
+    """Read the archive and update the klines"""
     count = 0
     start_time = time.time()
-    
+
     for exchange in os.listdir(ARCHIVE_PATH):
         for symbol in os.listdir(os.path.join(ARCHIVE_PATH, exchange)):
             if symbol.startswith("_") or not symbol.endswith(".sqlite"):
@@ -45,7 +46,7 @@ def update_archive():
                 continue
             update_single_archive(symbol, exchange)
             count += 1
-    
+
     print(f"Updated {count} symbols in {time.time() - start_time} seconds")
 
 
