@@ -140,7 +140,11 @@ def test_validate_exit_logic_valid():
 
     mock_any_exit_logic = [["close", ">", "sma_short"]]
 
-    mock_backtest = {"datapoints": mock_datapoints, "enter": [], "exit": mock_any_exit_logic}
+    mock_backtest = {
+        "datapoints": mock_datapoints,
+        "enter": [],
+        "exit": mock_any_exit_logic,
+    }
 
     backtest_mirror = validate_backtest(mock_backtest)
 
@@ -154,7 +158,11 @@ def test_validate_exit_logic_invalid_1():
 
     mock_enter_logic = [["close", ">", "sma_short"]]
 
-    mock_backtest = {"datapoints": mock_datapoints, "enter": [], "exit": mock_enter_logic}
+    mock_backtest = {
+        "datapoints": mock_datapoints,
+        "enter": [],
+        "exit": mock_enter_logic,
+    }
 
     backtest_mirror = validate_backtest(mock_backtest)
     print(backtest_mirror)
@@ -169,7 +177,11 @@ def test_validate_any_exit_logic_valid():
 
     mock_any_exit_logic = [["close", ">", "sma_short"]]
 
-    mock_backtest = {"datapoints": mock_datapoints, "enter": [], "any_exit": mock_any_exit_logic}
+    mock_backtest = {
+        "datapoints": mock_datapoints,
+        "enter": [],
+        "any_exit": mock_any_exit_logic,
+    }
 
     backtest_mirror = validate_backtest(mock_backtest)
 
@@ -183,7 +195,12 @@ def test_validate_any_exit_logic_invalid_1():
 
     mock_exit_logic = [["close", ">", "no name here"]]
 
-    mock_backtest = {"datapoints": mock_datapoints, "exit": [], "enter": [], "any_exit": mock_exit_logic}
+    mock_backtest = {
+        "datapoints": mock_datapoints,
+        "exit": [],
+        "enter": [],
+        "any_exit": mock_exit_logic,
+    }
 
     backtest_mirror = validate_backtest(mock_backtest)
 

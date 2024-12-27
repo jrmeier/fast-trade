@@ -7,15 +7,14 @@ from .cli_helpers import (
     save,
     create_plot,
 )
-from fast_trade.update_symbol_data import update_symbol_data
 from .run_backtest import run_backtest
 import matplotlib.pyplot as plt
 import datetime
 import argparse
 import os
 from pprint import pprint
-from .archive.cli import get_assets, download_asset
-from .archive.update_archive import update_archive
+from fast_trade.archive.cli import get_assets, download_asset
+from fast_trade.archive.update_archive import update_archive
 
 parser = argparse.ArgumentParser(
     description="Fast Trade CLI",
@@ -51,7 +50,6 @@ download_parser.add_argument(
     type=str,
     default=default_end_date.isoformat(),
 )
-
 
 
 backtest_parser = sub_parsers.add_parser("backtest", help="backtest a strategy")
@@ -96,12 +94,14 @@ get_assets_parser.add_argument(
     "--exchange",
     help="Which exchange to download data from. Defaults to binanceus",
     type=str,
-    default="binanceus",
-    choices=["binanceus", "binancecom", "coinbase"],
+    default="local",
+    choices=["binanceus", "binancecom", "coinbase", "local"],
 )
 
 download_asset_parser = sub_parsers.add_parser("download_asset", help="download asset")
-download_asset_parser.add_argument("symbol", help="symbol to download", type=str, default="BTCUSDT")
+download_asset_parser.add_argument(
+    "symbol", help="symbol to download", type=str, default="BTCUSDT"
+)
 download_asset_parser.add_argument(
     "exchange",
     help="Which exchange to download data from. Defaults to binanceus",
@@ -122,7 +122,10 @@ download_asset_parser.add_argument(
     default=default_end_date.strftime("%Y-%m-%d"),
 )
 
-update_archive_parser = sub_parsers.add_parser("update_archive", help="update the archive")
+update_archive_parser = sub_parsers.add_parser(
+    "update_archive", help="update the archive"
+)
+
 
 def backtest_helper(args):
     # match the mods to the kwargs
@@ -163,6 +166,7 @@ def validate_helper(args):
 
         strat_obj = {**strat_obj, **mods}
 
+
 command_map = {
     "download": download_asset,
     "backtest": backtest_helper,
@@ -177,11 +181,11 @@ if __name__ == "__main__":
         print("No command provided")
         sys.exit(1)
     command = sys.argv[1]
-    # try:
-    args = parser.parse_args()
-    command_map[command](**vars(args))
-    print("Done running command: ", command)
+    try:
+        args = parser.parse_args()
+        command_map[command](**vars(args))
+        print("Done running command: ", command)
 
-    # except Exception as e:
-        # print(f"Error running command {command}: {e}")
-        # sys.exit(1)
+    except Exception as e:
+        print(f"Error running command {command}: {e}")
+        sys.exit(1)

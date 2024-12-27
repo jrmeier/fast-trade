@@ -8,7 +8,9 @@ import pandas as pd
 supported_exchanges = ["binanceus", "binancecom", "coinbase"]
 
 
-def update_kline(symbol, exchange,  start_date: datetime.datetime, end_date: datetime.datetime):
+def update_kline(
+    symbol, exchange, start_date: datetime.datetime, end_date: datetime.datetime
+):
     if exchange not in supported_exchanges:
         raise ValueError(f"Exchange {exchange} not supported")
 
@@ -25,23 +27,29 @@ def update_kline(symbol, exchange,  start_date: datetime.datetime, end_date: dat
     def status_update(status_obj):
         os.system("clear")
         # print(status_obj)
-        in_seconds = status_obj['est_time_remaining']
+        in_seconds = status_obj["est_time_remaining"]
         in_minutes = in_seconds / 60
         msg = f"Downloading {symbol} from {exchange}."
         if in_seconds > 100:
             msg += f" Remaining (in minutes): {in_minutes:.2f}"
         else:
             msg += f" Remaining (in seconds): {in_seconds:.2f}"
-        
+
         msg += f" {status_obj['perc_complete']}% complete"
         print(msg)
 
     if exchange == "binanceus":
-        klines, status_obj = get_binance_klines(symbol, curr_date, end_date, "us", status_update)
+        klines, status_obj = get_binance_klines(
+            symbol, curr_date, end_date, "us", status_update
+        )
     elif exchange == "binancecom":
-        klines, status_obj = get_binance_klines(symbol, curr_date, end_date, "com", status_update)
+        klines, status_obj = get_binance_klines(
+            symbol, curr_date, end_date, "com", status_update
+        )
     elif exchange == "coinbase":
-        klines, status_obj = get_product_candles(symbol, curr_date, end_date, status_update)
+        klines, status_obj = get_product_candles(
+            symbol, curr_date, end_date, status_update
+        )
     else:
         raise ValueError(f"Exchange {exchange} not supported")
 

@@ -48,18 +48,15 @@ def generate_backtest():
     short_ind["transformer"] = transformer
     short_ind["args"] = [t1]
 
-
     mid_ind = {}
     mid_ind["name"] = "mid"
     mid_ind["transformer"] = transformer
     mid_ind["args"] = [t2]
 
-
     long_ind = {}
     long_ind["name"] = "short"
     long_ind["transformer"] = transformer
     long_ind["args"] = [t3]
-
 
     datapoints = []
     datapoints.append(short_ind)

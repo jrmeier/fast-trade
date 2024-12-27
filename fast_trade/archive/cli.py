@@ -1,10 +1,12 @@
 from fast_trade.archive import binance_api, coinbase_api
 import datetime
 from .update_kline import update_kline
+from .db_helpers import get_local_assets
 import pprint
+import typing
 
 
-def get_assets(exchange: str) -> list[str]:
+def get_assets(exchange: str = "local") -> typing.List[str]:
     assets = []
     try:
         if exchange == "binanceus":
@@ -13,22 +15,26 @@ def get_assets(exchange: str) -> list[str]:
             assets.extend(binance_api.get_available_symbols(tld="com"))
         elif exchange == "coinbase":
             assets.extend(coinbase_api.get_asset_ids())
+        elif exchange == "local":
+            assets.extend(get_local_assets())
         else:
             raise ValueError(f"Exchange {exchange} not supported")
         assets.sort()
-        pprint.pprint(assets)
-        print(f"Found {len(assets)} assets for {exchange}")
     except Exception as e:
         print(f"Error getting assets for {exchange}: {e}")
         raise e
+
+    pprint.pprint(assets)
+    print(f"Found {len(assets)} assets for {exchange}")
     return assets
 
 
 def download_asset(
     symbol: str,
     exchange: str,
-    start: str | datetime.datetime = datetime.datetime.now() - datetime.timedelta(days=30),
-    end: str | datetime.datetime = datetime.datetime.now(),
+    start: typing.Union[str, datetime.datetime] = datetime.datetime.now()
+    - datetime.timedelta(days=30),
+    end: typing.Union[str, datetime.datetime] = datetime.datetime.now(),
 ):
     """
     Download a single asset from the given exchange
