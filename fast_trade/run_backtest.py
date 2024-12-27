@@ -2,22 +2,20 @@ import datetime
 import pandas as pd
 import re
 import itertools
-import requests
-import json
 
 from .build_data_frame import build_data_frame, prepare_df
 from .run_analysis import apply_logic_to_df
 from .build_summary import build_summary
+from fast_trade.archive.db_helpers import get_kline
 
 
 class MissingData(Exception):
     pass
 
 
-def run_backtest(
-    backtest: dict, data_path: str = "", df: pd.DataFrame = None, summary=True
-):
+def run_backtest(backtest: dict, df: pd.DataFrame = pd.DataFrame(), summary=True):
     """
+    Run a backtest on a given dataframe
     Parameters
         backtest: dict, required, object containing the logic to test and other details
         data_path: string or list, required, where to find the csv file of the ohlcv data
@@ -31,18 +29,14 @@ def run_backtest(
 
     performance_start_time = datetime.datetime.utcnow()
     new_backtest = prepare_new_backtest(backtest)
-
-    reg = r"https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)"
-
-    is_url = re.search(reg, data_path)
-    if data_path:
-        if is_url:
-            # url
-            df = pd.read_csv(data_path)
-            df = prepare_df(df, new_backtest)
-        else:
-            df = build_data_frame(new_backtest, data_path)
-
+    if df.empty:
+        # check the local archive for the data
+        df = get_kline(
+            backtest.get("symbol"),
+            backtest.get("exchange"),
+            backtest.get("start_date"),
+            backtest.get("end_date"),
+        )
     df = apply_backtest_to_df(df, new_backtest)
 
     if summary:

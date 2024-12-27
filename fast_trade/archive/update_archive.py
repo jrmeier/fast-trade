@@ -8,7 +8,6 @@ from .update_kline import update_kline
 ARCHIVE_PATH = os.getenv("ARCHIVE_PATH", os.path.join(os.getcwd(), "ft_archive"))
 
 
-
 def update_single_archive(symbol: str, exchange: str):
     # check the oldest date in the existing archive
     if not symbol.endswith(".sqlite"):
@@ -16,9 +15,8 @@ def update_single_archive(symbol: str, exchange: str):
     path = os.path.join(ARCHIVE_PATH, exchange, symbol)
     db = connect_to_db(path)
 
-    now = datetime.datetime.now()
+    now = datetime.datetime.now(datetime.timezone.utc)
     now = now.replace(second=0, microsecond=0)
-    now = now.replace(tzinfo=datetime.timezone.utc)
 
     start_date = db.execute("SELECT max(date) FROM klines").fetchone()[0]
     print(start_date)
@@ -31,7 +29,12 @@ def update_single_archive(symbol: str, exchange: str):
     actual_symbol = symbol.replace(".sqlite", "")
     print(f"Updating {actual_symbol} from {exchange} from {start_date} to {now}")
 
-    update_kline(actual_symbol, exchange, start_date, now)
+    update_kline(
+        symbol=actual_symbol,
+        exchange=exchange,
+        start_date=start_date,
+        end_date=now,
+    )
 
 
 def update_archive():
