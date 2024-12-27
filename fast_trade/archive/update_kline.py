@@ -16,7 +16,7 @@ def update_kline(
 
     start_date = start_date.replace(tzinfo=datetime.timezone.utc)
     end_date = end_date.replace(tzinfo=datetime.timezone.utc)
-    now = datetime.datetime.now().replace(tzinfo=datetime.timezone.utc)
+    now = datetime.datetime.now(datetime.timezone.utc)
 
     if end_date > now:
         end_date = now.replace(second=0, microsecond=0)
@@ -25,7 +25,7 @@ def update_kline(
     curr_date = start_date
 
     def status_update(status_obj):
-        os.system("clear")
+        # os.system("clear")
         # print(status_obj)
         in_seconds = status_obj["est_time_remaining"]
         in_minutes = in_seconds / 60

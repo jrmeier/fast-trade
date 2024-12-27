@@ -107,6 +107,8 @@ def get_binance_klines(
         startTime = int(curr_date.timestamp()) * 1000
         endTime = int(next_end_date.timestamp()) * 1000
 
+        print(f"Getting {symbol} from {curr_date} to {next_end_date}")
+
         url = f"https://api.binance.{tld}/api/v3/klines?symbol={symbol}&interval=1m&startTime={startTime}&endTime={endTime}&limit=1000"
 
         req = requests.get(url)

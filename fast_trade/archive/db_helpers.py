@@ -2,6 +2,7 @@ import pandas as pd
 import os
 import sqlite3
 import typing
+import datetime
 
 ARCHIVE_PATH = os.getenv("ARCHIVE_PATH", os.path.join(os.getcwd(), "ft_archive"))
 
@@ -50,7 +51,6 @@ def update_klines_to_db(df, symbol, exchange) -> str:
     symbol_path = f"{exchange_path}/{symbol}.sqlite"
     engine = connect_to_db(symbol_path, create=True)
     df = standardize_df(df)
-
     df.to_sql("klines", con=engine, if_exists="append", index=True, index_label="date")
 
     return symbol_path
@@ -100,3 +100,36 @@ def standardize_df(df):
     new_df.volume = pd.to_numeric(new_df.volume)
 
     return new_df
+
+
+def get_kline(
+    symbol: str,
+    exchange: str,
+    start_date: datetime.datetime = None,
+    end_date: datetime.datetime = None,
+) -> pd.DataFrame:
+    """
+    Get the klines from the db
+    """
+    db_path = f"{ARCHIVE_PATH}/{exchange}/{symbol}.sqlite"
+    conn = connect_to_db(db_path)
+    query = "SELECT * FROM klines"
+    if start_date:
+        query += f" WHERE date >= '{start_date.isoformat()}'"
+
+    if end_date:
+        query += f" AND date <= '{end_date.isoformat()}'"
+
+    df = pd.read_sql_query(query, conn)
+    df.date = pd.to_datetime(df.date)
+    df = df.set_index("date")
+    return df
+
+
+if __name__ == "__main__":
+    symbol = "BTCUSDT"
+    exchange = "binanceus"
+    start_date = datetime.datetime(2024, 12, 12)
+    end_date = datetime.datetime(2024, 12, 31)
+    df = get_kline(symbol, exchange, start_date, end_date)
+    print(df)
