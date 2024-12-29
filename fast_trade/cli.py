@@ -151,6 +151,7 @@ command_map = {
     "validate": validate_helper,
     "assets": get_assets,
     "update_archive": update_archive,
+    "-h": parser.print_help,
 }
 
 
