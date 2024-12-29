@@ -27,7 +27,7 @@ setup(
     author_email="fast_trade@jedm.dev",
     license="GNU AGPLv3",
     python_requires=">=3",
-    entry_points={"console_scripts": ["ft = fast_trade.cli"]},
+    entry_points={"console_scripts": ["ft = fast_trade.cli:main"]},
     classifiers=[
         "Intended Audience :: Financial and Insurance Industry",
         "Programming Language :: Python :: 3.7",

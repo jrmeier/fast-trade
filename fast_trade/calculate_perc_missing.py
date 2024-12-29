@@ -1,22 +1,40 @@
+import pandas as pd
+
+
 def calculate_perc_missing(df):
     """
-    Parameters
-    ----------
-        df, pandas dataframe check
+    Calculate the percentage and total count of missing entries
+    in a DataFrame based on a time-index.
 
-    Returns
-    -------
-        perc_missing, float, a float of the percentage of rows with the missing closing price
+    Parameters:
+    - df (pd.DataFrame): The input DataFrame with a DatetimeIndex.
 
+    Returns:
+    - list: [percentage_missing (float), total_missing (float)]
     """
+    # Handle empty DataFrame
+    if df.empty:
+        raise ValueError("DataFrame is empty")
 
-    total_missing = df.close.isna().sum()
+    # Get the original frequency and reindex with it
+    # check if the index is a DatetimeIndex
+    if not isinstance(df.index, pd.DatetimeIndex):
+        raise ValueError("DataFrame index is not a DatetimeIndex")
+    freq = df.index.freq
+    if freq is None:
+        freq = "1Min"
+    # Get the full range of expected dates
+    start = df.index.min()
+    end = df.index.max()
+    expected_index = pd.date_range(start=start, end=end, freq=freq)
 
-    perc_missing = 0.0
-    if total_missing:
-        total_tics = len(df.index)
-        perc_missing = (total_missing / total_tics) * 100
+    # Calculate missing values
+    total_possible = len(expected_index)
+    total_actual = len(df)
+    print(total_possible, total_actual)
+    total_missing = total_possible - total_actual
 
-        perc_missing = round(perc_missing, 2)
-
-    return perc_missing, total_missing
+    # Calculate percentage
+    perc_missing = (total_missing / total_possible) * 100 if total_possible > 0 else 0.0
+    perc_missing = round(perc_missing, 2)
+    return [perc_missing, 0 if total_missing < 0 else total_missing]

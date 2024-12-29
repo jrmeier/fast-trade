@@ -39,14 +39,14 @@ download_parser.add_argument(
 )
 download_parser.add_argument(
     "--start",
-    help="first date to start downloading data from. Recently Listed coins might not have a lot of data.",
+    help="Date to start downloading data from. Defaults to 30 days ago.",
     type=str,
     default=default_start_date.isoformat(),
 )
 
 download_parser.add_argument(
     "--end",
-    help="Last date to download data. Defaults to today.",
+    help="Date to end downloading data. Defaults to today.",
     type=str,
     default=default_end_date.isoformat(),
 )
@@ -92,34 +92,10 @@ validate_backtest_parser.add_argument(
 get_assets_parser = sub_parsers.add_parser("assets", help="get assets")
 get_assets_parser.add_argument(
     "--exchange",
-    help="Which exchange to download data from. Defaults to binanceus",
+    help="",
     type=str,
     default="local",
-    choices=["binanceus", "binancecom", "coinbase", "local"],
-)
-
-download_asset_parser = sub_parsers.add_parser("download_asset", help="download asset")
-download_asset_parser.add_argument(
-    "symbol", help="symbol to download", type=str, default="BTCUSDT"
-)
-download_asset_parser.add_argument(
-    "exchange",
-    help="Which exchange to download data from. Defaults to binanceus",
-    type=str,
-    default="binanceus",
-    choices=["binanceus", "binancecom", "coinbase"],
-)
-download_asset_parser.add_argument(
-    "--start",
-    help="first date to start downloading data from. Recently Listed coins might not have a lot of data.",
-    type=str,
-    default=default_start_date.strftime("%Y-%m-%d"),
-)
-download_asset_parser.add_argument(
-    "--end",
-    help="Last date to download data. Defaults to today.",
-    type=str,
-    default=default_end_date.strftime("%Y-%m-%d"),
+    choices=["local", "binanceus", "binancecom", "coinbase"],
 )
 
 update_archive_parser = sub_parsers.add_parser(
@@ -175,14 +151,14 @@ command_map = {
     "update_archive": update_archive,
 }
 
-if __name__ == "__main__":
+
+def main():
     args = parser.parse_args()
     if not len(sys.argv) > 1:
         print("No command provided")
         sys.exit(1)
     command = sys.argv[1]
     try:
-        args = parser.parse_args()
         command_map[command](**vars(args))
         print("Done running command: ", command)
 
