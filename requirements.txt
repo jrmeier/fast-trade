@@ -1,4 +1,0 @@
-pandas>=0.21.1
-matplotlib >= 3.4.1
-requests
-numpy
