@@ -31,7 +31,7 @@ def calculate_perc_missing(df):
     # Calculate missing values
     total_possible = len(expected_index)
     total_actual = len(df)
-    print(total_possible, total_actual)
+
     total_missing = total_possible - total_actual
 
     # Calculate percentage

@@ -2,7 +2,9 @@
         "any_enter": [],
         "any_exit": [],
         "chart_period": "15Min",
-        "comission": 0,
+        "comission": 0.01,
+        "symbol": "BTCUSDTd",
+        "exchange": "binanceus",
         "datapoints": [
           {
             "args": [
@@ -36,5 +38,6 @@
           ]
         ],
         "exit_on_end": false,
-        "trailing_stop_loss": null
+        "trailing_stop_loss": null,
+        "rules": [["return_perc",">",0.05]]
       }

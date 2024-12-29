@@ -6,6 +6,9 @@ import itertools
 from .run_analysis import apply_logic_to_df
 from .build_summary import build_summary
 from fast_trade.archive.db_helpers import get_kline
+from .build_data_frame import prepare_df
+from .validate_backtest import validate_backtest, validate_backtest_with_df
+from .evaluate import evaluate_rules
 
 
 class MissingData(Exception):
@@ -28,6 +31,10 @@ def run_backtest(backtest: dict, df: pd.DataFrame = pd.DataFrame(), summary=True
 
     performance_start_time = datetime.datetime.utcnow()
     new_backtest = prepare_new_backtest(backtest)
+    errors = validate_backtest(new_backtest)
+    if errors.get("has_error"):
+        raise Exception(errors)
+
     if df.empty:
         # check the local archive for the data
         df = get_kline(
@@ -36,7 +43,12 @@ def run_backtest(backtest: dict, df: pd.DataFrame = pd.DataFrame(), summary=True
             backtest.get("start_date"),
             backtest.get("end_date"),
         )
+
+    df = prepare_df(df, new_backtest)
     df = apply_backtest_to_df(df, new_backtest)
+
+    # throw an error if the backtest is not valid
+    validate_backtest_with_df(new_backtest, df)
 
     if summary:
         summary, trade_log = build_summary(df, performance_start_time)
@@ -49,6 +61,12 @@ def run_backtest(backtest: dict, df: pd.DataFrame = pd.DataFrame(), summary=True
         }
         trade_log = None
 
+    rule_eval = evaluate_rules(summary, new_backtest.get("rules", []))
+    summary["rules"] = {
+        "all": rule_eval[0],
+        "any": rule_eval[1],
+        "results": rule_eval[2],
+    }
     return {
         "summary": summary,
         "df": df,
@@ -77,6 +95,7 @@ def prepare_new_backtest(backtest):
     new_backtest["any_exit"] = backtest.get("any_exit", [])
     new_backtest["lot_size_perc"] = float(backtest.get("lot_size", 1))
     new_backtest["max_lot_size"] = int(backtest.get("max_lot_size", 0))
+    new_backtest["rules"] = backtest.get("rules", [])
 
     return new_backtest
 
