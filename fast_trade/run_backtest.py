@@ -9,6 +9,7 @@ from fast_trade.archive.db_helpers import get_kline
 from .build_data_frame import prepare_df
 from .validate_backtest import validate_backtest, validate_backtest_with_df
 from .evaluate import evaluate_rules
+from .finta import TA
 
 
 class MissingData(Exception):
