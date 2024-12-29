@@ -4,6 +4,9 @@ import time
 import random
 import pandas as pd
 import math
+import os
+
+API_DELAY = os.getenv("API_DELAY", 0.3)
 
 BINANCE_KLINE_REST_HEADER_MATCH = [
     "date",  # Open time
@@ -83,6 +86,7 @@ def get_binance_klines(
     end_date: datetime.datetime,
     tld="us",
     status_update=lambda x: None,
+    store_func=lambda x, y: None,
 ):
     start_date = start_date.replace(tzinfo=datetime.timezone.utc)
     end_date = end_date.replace(tzinfo=datetime.timezone.utc)
@@ -113,6 +117,7 @@ def get_binance_klines(
 
         req = requests.get(url)
         total_api_calls += 1
+        error_count = 0
         if req.status_code == 200:
             curr_date = next_end_date
             klines.extend(req.json())
@@ -120,13 +125,19 @@ def get_binance_klines(
             # print(req)
             # raise Exception(f"Error with {symbol}")
             print(f"Error: {symbol} {req.text}")
+            error_count += 1
+            if error_count > 3:
+                raise Exception(
+                    f"Download failed for {symbol} after 3 errors. Error: {req.text}"
+                )
 
-        sleeper = random.random() * 0.3
+        sleeper = random.random() * API_DELAY
         if sleeper < 0.1:
             sleeper += 0.1
 
-        if total_api_calls % 100 == 0:
+        if total_api_calls % 10 == 0:
             sleeper += random.randint(1, 3)
+            store_func(klines, symbol, "binanceus")
 
         status_obj = {
             "symbol": symbol,

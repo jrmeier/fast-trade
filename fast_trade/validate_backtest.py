@@ -1,5 +1,8 @@
-from .transformers_map import transformers_map
 import re
+
+import pandas as pd
+
+from .transformers_map import transformers_map
 
 
 def validate_backtest(backtest):
@@ -181,3 +184,20 @@ def match_field_type_to_value(field):
         if re.match(r"^-?\d+(?:\.\d+)$", field):  # if its a string in a float
             return float(field)
     return field
+
+
+def validate_backtest_with_df(backtest: dict, df: pd.DataFrame) -> None:
+    errors = validate_backtest(backtest)
+    if errors.get("has_error"):
+        raise Exception(errors)
+
+    if df.empty:
+        raise Exception("Dataframe is empty. Check your data source.")
+
+    errors = []
+
+    for dp in backtest.get("datapoints", []):
+        if dp.get("name") not in df.columns:
+            errors.append(f'Datapoint "{dp.get("name")}" not found in dataframe.')
+    if len(errors):
+        raise Exception(errors)

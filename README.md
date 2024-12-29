@@ -45,7 +45,7 @@ pip install fast-trade
 
 ## Usage
 
-See [sma_strategy.json](./sma_strategy.json) and [strategy.json](./strategy.json) for an example strategy. The basic idea is you describe the "datapoints" then compare them in the "logics". The "datapoints" describe the technical analysis functions to run, and the "logics" describe the logic to use to determine when to enter and exit trades.
+[strategy.json](./strategy.json) for an example strategy. The basic idea is you describe the "datapoints" then compare them in the "logics". The "datapoints" describe the technical analysis functions to run, and the "logics" describe the logic to use to determine when to enter and exit trades.
 
 Example backtest script
 
@@ -93,6 +93,7 @@ backtest = {
         "sma_short"
       ]
     ],
+    "rules": [["sharpe_ratio", ">", 0.5]], # use rules to filter out backtests that didnt perform well
     "trailing_stop_loss": 0.05, # optional trailing stop loss 
     "exit_on_end": False, # at then end of the backtest, if true, the trade will exit
 }
@@ -112,6 +113,8 @@ trade_log_df = result["trade_df"]
 print(summary)
 print(df.head())
 ```
+
+
 ## CLI
 
 You can also use the package from the command line. Each command's specific help feature can be viewed by running `ft <command> -h`.
@@ -161,8 +164,10 @@ Download the last 30 days of BTCUSDT from binance.us
 
 `ft download SYMBOL --archive ARCHIVE_PATH --start START_DATE --end END_DATE --exchange=EXCHANGE`
 
-Update the archive
-`ft update_archive`
+Update the archive. Brings the archive up to date with the latest data for each symbol.
+
+```ft update_archive```
+
 This update all the existing items in the archive, downloading the latest data for each symbol.
 
 
@@ -298,6 +303,11 @@ Backtests include all the instructions needed to run the backtest minus the data
   - default `0`
   - description: This sets a trailing stop loss, so the trade will exit immediately, without considering any other action. It is the percentage ot follow for example, to set a stop loss of 5%, set `0.05`
 
+- rules: list
+  - optional
+  - default: `None`
+  - description: This is a list of rules to filter out backtests that didnt perform well. See [Rules](#Rules) for more information.
+
 ## Simple Moving Average Cross example
 
 This is an example of a simple moving average cross backtest.
@@ -424,3 +434,13 @@ Example:
 The `bbands` function returns two series, one for the upper band and one for the lower band. The name of the series will be `bbands_upper` and `bbands_lower`.
 
 `bbands` returns 3 columns `upper_bb, middle_band, lower_bb`
+
+## Rules
+
+Rules are used to filter out backtests that didnt perform well. They are based on the summary object keys. This is usefuly for quickly filtering out backtests that didnt perform well.
+
+Example:
+
+```python
+[["sharpe_ratio", ">", 0.5]]
+```

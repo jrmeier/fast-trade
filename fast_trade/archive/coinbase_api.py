@@ -6,7 +6,9 @@ import random
 import pandas as pd
 from pprint import pprint
 import typing
+import os
 
+API_DELAY = os.getenv("API_DELAY", 0.3)
 BASE_URL = "https://api.exchange.coinbase.com"
 CB_REST_HEADER_MATCH = [
     "date",
@@ -85,29 +87,28 @@ def get_product_candles(
         next_end = next_end.replace(tzinfo=datetime.timezone.utc)
         if next_end > now:
             next_end = now
-        # print(
-        #     "currentDate", currentDate, "next_end", next_end, "end", end, "now: ", now
-        # )
+
         params = {
             "granularity": 60,
             "start": str(int(currentDate.timestamp())),
             "end": str(int(next_end.timestamp())),
         }
 
-        # print("params", params)
-        # # os.system("clear")
-        perc_complete = round(call_count / num_calls * 100, 2)
-        # print("bad_errors", bad_errors)
         df = get_single_candle(product_id, params, df)
-        if df is None:
-            # print("bad errors", bad_errors)
+        if df.empty:
+            print(f"Error Downloading {product_id}")
             bad_errors += 1
-            if bad_errors > 5:
-                raise Exception(f"Too many errors: {bad_errors}")
+            if bad_errors > 4:
+                raise Exception(
+                    f"Error Downloading: for {product_id} from {start} to {end}"
+                )
             time.sleep(2 * bad_errors)
             continue
         call_count += 1
-        # print(f"Fetching data for {product_id}... {perc_complete:.2f}% complete")'
+        if call_count % 10 == 0:
+
+            store_func(df, product_id, "coinbase")
+
         status_obj = {
             "symbol": product_id,
             "perc_complete": round(call_count / num_calls * 100, 2),
@@ -124,7 +125,6 @@ def get_product_candles(
     if not df.empty:
         df.sort_index(inplace=True, ascending=False)
 
-    # print("done fetching data for: ", product_id, "total calls: ", call_count)
     return df, status_obj
 
 
@@ -155,7 +155,7 @@ def get_single_candle(product_id: str, params: dict = {}, df=pd.DataFrame()):
         return df
     except Exception as e:
         print("error", e)
-        return None
+        return pd.DataFrame()
 
 
 def df_from_candles(klines):

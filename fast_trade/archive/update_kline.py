@@ -4,15 +4,28 @@ from .binance_api import get_binance_klines
 from .coinbase_api import get_product_candles
 from .db_helpers import update_klines_to_db
 import pandas as pd
+import typing
 
 supported_exchanges = ["binanceus", "binancecom", "coinbase"]
 
 
 def update_kline(
-    symbol, exchange, start_date: datetime.datetime, end_date: datetime.datetime
+    symbol,
+    exchange,
+    start_date: typing.Optional[datetime.datetime] = None,
+    end_date: typing.Optional[datetime.datetime] = None,
 ):
     if exchange not in supported_exchanges:
         raise ValueError(f"Exchange {exchange} not supported")
+
+    if start_date is None:
+        # 30 days ago
+        start_date = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
+            days=30
+        )
+    if end_date is None:
+        # now
+        end_date = datetime.datetime.now(datetime.timezone.utc)
 
     start_date = start_date.replace(tzinfo=datetime.timezone.utc)
     end_date = end_date.replace(tzinfo=datetime.timezone.utc)
@@ -36,19 +49,30 @@ def update_kline(
             msg += f" Remaining (in seconds): {in_seconds:.2f}"
 
         msg += f" {status_obj['perc_complete']}% complete"
+        # update the db
         print(msg)
 
     if exchange == "binanceus":
         klines, status_obj = get_binance_klines(
-            symbol, curr_date, end_date, "us", status_update
+            symbol,
+            curr_date,
+            end_date,
+            "us",
+            status_update,
+            store_func=update_klines_to_db,
         )
     elif exchange == "binancecom":
         klines, status_obj = get_binance_klines(
-            symbol, curr_date, end_date, "com", status_update
+            symbol,
+            curr_date,
+            end_date,
+            "com",
+            status_update,
+            store_func=update_klines_to_db,
         )
     elif exchange == "coinbase":
         klines, status_obj = get_product_candles(
-            symbol, curr_date, end_date, status_update
+            symbol, curr_date, end_date, status_update, store_func=update_klines_to_db
         )
     else:
         raise ValueError(f"Exchange {exchange} not supported")

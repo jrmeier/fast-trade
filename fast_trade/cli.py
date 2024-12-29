@@ -59,7 +59,6 @@ backtest_parser.add_argument(
     type=str,
 )
 
-backtest_parser.add_argument("data", help="path to data file for kline data.")
 backtest_parser.add_argument(
     "--mods", help="Modifiers for strategy/backtest", nargs="*"
 )
@@ -103,44 +102,47 @@ update_archive_parser = sub_parsers.add_parser(
 )
 
 
-def backtest_helper(args):
+def backtest_helper(*args, **kwargs):
     # match the mods to the kwargs
-    strat_obj = open_strat_file(args.strategy)
+
+    strat_obj = open_strat_file(kwargs.get("strategy"))
 
     if not strat_obj:
-        print("Could not open strategy file: {}".format(args.strategy))
+        print("Could not open strategy file: {}".format(kwargs.get("strategy")))
         sys.exit(1)
-    if args.mods:
+    if kwargs.get("mods"):
         mods = {}
         i = 0
-        while i < len(args.mods):
-            mods[args.mods[i]] = args.mods[i + 1]
+        while i < len(kwargs.get("mods")):
+            mods[kwargs.get("mods")[i]] = kwargs.get("mods")[i + 1]
             i += 2
 
         strat_obj = {**strat_obj, **mods}
-    backtest = run_backtest(strat_obj, data_path=args.data)
 
-    if args.save:
+    backtest = run_backtest(strat_obj)
+
+    if kwargs.get("save"):
         save(backtest, backtest["backtest"])
 
-    if args.plot:
+    if kwargs.get("plot"):
         create_plot(backtest["df"])
 
         plt.show()
-    print(backtest)
     pprint(backtest["summary"])
 
 
 def validate_helper(args):
-    strat_obj = open_strat_file(args.strategy)
-    if args.mods:
+    strat_obj = open_strat_file(args.get("strategy"))
+    if args.get("mods"):
         mods = {}
         i = 0
-        while i < len(args.mods):
-            mods[args.mods[i]] = args.mods[i + 1]
+        while i < len(args.get("mods")):
+            mods[args.get("mods")[i]] = args.get("mods")[i + 1]
             i += 2
 
         strat_obj = {**strat_obj, **mods}
+
+    validate_backtest(strat_obj)
 
 
 command_map = {
@@ -158,10 +160,14 @@ def main():
         print("No command provided")
         sys.exit(1)
     command = sys.argv[1]
-    try:
-        command_map[command](**vars(args))
-        print("Done running command: ", command)
+    # try:
+    command_map[command](**vars(args))
+    print("Done running command: ", command)
 
-    except Exception as e:
-        print(f"Error running command {command}: {e}")
-        sys.exit(1)
+    # except Exception as e:
+    #     print(f"Error running command {command}: {e}")
+    #     sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
