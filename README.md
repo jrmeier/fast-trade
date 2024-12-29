@@ -102,12 +102,8 @@ backtest = {
 # returns a mirror of the object, with errors if any
 print(validate_backtest(backtest))
 
-# also accepts urls 
-# datafile_path = "https://raw.githubusercontent.com/jrmeier/fast-trade/master/test/ohlcv_data.csv.txt"
-datafile_path = "./BTCUSDT.csv"
-
 # returns the summary object and the dataframe
-result = run_backtest(backtest, datafile_path)
+result = run_backtest(backtest)
 
 summary = result["summary"]
 df = result["df"]
@@ -131,13 +127,7 @@ This will download the last month of data for BTCUSD from binance.us and store i
 
 This will backtest a file with a strategy. By default, it will only show a summary of the backtest. However, if you want to save the results, add the `--save` flag and it will go the `saved_backtests/` directory.
 
-`ft backtest ./strategy.json ./archive/BTCUSD_2022.csv`
-
-You can also pass in url instead of files.
-
-`ft backtest https://raw.githubusercontent.com/jrmeier/fast-trade/master/strategy.json ./archive/BTCUSD_2022.csv`
-
-`ft backtest strategy.json https://example.com/BTCUSDT_2022.csv`
+`ft backtest ./strategy.json`
 
 You can validate a backtest before you run it. This doesn't help with the data, but does help with the logic.
 `ft validate stategy.json`
@@ -146,15 +136,15 @@ You can validate a backtest before you run it. This doesn't help with the data, 
 
 Modifying the `chart_period`
 
-`ft backtest ./strategy.json ./archive/BTCUSD_2022.csv --mods chart_period 1H`
+`ft backtest ./strategy.json --mods chart_period 1H`
 
 Modifying the `chart_period` and the `trailing_stop_loss`
 
-`ft backtest ./strategy.json ./archive/BTCUSD_2022.csv --mods chart_period 1H trailing_stop_loss .05`
+`ft backtest ./strategy.json --mods chart_period 1H trailing_stop_loss .05`
 
 Saving a test result
 This generates creates the `saved_backtest` directory (if it doesn't exist), then inside of there, is another directory with a timestamp, with a chart, the backtest file, the summary, and the raw dataframe as a csv.
-`ft backtest ./strategy.json ./archive/BTCUSD_2022.csv --save`
+`ft backtest ./strategy.json --save`
 
 ### Archive
 You can download data directly from the CoinbaseAPI and BinanceAPI without registering for an API key.

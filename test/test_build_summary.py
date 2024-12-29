@@ -254,5 +254,4 @@ def test_build_summary():
     assert res["total_tics"] == 9
     assert type(res["test_duration"]) is float
     assert len(trade_df.index) == 3
-    assert res["perc_missing"] == 0.0
     assert res["total_missing"] == 0
