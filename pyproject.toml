@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fast-trade"
+version = "1.0.0"
+description = "Low code backtesting library utilizing pandas and technical analysis indicators"
+readme = "README.md"
+authors = [
+    { name = "Jed Meier", email = "fast_trade@jedm.dev" }
+]
+license = { text = "GNU AGPLv3" }
+classifiers = [
+    "Intended Audience :: Financial and Insurance Industry",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Software Development :: Libraries",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+    "Operating System :: OS Independent",
+    "Natural Language :: English",
+]
+keywords = ["backtesting", "currency", "ta", "pandas", "finance", "numpy", "analysis", "technical analysis"]
+requires-python = ">=3.8"
+dependencies = [
+    "pandas>=2.0.0",
+    "matplotlib>=3.7.0",
+    "requests>=2.31.0",
+    "numpy>=1.24.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/jrmeier/fast-trade"
+Repository = "https://github.com/jrmeier/fast-trade"
+
+[project.scripts]
+ft = "fast_trade.cli:main"
+
+[tool.setuptools]
+packages = ["fast_trade"]
+include-package-data = true 
