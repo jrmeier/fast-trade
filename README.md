@@ -442,5 +442,13 @@ Rules are used to filter out backtests that didnt perform well. They are based o
 Example:
 
 ```python
-[["sharpe_ratio", ">", 0.5]]
+[
+  ["sharpe_ratio", ">", 0.5],
+  ["win_perc", ">", 0.5],
+  ["loss_perc", "<", 0.5]
+]
 ```
+
+## Supported Indicators
+
+See [finta/README.md](./finta/README.md) for a list of supported indicators.
