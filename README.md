@@ -451,4 +451,4 @@ Example:
 
 ## Supported Indicators
 
-See [finta/README.md](./finta/README.md) for a list of supported indicators.
+See [finta/README.md](FINTA_README.md) for a list of supported indicators.
