@@ -41,5 +41,9 @@ Repository = "https://github.com/jrmeier/fast-trade"
 ft = "fast_trade.cli:main"
 
 [tool.setuptools]
-packages = ["fast_trade"]
-include-package-data = true 
+packages = ["fast_trade", "fast_trade.finta", "fast_trade.archive"]
+package-dir = {"" = "."}
+
+[tool.setuptools.package-data]
+"fast_trade.finta" = ["*.py"]
+"fast_trade.archive" = ["*.py"] 
