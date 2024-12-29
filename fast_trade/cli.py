@@ -157,9 +157,9 @@ command_map = {
 def main():
     args = parser.parse_args()
     if not len(sys.argv) > 1:
-        print("No command provided")
-        sys.exit(1)
-    command = sys.argv[1]
+        command = "-h"
+    else:
+        command = sys.argv[1]
     # try:
     command_map[command](**vars(args))
     print("Done running command: ", command)
