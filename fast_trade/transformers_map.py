@@ -1,4 +1,4 @@
-from .finta.finta import TA
+from .finta import TA
 
 """
 These are all the datapoints the can be used in a backtest as a "transformer".
