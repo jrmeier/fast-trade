@@ -45,5 +45,4 @@ packages = ["fast_trade", "fast_trade.finta", "fast_trade.archive"]
 include-package-data = true
 
 [tool.setuptools.package-data]
-"fast_trade.finta" = ["*.py"]
 "fast_trade.archive" = ["*.py"] 
