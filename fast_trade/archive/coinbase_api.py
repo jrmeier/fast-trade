@@ -148,6 +148,11 @@ def get_single_candle(product_id: str, params: dict = {}, df=pd.DataFrame()):
         # print("res", res.status_code, res.text)
         res = res.json()
         new_df = df_from_candles(res)
+        if new_df.empty:
+            bad_errors += 1
+            if bad_errors > 1:
+                raise Exception(f"Error Downloading: for {product_id}")
+            return pd.DataFrame()
         sleep_time = random.random() * 0.5 + 0.1
         time.sleep(sleep_time)
         df = pd.concat([df, new_df])
