@@ -31,7 +31,9 @@ def run_backtest(backtest: dict, df: pd.DataFrame = pd.DataFrame(), summary=True
     """
 
     performance_start_time = datetime.datetime.utcnow()
+    print("PERFORMANCE START TIME::: ", performance_start_time)
     new_backtest = prepare_new_backtest(backtest)
+    print("NEW BACKTEST::: ", new_backtest)
     errors = validate_backtest(new_backtest)
     if errors.get("has_error"):
         raise Exception(errors)
@@ -88,12 +90,13 @@ def prepare_new_backtest(backtest):
 
     """
     new_backtest = backtest.copy()
+
     new_backtest["base_balance"] = backtest.get("base_balance", 1000)
     new_backtest["exit_on_end"] = backtest.get("exit_on_end", False)
     new_backtest["comission"] = backtest.get("comission", 0)
     new_backtest["trailing_stop_loss"] = backtest.get("trailing_stop_loss", 0)
-    new_backtest["any_enter"] = backtest.get("any_enter", [])
-    new_backtest["any_exit"] = backtest.get("any_exit", [])
+    # new_backtest["any_enter"] = backtest.get("any_enter", [])
+    # new_backtest["any_exit"] = backtest.get("any_exit", [])
     new_backtest["lot_size_perc"] = float(backtest.get("lot_size", 1))
     new_backtest["max_lot_size"] = int(backtest.get("max_lot_size", 0))
     new_backtest["rules"] = backtest.get("rules", [])
