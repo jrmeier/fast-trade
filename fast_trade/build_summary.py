@@ -21,7 +21,6 @@ def build_summary(df, performance_start_time):
     performance_stop_time = datetime.datetime.utcnow()
     start_date = df.index[0]
     end_date = df.index[-1]
-
     trade_log_df = create_trade_log(df)
     total_trades = len(trade_log_df.index)
 
@@ -61,14 +60,30 @@ def build_summary(df, performance_start_time):
 
     [perc_missing, total_missing_dates] = calculate_perc_missing(df)
 
+    # check if median_time_held is a timedelta object
+    if isinstance(median_time_held, datetime.timedelta):
+        median_time_held = median_time_held.total_seconds()
+        median_time_held = round(median_time_held, 3)
+        mean_trade_time_held = mean_trade_time_held.total_seconds()
+        mean_trade_time_held = round(mean_trade_time_held, 3)
+        max_trade_time_held = max_trade_time_held.total_seconds()
+        max_trade_time_held = round(max_trade_time_held, 3)
+        min_trade_time_held = min_trade_time_held.total_seconds()
+        min_trade_time_held = round(min_trade_time_held, 3)
+    else:
+        median_time_held = 0
+        mean_trade_time_held = 0
+        max_trade_time_held = 0
+        min_trade_time_held = 0
+
     summary = {
         "return_perc": float(return_perc),
         "sharpe_ratio": float(sharpe_ratio),  # BETA
         "buy_and_hold_perc": float(buy_and_hold_perc),
-        "median_trade_len": round(median_time_held.total_seconds(), 3),
-        "mean_trade_len": round(mean_trade_time_held.total_seconds(), 3),
-        "max_trade_held": round(max_trade_time_held.total_seconds(), 3),
-        "min_trade_len": round(min_trade_time_held.total_seconds(), 3),
+        "median_trade_len": median_time_held,
+        "mean_trade_len": mean_trade_time_held,
+        "max_trade_held": max_trade_time_held,
+        "min_trade_len": min_trade_time_held,
         "total_num_winning_trades": float(total_num_winning_trades),
         "total_num_losing_trades": float(total_num_losing_trades),
         "avg_win_perc": float(avg_win_perc),
@@ -108,7 +123,6 @@ def create_trade_log(df):
     -------
         trade_log_df: dataframe, of when transactions took place
     """
-
     trade_log_df = df.reset_index()
     trade_log_df = trade_log_df.groupby(
         (trade_log_df["in_trade"] != trade_log_df["in_trade"].shift()).cumsum()

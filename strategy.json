@@ -1,9 +1,9 @@
 {
         "any_enter": [],
         "any_exit": [],
-        "freq": "15Min",
+        "freq": "5Min",
         "comission": 0.01,
-        "symbol": "BTCUSDTd",
+        "symbol": "BTCUSDT",
         "exchange": "binanceus",
         "datapoints": [
           {
@@ -26,7 +26,7 @@
             "zlema",
             ">",
             "close",
-            2
+            4
           ]
         ],
         "exit": [
@@ -34,7 +34,7 @@
             "zlema_1",
             "<",
             "close",
-            1
+            2
           ]
         ],
         "exit_on_end": false,
