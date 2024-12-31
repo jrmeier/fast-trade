@@ -1,7 +1,7 @@
 {
   "any_enter": [],
   "any_exit": [],
-  "chart_period": "4H",
+  "freq": "4H",
   "comission": 0.01,
   "datapoints": [
     {
