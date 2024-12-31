@@ -1,7 +1,7 @@
 {
         "any_enter": [],
         "any_exit": [],
-        "chart_period": "15Min",
+        "freq": "15Min",
         "comission": 0.01,
         "symbol": "BTCUSDTd",
         "exchange": "binanceus",

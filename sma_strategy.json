@@ -1,6 +1,6 @@
 {
     "base_balance": 1000,
-    "chart_period": "1Min",
+    "freq": "1Min",
     "chart_start": "2022-01-01 18:00:00",
     "chart_stop": "2022-02-06 18:00:00",
     "comission": 0.01,

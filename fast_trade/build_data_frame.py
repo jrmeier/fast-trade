@@ -62,6 +62,10 @@ def prepare_df(df: pd.DataFrame, backtest: dict):
     """
 
     datapoints = backtest.get("datapoints", [])
+    freq = backtest.get("freq", "1Min")
+    start_time = backtest.get("start")
+    stop_time = backtest.get("stop")
+    df = apply_charting_to_df(df, freq, start_time, stop_time)
     df = apply_transformers_to_dataframe(df, datapoints)
     trailing_stop_loss = backtest.get("trailing_stop_loss", 0)
     if trailing_stop_loss:
@@ -69,24 +73,15 @@ def prepare_df(df: pd.DataFrame, backtest: dict):
             1 - float(trailing_stop_loss)
         )
 
-    chart_period = backtest.get("chart_period", "1Min")
-
-    start_time = backtest.get("start")
-    stop_time = backtest.get("stop")
-
-    df = apply_charting_to_df(df, chart_period, start_time, stop_time)
-
     return df
 
 
-def apply_charting_to_df(
-    df: pd.DataFrame, chart_period: str, start_time: str, stop_time: str
-):
-    """Modifies the dataframe based on the chart_period, start dates and end dates
+def apply_charting_to_df(df: pd.DataFrame, freq: str, start_time: str, stop_time: str):
+    """Modifies the dataframe based on the freq, start dates and end dates
     Parameters
     ----------
         df: dataframe with data loaded
-        chart_period: string, describes how often to sample data, default is '1Min' (1 minute)
+        freq: string, describes how often to sample data, default is '1Min' (1 minute)
             see https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#dateoffset-objects
         start_time: datestring in YYYY-MM-DD HH:MM (ex. 2020-08-31 04:00) of when to begin the backtest
         stop_time: datestring of YYYY-MM-DD HH:MM when to stop the backtest
@@ -116,7 +111,7 @@ def apply_charting_to_df(
             stop_time = pd.to_datetime(stop_time, unit=time_unit)
             stop_time = stop_time.strftime("%Y-%m-%d %H:%M:%S")
 
-    df = df.resample(chart_period).first()
+    df = df.resample(freq).first()
 
     if start_time and stop_time:
         df = df[start_time:stop_time]  # noqa
@@ -128,40 +123,71 @@ def apply_charting_to_df(
     return df
 
 
-def apply_transformers_to_dataframe(df: pd.DataFrame, datapoints: list):
+def apply_transformers_to_dataframe(
+    df: pd.DataFrame,
+    transformers: list,
+):
     """Applies indications from the backtest to the dataframe
     Parameters
     ----------
         df: dataframe loaded with data
-        datapoints: list of indictors as dictionary objects
+        transformers: list of transformers as dictionary objects
 
         transformer detail:
         {
-            "transformer": "", string, actual function to be called MUST be in the datapoints
+            "transformer": "", string, actual function to be called MUST be in the transformers_map
             "name": "", string, name of the transformer, becomes a column on the dataframe
-            "args": [], list arguments to pass the the function
+            "args": [], list arguments to pass the the function,
+            "freq": "", string, frequency of the transformer, default is the freq in the backtest
         }
 
     Returns
     -------
         df, a modified dataframe with all the datapoints calculated as columns
     """
-    for ind in datapoints:
+
+    base_freq = infer_frequency(df)
+    # set the freq of the dataframe
+    df = df.asfreq(base_freq)
+    # return df
+    for ind in transformers:
         transformer = ind.get("transformer")
         field_name = ind.get("name")
+        freq = ind.get("freq", None)
+
+        # Create a temporary dataframe with the desired frequency
+        if freq:
+            tmp_df = (
+                df.resample(freq)
+                .agg(
+                    {
+                        "open": "first",
+                        "high": "max",
+                        "low": "min",
+                        "close": "last",
+                        "volume": "sum",
+                    }
+                )
+                .ffill()
+            )
+        else:
+            tmp_df = df
 
         if len(ind.get("args", [])):
             args = ind.get("args")
-            # df[field_name] = datapoints[transformer](df, *args)
-            trans_res = transformers_map[transformer](df, *args)
+            trans_res = transformers_map[transformer](tmp_df, *args)
+            # print("TRANS_RES::: ", trans_res)
         else:
-            trans_res = transformers_map[transformer](df)
+            trans_res = transformers_map[transformer](tmp_df)
 
         if isinstance(trans_res, pd.DataFrame):
             df = process_res_df(df, ind, trans_res)
+            # resample the dataframe to the base freq
 
-        if isinstance(trans_res, pd.Series):
+        elif isinstance(trans_res, pd.Series):
             df[field_name] = trans_res
+
+        df = df.asfreq(base_freq).ffill()
 
     return df
 
@@ -249,3 +275,44 @@ def standardize_df(df: pd.DataFrame):
     new_df.volume = pd.to_numeric(new_df.volume)
 
     return new_df
+
+
+def infer_frequency(df: pd.DataFrame) -> str:
+    """Infers the frequency of a DataFrame by analyzing time differences between consecutive index values.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame with a datetime index
+
+    Returns
+    -------
+    str
+        The inferred frequency as a string (e.g., '1Min', '5Min', '1H', '1D', etc.)
+        Returns None if frequency cannot be determined
+    """
+    if not isinstance(df.index, pd.DatetimeIndex):
+        raise ValueError("DataFrame index must be a DatetimeIndex")
+
+    if df.index.freq is not None:
+        return df.index.freq
+
+    # Calculate time differences between consecutive index values
+    time_diffs = df.index.to_series().diff()
+
+    # Get the most common time difference
+    most_common_diff = time_diffs.mode()[0]
+    seconds = most_common_diff.total_seconds()
+
+    # Convert seconds to appropriate frequency string
+    if seconds < 60:
+        return f"{int(seconds)}S"
+    elif seconds < 3600:
+        minutes = int(seconds / 60)
+        return f"{minutes}Min"
+    elif seconds < 86400:
+        hours = int(seconds / 3600)
+        return f"{hours}H"
+    else:
+        days = int(seconds / 86400)
+        return f"{days}D"

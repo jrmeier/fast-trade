@@ -107,6 +107,7 @@ def get_kline(
     exchange: str,
     start_date: datetime.datetime = None,
     end_date: datetime.datetime = None,
+    freq: str = "1Min",
 ) -> pd.DataFrame:
     """
     Get the klines from the db
@@ -130,6 +131,17 @@ def get_kline(
     df = pd.read_sql_query(query, conn)
     df.date = pd.to_datetime(df.date)
     df = df.set_index("date")
+    # set the freq of the dataframe
+    df = df.resample(freq).agg(
+        {
+            "open": "first",
+            "high": "max",
+            "low": "min",
+            "close": "last",
+            "volume": "sum",
+        }
+    )
+
     return df
 
 
