@@ -6,6 +6,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import requests
 import re
+from fast_trade.archive.db_helpers import connect_to_db
+
+ARCHIVE_PATH = os.getenv("ARCHIVE_PATH","ft_archive")
 
 
 class MissingStrategyFile(Exception):
@@ -36,48 +39,97 @@ def open_strat_file(fp):
         raise MissingStrategyFile("Could not open strategy file at path: {}".format(fp))
 
 
-def create_plot(df):
-    plot_df = pd.DataFrame(
-        data={
-            "Date": df.index,
-            "Portfolio_Value": df["account_value"],
-            "Close": df["close"],
-            "Fees": df["fee"],
-        }
-    )
+def create_plot(df, trade_df):
+    # Filter for numeric columns only
+    numeric_df = df.select_dtypes(include=['number'])
 
-    plot_df.plot(x="Date", y=["Portfolio_Value", "Close", "Fees"])
+    numeric_df = numeric_df.drop(columns=["open", "high", "low","adj_account_value","account_value","aux","fee","adj_account_value_change_perc","adj_account_value_change"])
+    
+    # Calculate the range of each column
+    ranges = numeric_df.max() - numeric_df.min()
+    
+    # Define a threshold for grouping columns with similar ranges
+    close_range = ranges['close']
+    threshold = close_range * 0.1  # Adjust this factor as needed
+    
+    # Group columns based on their range
+    close_group = [col for col in numeric_df.columns if abs(ranges[col] - close_range) < threshold]
+    separate_group = [col for col in numeric_df.columns if col not in close_group]
+    
+    # Create subplots
+    num_plots = 1 + len(separate_group)  # One plot for the close group, others for separate columns
+    fig, axs = plt.subplots(num_plots, 1, figsize=(10, 6 * num_plots), sharex=True)
+    
+    # Ensure axs is iterable
+    if num_plots == 1:
+        axs = [axs]
+    
+    # Plot the close group together
+    for column in close_group:
+        numeric_df.plot(y=column, ax=axs[0], legend=True, label=column)
+    
+    # Iterate over the trade DataFrame and plot each point with the appropriate color
+    for index, row in trade_df.iterrows():
+        color = "green" if row["in_trade"] else "red"
+        for column in close_group:
+            axs[0].scatter(index, row[column], color=color, s=10, alpha=0.7)
+    
+    axs[0].set_title("Close Group Over Time")
+    axs[0].set_ylabel("Value")
+    axs[0].grid(True, linestyle='--', alpha=0.5)
+    
+    # Plot each separate column in its own subplot
+    for ax, column in zip(axs[1:], separate_group):
+        numeric_df.plot(y=column, ax=ax, legend=False, label=column)
+        
+        for index, row in trade_df.iterrows():
+            color = "green" if row["in_trade"] else "red"
+            ax.scatter(index, row[column], color=color, s=10, alpha=0.7)
+        
+        ax.set_title(f"{column} Over Time")
+        ax.set_ylabel(column)
+        ax.grid(True, linestyle='--', alpha=0.5)
 
-    return plot_df
+    # Set the x-axis label for the last subplot
+    axs[-1].set_xlabel("Date")
+
+    # Adjust layout
+    plt.tight_layout()
+    plt.show()
+    return fig
 
 
-def save(result, strat_obj):
+def save(result):
     """
     Save the dataframe, backtest, and plot into the specified path
     """
-    save_path = "./saved_backtests"
+    
+    save_path = ARCHIVE_PATH
     if not os.path.exists(save_path):
         os.mkdir(save_path)
-
+    if not os.path.exists(f"{save_path}/backtests"):
+        os.mkdir(f"{save_path}/backtests")
     # dir exists, now make a new dir with the files
-    new_dir = datetime.datetime.strftime(datetime.datetime.now(), "%Y_%m_%d_%H_%M_%S")
+    new_dir = f"{datetime.datetime.strftime(datetime.datetime.now(), '%Y_%m_%d_%H_%M_%S')}"
+    
+    new_save_dir = f"{save_path}/backtests/{new_dir}"
 
-    new_save_dir = f"{save_path}/{new_dir}"
     os.mkdir(new_save_dir)
 
     # save the backtest args
-    with open(f"{new_save_dir}/backtest.json", "w") as summary_file:
-        summary_file.write(json.dumps(strat_obj, indent=2))
-
     # summary file
     with open(f"{new_save_dir}/summary.json", "w") as summary_file:
         summary_file.write(json.dumps(result["summary"], indent=2))
 
     # dataframe
-    result["df"].to_csv(f"{new_save_dir}/dataframe.csv")
-    result["trade_df"].to_csv(f"{new_save_dir}/trade_dataframe.csv")
+    # result["df"].to_csv(f"{new_save_dir}/dataframe.csv")
+    # result["trade_df"].to_csv(f"{new_save_dir}/trade_dataframe.csv")
+    df_con = connect_to_db(f"{new_save_dir}/dataframe.db", create=True)
+    result["df"].to_sql("dataframe", con=df_con, if_exists="replace", index=True, index_label="date")
+    trade_con = connect_to_db(f"{new_save_dir}/trade_log.db", create=True)
+    result["trade_df"].to_sql("trade_log", con=trade_con, if_exists="replace", index=True, index_label="date")
 
     # plot
-    create_plot(result["df"])
+    create_plot(result["df"], result["trade_df"])
 
     plt.savefig(f"{new_save_dir}/plot.png")

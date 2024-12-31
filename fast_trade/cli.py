@@ -119,18 +119,36 @@ def backtest_helper(*args, **kwargs):
 
         strat_obj = {**strat_obj, **mods}
 
-    backtest = run_backtest(strat_obj)
+    result = run_backtest(strat_obj)
+    summary = result.get("summary")
 
     if kwargs.get("save"):
-        save(backtest, backtest["backtest"])
+        save(result)
 
     if kwargs.get("plot"):
-        create_plot(backtest["df"])
+        create_plot(result.get("df"), result.get("trade_df"))
 
         plt.show()
-    pprint(backtest["summary"])
+        
+    # modify the summary to make it more readable
+    try:
+        summary["mean_trade_len"] = summary.get("mean_trade_len") / 60 # convert to minutes
+    except:
+        summary["mean_trade_len"] = 0
+    try:
+        summary["max_trade_held"] = summary.get("max_trade_held") / 60 # convert to minutes
+    except:
+        summary["max_trade_held"] = 0
+    try:
+        summary["min_trade_len"] = summary.get("min_trade_len") / 60 # convert to minutes
+    except:
+        summary["min_trade_len"] = 0
+    try:
+        summary["median_trade_len"] = summary.get("median_trade_len") / 60 # convert to minutes
+    except:
+        summary["median_trade_len"] = 0
 
-
+    pprint(summary)
 def validate_helper(args):
     strat_obj = open_strat_file(args.get("strategy"))
     if args.get("mods"):

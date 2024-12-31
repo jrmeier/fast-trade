@@ -59,7 +59,6 @@ def validate_backtest(backtest):
             }
     freq = backtest.get("freq")
     if freq:
-        print(freq)
         if not re.search(r"(^\d{1,4}((T)|(Min)|(H)|(h)|(D)|)$)", freq):
             backtest_mirror["freq"] = {
                 "error": True,

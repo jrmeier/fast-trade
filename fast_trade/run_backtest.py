@@ -36,7 +36,8 @@ def run_backtest(backtest: dict, df: pd.DataFrame = pd.DataFrame(), summary=True
 
     if errors.get("has_error"):
         raise Exception(errors)
-
+    # print("DF::: ", df)
+    # return
     if df.empty:
         # check the local archive for the data
         df = get_kline(
@@ -49,7 +50,6 @@ def run_backtest(backtest: dict, df: pd.DataFrame = pd.DataFrame(), summary=True
     df = prepare_df(df, new_backtest)
 
     df = apply_backtest_to_df(df, new_backtest)
-
     # throw an error if the backtest is not valid
     validate_backtest_with_df(new_backtest, df)
 
@@ -70,6 +70,8 @@ def run_backtest(backtest: dict, df: pd.DataFrame = pd.DataFrame(), summary=True
         "any": rule_eval[1],
         "results": rule_eval[2],
     }
+    # add the strategy to the summary
+    summary["strategy"] = new_backtest
     return {
         "summary": summary,
         "df": df,
@@ -123,6 +125,9 @@ def apply_backtest_to_df(df: pd.DataFrame, backtest: dict):
     df["adj_account_value_change_perc"] = df["adj_account_value"].pct_change()
     df["adj_account_value_change"] = df["adj_account_value"].diff()
 
+    # set the index to the date
+    df.index = pd.to_datetime(df.index)
+    df.index.name = "date"
     return df
 
 
