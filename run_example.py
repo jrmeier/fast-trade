@@ -10,25 +10,16 @@ import matplotlib.pyplot as plt
 from fast_trade.build_data_frame import apply_transformers_to_dataframe
 from fast_trade.archive.db_helpers import get_kline
 
-
-ds1 = "2020-06-01"
-s1 = 1590969600
-ms1 = 1590969600000
-
-ds2 = "2020-07-10"
-s2 = 1594339200
-ms2 = 1594339200000
-
 strategy = {
     "any_enter": [],
     "any_exit": [],
-    "freq": "5Min",
+    "freq": "4h",
     "comission": 0.01,
     "datapoints": [
         # {"args": [11], "name": "zlema_1", "transformer": "zlema", "freq": "15Min"},
         # {"args": [11], "name": "zlema_2", "transformer": "zlema", "freq": "15Min"},
-        {"args": [11], "name": "zlema_1", "transformer": "zlema"},
-        {"args": [11], "name": "zlema_2", "transformer": "zlema", "freq": "15Min"},
+        {"args": [11], "name": "zlema_1", "transformer": "zlema", "freq": "45Min"},
+        {"args": [88], "name": "zlema_2", "transformer": "zlema", "freq": "15Min"},
     ],
     "enter": [["zlema_1", ">", "close", 4]],
     "exit": [["zlema_2", "<", "close", 1]],
@@ -42,14 +33,9 @@ strategy = {
 }
 if __name__ == "__main__":
     df = get_kline("BTCUSDT", "binanceus")
-    from fast_trade.build_data_frame import apply_charting_to_df
+    res = run_backtest(df, strategy)
 
-    start = "2024-12-19 22:23:00"
-    stop = "2024-12-30 00:00:00"
-    df = apply_charting_to_df(df, strategy["freq"], start, stop)
-    # print(df.index.freq)
-    # df.index = pd.to_datetime(df.index, unit="s")
-    # print(df)
-    res = apply_transformers_to_dataframe(df, strategy["datapoints"])
+    # start = "2024-12-19 22:23:00"
+    # stop = "2024-12-30 00:00:00"
 
     print(res.tail())
