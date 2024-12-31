@@ -50,3 +50,44 @@ def trending_down(df: pd.Series, period: int) -> pd.Series:
     """
 
     return pd.Series(df.diff(period) < 0, name="trending_down {}".format(period))
+
+
+def infer_frequency(df: pd.DataFrame) -> str:
+    """Infers the frequency of a DataFrame by analyzing time differences between consecutive index values.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame with a datetime index
+
+    Returns
+    -------
+    str
+        The inferred frequency as a string (e.g., '1Min', '5Min', '1H', '1D', etc.)
+        Returns None if frequency cannot be determined
+    """
+    if not isinstance(df.index, pd.DatetimeIndex):
+        raise ValueError("DataFrame index must be a DatetimeIndex")
+
+    if df.index.freq is not None:
+        return df.index.freq
+
+    # Calculate time differences between consecutive index values
+    time_diffs = df.index.to_series().diff()
+
+    # Get the most common time difference
+    most_common_diff = time_diffs.mode()[0]
+    seconds = most_common_diff.total_seconds()
+
+    # Convert seconds to appropriate frequency string
+    if seconds < 60:
+        return f"{int(seconds)}S"
+    elif seconds < 3600:
+        minutes = int(seconds / 60)
+        return f"{minutes}Min"
+    elif seconds < 86400:
+        hours = int(seconds / 3600)
+        return f"{hours}H"
+    else:
+        days = int(seconds / 86400)
+        return f"{days}D"

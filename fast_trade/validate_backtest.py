@@ -20,7 +20,7 @@ def validate_backtest(backtest):
 
     backtest_mirror = {
         "base_balance": None,
-        "chart_period": None,
+        "freq": None,
         "chart_start": None,
         "chart_stop": None,
         "comission": None,
@@ -57,10 +57,10 @@ def validate_backtest(backtest):
                 "error": True,
                 "msgs": ["base_balance must be a float or string"],
             }
-    chart_period = backtest.get("chart_period")
-    if chart_period:
-        if not re.search(r"(^\d{1,4}((T)|(Min)|(H)|(D)|)$)", chart_period):
-            backtest_mirror["chart_period"] = {
+    freq = backtest.get("freq")
+    if freq:
+        if not re.search(r"(^\d{1,4}((T)|(Min)|(H)|(D)|)$)", freq):
+            backtest_mirror["freq"] = {
                 "error": True,
                 "msgs": ["Chart period not valid"],
             }

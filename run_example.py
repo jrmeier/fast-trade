@@ -7,6 +7,9 @@ import datetime
 import json
 import pandas as pd
 import matplotlib.pyplot as plt
+from fast_trade.build_data_frame import apply_transformers_to_dataframe
+from fast_trade.archive.db_helpers import get_kline
+
 
 ds1 = "2020-06-01"
 s1 = 1590969600
@@ -16,95 +19,37 @@ ds2 = "2020-07-10"
 s2 = 1594339200
 ms2 = 1594339200000
 
-# if(rsi > 70 | rsi < 30) :
-
-# result = myprediction(data)
-
-# switch(result):
-
-# case 0: hold
-
-# case 1: sell
-
-# case 2: buy
-# backtest = {
-#     "any_enter": [],
-#     "any_exit": [],
-#     "chart_period": "15Min",
-#     "comission": 0.01,
-#     "base_balance": 100000,
-#     "lot_size": 0.6,
-#     "datapoints": [{"args": [], "name": "rsi_dp", "transformer": "rsi"}],
-#     "enter": [
-#         [
-#             "rsi_dp",
-#             "<",
-#             30,
-#         ]
-#     ],
-#     "exit": [
-#         [
-#             "rsi_dp",
-#             ">",
-#             70,
-#         ]
-#     ],
-#     "exit_on_end": False,
-#     "max_lot_size": 0
-#     # "start": "2019-12-01 15:29:00",
-#     # "stop": "2021-03-08 15:29:00",
-#     # "trailing_stop_loss": 0.05,  # 5% stoploss
-# }
-
-backtest = {
+strategy = {
     "any_enter": [],
     "any_exit": [],
-    # "chart_period": "37Min",
-    "chart_period": "1H",
+    "freq": "5Min",
     "comission": 0.01,
     "datapoints": [
+        # {"args": [11], "name": "zlema_1", "transformer": "zlema", "freq": "15Min"},
+        # {"args": [11], "name": "zlema_2", "transformer": "zlema", "freq": "15Min"},
         {"args": [11], "name": "zlema_1", "transformer": "zlema"},
-        {"args": [88], "name": "zlema_2", "transformer": "zlema"},
+        {"args": [11], "name": "zlema_2", "transformer": "zlema", "freq": "15Min"},
     ],
     "enter": [["zlema_1", ">", "close", 4]],
     "exit": [["zlema_2", "<", "close", 1]],
     "exit_on_end": False,
-    # "start": "2021-01-01 22:30:00",
-    # "stop": "2021-03-11 23:30:59",
-    # "trailing_stop_loss": 0.05,
-    # "max_lot_size": 1000,
+    "start": "2021-01-01 22:30:00",
+    "stop": "2021-03-11 23:30:59",
+    "trailing_stop_loss": 0.05,
+    "max_lot_size": 1000,
     "lot_size": 1,
     "base_balance": 500,
 }
-# backtest = {
-#     "any_enter": [],
-#     "any_exit": [],
-#     "chart_period": "30Min",
-#     "comission": 0.001,
-#     "datapoints": [{"args": [22], "name": "hma", "transformer": "hma"}],
-#     "enter": [["close", "<", "hma", 1]],
-#     "exit": [["close", ">", "hma", 1]],
-#     "exit_on_end": False,
-#     "start": "2021-05-01 23:03:00",
-#     # "stop": "2021-06-01 00:03:00",
-#     "trailing_stop_loss": None,
-# }
 if __name__ == "__main__":
-    # datafile = "./BTCUSDT.csv"
-    # datafile = "./archive/BTCUSDT_2021.csv"
-    datafile = "/Users/jedmeier/Desktop/BTCUSDT_ALL/BTCUSDT_2020.csv"
-    # datafile = "/Users/jedmeier/Desktop/BTCUSDT_2021_06_12.csv"
-    # datafile = "./archive/BCHUSDT_2021.csv"
+    df = get_kline("BTCUSDT", "binanceus")
+    from fast_trade.build_data_frame import apply_charting_to_df
 
-    # backtest["start"] = "2021-03-01"
-    # backtest["stop"] = "2021-05-01"
+    start = "2024-12-19 22:23:00"
+    stop = "2024-12-30 00:00:00"
+    df = apply_charting_to_df(df, strategy["freq"], start, stop)
+    # print(df.index.freq)
+    # df.index = pd.to_datetime(df.index, unit="s")
+    # print(df)
+    res = apply_transformers_to_dataframe(df, strategy["datapoints"])
 
-    # backtest["chart_period"] = "1Min"
-    test = run_backtest(backtest, datafile, summary=True)
-    # print(test)
-    df = test["df"]
-
-    perc_missing = calculate_perc_missing(df)
-
-    print("perc_missing: ", perc_missing)
-    # print(json.dumps(test["summary"], indent=2))
+    print(res.tail())

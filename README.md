@@ -54,7 +54,7 @@ from fast_trade import run_backtest, validate_backtest
 
 backtest = {
     "base_balance": 1000, # start with a balance of 1000
-    "chart_period": "5Min", # time period selected on the chard
+    "freq": "5Min", # time period selected on the chard
     "chart_start": "2021-08-30 18:00:00", # when to start the chart
     "chart_stop": "2021-09-06 16:39:00", # when to stop the chart
     "comission": 0.01, # a comission to pay per transaction 
@@ -137,13 +137,13 @@ You can validate a backtest before you run it. This doesn't help with the data, 
 
 ### Backteset Modifiers
 
-Modifying the `chart_period`
+Modifying the `freq`
 
-`ft backtest ./strategy.json --mods chart_period 1H`
+`ft backtest ./strategy.json --mods freq 1H`
 
-Modifying the `chart_period` and the `trailing_stop_loss`
+Modifying the `freq` and the `trailing_stop_loss`
 
-`ft backtest ./strategy.json --mods chart_period 1H trailing_stop_loss .05`
+`ft backtest ./strategy.json --mods freq 1H trailing_stop_loss .05`
 
 Saving a test result
 This generates creates the `saved_backtest` directory (if it doesn't exist), then inside of there, is another directory with a timestamp, with a chart, the backtest file, the summary, and the raw dataframe as a csv.
@@ -238,7 +238,7 @@ Backtests include all the instructions needed to run the backtest minus the data
   - string, optional
   - default: `None`
   - description: a string for quick reference of the backtest
-- chart_period:
+- freq:
   - string, optional
   - default: `"1Min"`
   - description: a charting period string. allowed values are "Min" (minute), "T" (minute), "D" (day),"H" (hour)
@@ -315,7 +315,7 @@ This is an example of a simple moving average cross backtest.
 ```python
 {
     "base_balance": 1000,
-    "chart_period": "5T",
+    "freq": "5T",
     "chart_start": "2020-08-30 18:00:00",
     "chart_stop": "2020-09-06 16:39:00",
     "comission": 0.01,
@@ -409,6 +409,19 @@ Logic lookbacks allow you to confirm a signal by checking the last N periods.
 
 Datapoints are user defined technical indicators. You can select a defined [transformer](##Transformer) function to apply the technical analysis. They can reference data and calculate the new values to be referenced inside of any of the logics.
 
+- name:
+  - string, required
+  - description: a string for quick reference of the datapoint
+- transformer:
+  - string, required
+  - description: a string of the transformer function to use
+- args:
+  - list, required
+  - description: a list of arguments to pass to the transformer function
+- freq:
+  - string, optional
+  - description: a string of the frequency to sample the data at, default is the freq in the backtest
+
 Simple SMA example
 
 ```python
@@ -416,12 +429,11 @@ Simple SMA example
          "name": "sma_short", # transformer name
          "transformer": "sma", # technical analysis function to be used
          "args": [20], # arguments to pass to the function, for multiple args, add a "," behind each
+         "freq": "1Min" # optional, default is the freq in the backtest
       }
 ```
 
 ## Transfomers (Technical Indicators)
-
-Available transformer functions are from [FinTA](https://github.com/peerchemist/finta)
 
 Custom datapoints can be added by setting a function name in the [datapoints](/fast_trade/transformers_map.py), then setting that equal to a function that takes in a dataframe as the first argument and whatever arguments passed in.
 

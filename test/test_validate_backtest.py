@@ -32,13 +32,13 @@ def test_validate_backtest_base_balance():
 def test_validate_basic_invalid():
     mock_backtest = {
         "base_balance": "c1000",
-        "chart_period": "1Min22",
+        "freq": "1Min22",
     }
 
     backtest_mirror = validate_backtest(mock_backtest)
 
     assert backtest_mirror["base_balance"].get("error") is True
-    assert backtest_mirror["chart_period"].get("error") is True
+    assert backtest_mirror["freq"].get("error") is True
 
 
 def test_validate_data_points_valid():

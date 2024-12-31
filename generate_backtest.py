@@ -74,7 +74,7 @@ def generate_backtest():
     return {
         "name": "generated",
         "exit_on_end": False,
-        "chart_period": f"{chart}",
+        "freq": f"{chart}",
         "enter": [["close", ">", ema_enter, look_back_e]],
         "exit": [["close", "<", ema_exit, look_back_x]],
         "datapoints": [

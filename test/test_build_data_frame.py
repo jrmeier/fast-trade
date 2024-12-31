@@ -1,4 +1,3 @@
-from numpy.core.fromnumeric import shape
 import pytest
 import pandas as pd
 import datetime
@@ -64,6 +63,7 @@ def test_apply_transformers_to_dataframe_1_ind():
     mock_transformers = [
         {"transformer": "sma", "name": "example_transformer_name", "args": [3]}
     ]
+    mock_df.index = pd.to_datetime(mock_df.date, unit="s")
 
     result_df = apply_transformers_to_dataframe(mock_df, mock_transformers)
 
@@ -75,6 +75,7 @@ def test_apply_transformers_to_dataframe_1_ind():
 
 def test_apply_transformers_to_dataframe_no_args():
     mock_df = pd.read_csv("./test/ohlcv_data.csv.txt")
+    mock_df.index = pd.to_datetime(mock_df.date, unit="s")
     mock_transformers = [{"transformer": "rsi", "name": "rsi", "args": []}]
 
     result_df = apply_transformers_to_dataframe(mock_df, mock_transformers)
@@ -84,6 +85,7 @@ def test_apply_transformers_to_dataframe_no_args():
 
 def test_apply_transformers_to_dataframe_no_args_multi_col():
     mock_df = pd.read_csv("./test/ohlcv_data.csv.txt")
+    mock_df.index = pd.to_datetime(mock_df.date, unit="s")
     mock_transformers = [{"transformer": "wto", "name": "wto", "args": []}]
 
     result_df = apply_transformers_to_dataframe(mock_df, mock_transformers)
@@ -92,16 +94,35 @@ def test_apply_transformers_to_dataframe_no_args_multi_col():
     assert "wto_wt2" in list(result_df.columns)
 
 
+def test_apply_transformers_to_dataframe_freq():
+    mock_df = pd.read_csv("./test/ohlcv_data.csv.txt")
+    mock_transformers = [
+        {
+            "transformer": "sma",
+            "name": "example_transformer_name",
+            "args": [3],
+            "freq": "3Min",
+        }
+    ]
+
+    mock_df.index = pd.to_datetime(mock_df.date, unit="s")
+
+    result_df = apply_transformers_to_dataframe(mock_df, mock_transformers)
+
+    assert "example_transformer_name" in list(result_df.columns)
+    assert result_df.index.freq == "1Min"
+
+
 def test_apply_charting_to_df_1():
     mock_df = pd.read_csv("./test/ohlcv_data.csv.txt", index_col="date")
     # mock_df.set_index(["date"], inplace=True)
     mock_df.index = pd.to_datetime(mock_df.index, unit="s")
-    mock_chart_period = "2Min"
+    mock_freq = "2Min"
     mock_start_time = "2018-04-17"
     mock_stop_time = ""
 
     result_df = apply_charting_to_df(
-        mock_df, mock_chart_period, mock_start_time, mock_stop_time
+        mock_df, mock_freq, mock_start_time, mock_stop_time
     )
 
     assert (result_df.iloc[2].name - result_df.iloc[1].name).total_seconds() == 120
@@ -112,7 +133,7 @@ def test_apply_charting_to_df_2():
     mock_df = pd.read_csv("./test/ohlcv_data.csv.txt")
     mock_df.set_index(["date"], inplace=True)
     mock_df.index = pd.to_datetime(mock_df.index, unit="s")
-    mock_chart_period = "1Min"
+    mock_freq = "1Min"
     mock_start_time = "2018-04-17 04:00:00"
     mock_stop_time = "2018-04-17 04:10:00"
 
@@ -120,7 +141,7 @@ def test_apply_charting_to_df_2():
         "2018-04-17 04:11:00", "%Y-%m-%d %H:%M:%S"
     )
     result_df = apply_charting_to_df(
-        mock_df, mock_chart_period, mock_start_time, mock_stop_time
+        mock_df, mock_freq, mock_start_time, mock_stop_time
     )
 
     assert result_df.iloc[-1].name < past_stop_time
@@ -130,21 +151,21 @@ def test_apply_charting_to_df_3():
     mock_df = pd.read_csv("./test/ohlcv_data.csv.txt")
     mock_df.set_index(["date"], inplace=True)
     mock_df.index = pd.to_datetime(mock_df.index, unit="s")
-    mock_chart_period = "1Min"
+    mock_freq = "1Min"
     mock_start_time = ""
     mock_stop_time = "2018-04-17 04:10:00"
 
     # past_stop_time = "2018-04-17 04:11:00"
 
     # result_df = apply_charting_to_df(
-    #     mock_df, mock_chart_period, mock_start_time, mock_stop_time
+    #     mock_df, mock_freq, mock_start_time, mock_stop_time
     # )
 
     past_stop_time = datetime.datetime.strptime(
         "2018-04-17 04:11:00", "%Y-%m-%d %H:%M:%S"
     )
     result_df = apply_charting_to_df(
-        mock_df, mock_chart_period, mock_start_time, mock_stop_time
+        mock_df, mock_freq, mock_start_time, mock_stop_time
     )
 
     assert result_df.index[0] < past_stop_time
@@ -153,7 +174,7 @@ def test_apply_charting_to_df_3():
 def test_apply_charting_to_df_stop_time_int():
     mock_df = pd.read_csv("./test/ohlcv_data.csv.txt")
     mock_df.index = pd.to_datetime(mock_df.date, unit="s")
-    mock_chart_period = "1Min"
+    mock_freq = "1Min"
     mock_start_time = ""
     mock_stop_time = 1523938200
 
@@ -162,7 +183,7 @@ def test_apply_charting_to_df_stop_time_int():
     )
 
     result_df = apply_charting_to_df(
-        mock_df, mock_chart_period, mock_start_time, mock_stop_time
+        mock_df, mock_freq, mock_start_time, mock_stop_time
     )
 
     assert result_df.index[0] < past_stop_time
@@ -171,7 +192,7 @@ def test_apply_charting_to_df_stop_time_int():
 def test_apply_charting_to_df_start_time_int():
     mock_df = pd.read_csv("./test/ohlcv_data.csv.txt")
     mock_df.index = pd.to_datetime(mock_df.date, unit="s")
-    mock_chart_period = "1Min"
+    mock_freq = "1Min"
     mock_start_time = 1523938200
     mock_stop_time = ""
 
@@ -180,7 +201,7 @@ def test_apply_charting_to_df_start_time_int():
     )
 
     result_df = apply_charting_to_df(
-        mock_df, mock_chart_period, mock_start_time, mock_stop_time
+        mock_df, mock_freq, mock_start_time, mock_stop_time
     )
 
     assert result_df.index[0] < past_stop_time
@@ -213,7 +234,7 @@ def test_prepare_df():
     mock_df.index = pd.to_datetime(mock_df.date, unit="s")
 
     mock_backtest = {
-        "chart_period": "1Min",
+        "freq": "1Min",
         "start": "",
         "stop": "",
         "trailing_stop_loss": 0.1,
@@ -228,7 +249,7 @@ def test_prepare_df():
 
 def test_build_data_frame():
     mock_backtest = {
-        "chart_period": "1Min",
+        "freq": "1Min",
         "start": "",
         "stop": "",
         "trailing_stop_loss": 0.01,
@@ -246,7 +267,7 @@ def test_build_data_frame():
 
 def test_build_data_frame_no_data():
     mock_backtest = {
-        "chart_period": "1Min",
+        "freq": "1Min",
         "start": "",
         "stop": "",
         "trailing_stop_loss": 0.01,
