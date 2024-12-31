@@ -24,18 +24,20 @@ strategy = {
     "enter": [["zlema_1", ">", "close", 4]],
     "exit": [["zlema_2", "<", "close", 1]],
     "exit_on_end": False,
-    "start": "2021-01-01 22:30:00",
-    "stop": "2021-03-11 23:30:59",
+    # "start": "2021-01-01 22:30:00",
+    # "stop": "2021-03-11 23:30:59",
     "trailing_stop_loss": 0.05,
     "max_lot_size": 1000,
     "lot_size": 1,
     "base_balance": 500,
+    "symbol": "BTCUSDT",
+    "exchange": "binanceus",
 }
 if __name__ == "__main__":
-    df = get_kline("BTCUSDT", "binanceus")
-    res = run_backtest(df, strategy)
+    # df = get_kline("BTCUSDT", "binanceus")
+    res = run_backtest(strategy)
 
     # start = "2024-12-19 22:23:00"
     # stop = "2024-12-30 00:00:00"
 
-    print(res.tail())
+    # print(res.tail())
