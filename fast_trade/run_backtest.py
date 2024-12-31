@@ -31,10 +31,9 @@ def run_backtest(backtest: dict, df: pd.DataFrame = pd.DataFrame(), summary=True
     """
 
     performance_start_time = datetime.datetime.utcnow()
-    print("PERFORMANCE START TIME::: ", performance_start_time)
     new_backtest = prepare_new_backtest(backtest)
-    print("NEW BACKTEST::: ", new_backtest)
     errors = validate_backtest(new_backtest)
+
     if errors.get("has_error"):
         raise Exception(errors)
 
@@ -48,6 +47,7 @@ def run_backtest(backtest: dict, df: pd.DataFrame = pd.DataFrame(), summary=True
         )
 
     df = prepare_df(df, new_backtest)
+
     df = apply_backtest_to_df(df, new_backtest)
 
     # throw an error if the backtest is not valid
@@ -62,7 +62,7 @@ def run_backtest(backtest: dict, df: pd.DataFrame = pd.DataFrame(), summary=True
                 performance_stop_time - performance_start_time
             ).total_seconds()
         }
-        trade_log = None
+        trade_log = pd.DataFrame()
 
     rule_eval = evaluate_rules(summary, new_backtest.get("rules", []))
     summary["rules"] = {
