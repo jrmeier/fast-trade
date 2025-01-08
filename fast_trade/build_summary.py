@@ -124,6 +124,163 @@ def calculate_effective_trades(df, trade_log_df):
     }
 
 
+def calculate_drawdown_metrics(df):
+    """Calculate detailed drawdown metrics"""
+    try:
+        rolling_max = df.adj_account_value.expanding().max()
+        drawdowns = df.adj_account_value / rolling_max - 1.0
+
+        max_drawdown = float(round(drawdowns.min() * 100, 3))
+        avg_drawdown = float(round(drawdowns.mean() * 100, 3))
+
+        # Calculate drawdown duration
+        is_drawdown = drawdowns < 0
+        drawdown_groups = (is_drawdown != is_drawdown.shift()).cumsum()[is_drawdown]
+        durations = drawdown_groups.value_counts()
+
+        max_duration = float(round(durations.max() if not durations.empty else 0, 3))
+        avg_duration = float(round(durations.mean() if not durations.empty else 0, 3))
+
+        return {
+            "max_drawdown_pct": 0.0 if pd.isna(max_drawdown) else max_drawdown,
+            "avg_drawdown_pct": 0.0 if pd.isna(avg_drawdown) else avg_drawdown,
+            "max_drawdown_duration": 0.0 if pd.isna(max_duration) else max_duration,
+            "avg_drawdown_duration": 0.0 if pd.isna(avg_duration) else avg_duration,
+            "current_drawdown": float(round(drawdowns.iloc[-1] * 100, 3)),
+        }
+    except (ValueError, AttributeError):
+        return {
+            "max_drawdown_pct": 0.0,
+            "avg_drawdown_pct": 0.0,
+            "max_drawdown_duration": 0.0,
+            "avg_drawdown_duration": 0.0,
+            "current_drawdown": 0.0,
+        }
+
+
+def calculate_risk_metrics(df):
+    """Calculate risk-adjusted return metrics"""
+    try:
+        returns = df.adj_account_value_change_perc
+
+        # Sortino Ratio (like Sharpe but only for negative returns)
+        negative_returns = returns[returns < 0]
+        downside_std = float(
+            negative_returns.std() if not negative_returns.empty else 0
+        )
+        avg_return = float(returns.mean())
+        sortino_ratio = float(
+            round(avg_return / downside_std if downside_std != 0 else 0, 3)
+        )
+
+        # Calmar Ratio (return / max drawdown)
+        rolling_max = df.adj_account_value.expanding().max()
+        drawdowns = df.adj_account_value / rolling_max - 1.0
+        max_drawdown = abs(float(drawdowns.min()))
+        calmar_ratio = float(
+            round(avg_return / max_drawdown if max_drawdown != 0 else 0, 3)
+        )
+
+        # Value at Risk (95th percentile of losses)
+        var_95 = float(round(returns.quantile(0.05), 3))
+
+        return {
+            "sortino_ratio": 0.0 if pd.isna(sortino_ratio) else sortino_ratio,
+            "calmar_ratio": 0.0 if pd.isna(calmar_ratio) else calmar_ratio,
+            "value_at_risk_95": 0.0 if pd.isna(var_95) else var_95,
+            "annualized_volatility": float(round(returns.std() * (252**0.5), 3)),
+            "downside_deviation": float(round(downside_std, 3)),
+        }
+    except (ValueError, AttributeError):
+        return {
+            "sortino_ratio": 0.0,
+            "calmar_ratio": 0.0,
+            "value_at_risk_95": 0.0,
+            "annualized_volatility": 0.0,
+            "downside_deviation": 0.0,
+        }
+
+
+def calculate_trade_streaks(trade_log_df):
+    """Calculate winning and losing streaks"""
+    try:
+        trades = trade_log_df.adj_account_value_change_perc > 0
+        streaks = (trades != trades.shift()).cumsum()
+
+        win_streaks = streaks[trades]
+        loss_streaks = streaks[~trades]
+
+        win_streak_counts = win_streaks.value_counts()
+        loss_streak_counts = loss_streaks.value_counts()
+
+        return {
+            "current_streak": int(sum(trades == trades.iloc[-1])),
+            "max_win_streak": int(
+                win_streak_counts.max() if not win_streak_counts.empty else 0
+            ),
+            "max_loss_streak": int(
+                loss_streak_counts.max() if not loss_streak_counts.empty else 0
+            ),
+            "avg_win_streak": float(
+                round(win_streak_counts.mean() if not win_streak_counts.empty else 0, 3)
+            ),
+            "avg_loss_streak": float(
+                round(
+                    loss_streak_counts.mean() if not loss_streak_counts.empty else 0, 3
+                )
+            ),
+        }
+    except (ValueError, AttributeError):
+        return {
+            "current_streak": 0,
+            "max_win_streak": 0,
+            "max_loss_streak": 0,
+            "avg_win_streak": 0.0,
+            "avg_loss_streak": 0.0,
+        }
+
+
+def calculate_time_analysis(df):
+    """Calculate time-based performance metrics"""
+    try:
+        # Convert index to datetime if it isn't already
+        df.index = pd.to_datetime(df.index)
+
+        # Daily returns
+        daily_returns = df.adj_account_value.resample("D").last().pct_change()
+
+        # Monthly returns
+        monthly_returns = df.adj_account_value.resample("ME").last().pct_change()
+
+        return {
+            "best_day": float(round(daily_returns.max() * 100, 3)),
+            "worst_day": float(round(daily_returns.min() * 100, 3)),
+            "avg_daily_return": float(round(daily_returns.mean() * 100, 3)),
+            "daily_return_std": float(round(daily_returns.std() * 100, 3)),
+            "profitable_days_pct": float(round((daily_returns > 0).mean() * 100, 3)),
+            "best_month": float(round(monthly_returns.max() * 100, 3)),
+            "worst_month": float(round(monthly_returns.min() * 100, 3)),
+            "avg_monthly_return": float(round(monthly_returns.mean() * 100, 3)),
+            "monthly_return_std": float(round(monthly_returns.std() * 100, 3)),
+            "profitable_months_pct": float(
+                round((monthly_returns > 0).mean() * 100, 3)
+            ),
+        }
+    except (ValueError, AttributeError):
+        return {
+            "best_day": 0.0,
+            "worst_day": 0.0,
+            "avg_daily_return": 0.0,
+            "daily_return_std": 0.0,
+            "profitable_days_pct": 0.0,
+            "best_month": 0.0,
+            "worst_month": 0.0,
+            "avg_monthly_return": 0.0,
+            "monthly_return_std": 0.0,
+            "profitable_months_pct": 0.0,
+        }
+
+
 def build_summary(df, performance_start_time):
     # Not yet implimented
     # Expectancy [%]                           6.92
@@ -178,7 +335,7 @@ def build_summary(df, performance_start_time):
         sharpe_ratio = calculate_shape_ratio(df)
         buy_and_hold_perc = calculate_buy_and_hold_perc(df)
 
-        # Calculate new metrics
+        # Calculate all metrics
         market_adjusted_return = calculate_market_adjusted_returns(
             df, return_perc, buy_and_hold_perc
         )
@@ -186,6 +343,12 @@ def build_summary(df, performance_start_time):
         trade_quality = calculate_trade_quality(trade_log_df)
         market_exposure = calculate_market_exposure(df)
         effective_trades = calculate_effective_trades(df, trade_log_df)
+
+        # New metrics
+        drawdown_metrics = calculate_drawdown_metrics(df)
+        risk_metrics = calculate_risk_metrics(df)
+        trade_streaks = calculate_trade_streaks(trade_log_df)
+        time_analysis = calculate_time_analysis(df)
 
         performance_stop_time = datetime.datetime.utcnow()
 
@@ -264,6 +427,10 @@ def build_summary(df, performance_start_time):
         "trade_quality": trade_quality,
         "market_exposure": market_exposure,
         "effective_trades": effective_trades,
+        "drawdown_metrics": drawdown_metrics,
+        "risk_metrics": risk_metrics,
+        "trade_streaks": trade_streaks,
+        "time_analysis": time_analysis,
     }
 
     return summary, trade_log_df
