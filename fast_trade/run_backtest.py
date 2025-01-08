@@ -15,6 +15,12 @@ class MissingData(Exception):
     pass
 
 
+class MissingBacktestKeyException(Exception):
+    def __init__(self, missing_keys):
+        self.missing_keys = "\n".join(missing_keys)
+        super().__init__(f"Missing keys: {self.missing_keys}")
+
+
 def run_backtest(backtest: dict, df: pd.DataFrame = pd.DataFrame(), summary=True):
     """
     Run a backtest on a given dataframe
@@ -34,7 +40,12 @@ def run_backtest(backtest: dict, df: pd.DataFrame = pd.DataFrame(), summary=True
     errors = validate_backtest(new_backtest)
 
     if errors.get("has_error"):
-        raise Exception(errors)
+        # find all the keys with values
+        error_keys = [
+            key for key, value in errors.items() if value and key != "has_error"
+        ]
+
+        raise MissingBacktestKeyException(error_keys)
 
     if df.empty:
         # check the local archive for the data
@@ -54,9 +65,10 @@ def run_backtest(backtest: dict, df: pd.DataFrame = pd.DataFrame(), summary=True
         # convert the frequency to a timedelta
         td_freq = pd.Timedelta(freq)
 
-        start_date = backtest.get("start_date")
-        start_date = datetime.datetime.fromisoformat(start_date)
-        start_date = start_date - td_freq * max_periods
+        start_date = backtest.get("start_date", None)
+        if start_date:
+            start_date = datetime.datetime.fromisoformat(start_date)
+            start_date = start_date - td_freq * max_periods
 
         # get the data from the local archive
         df = get_kline(
@@ -65,6 +77,11 @@ def run_backtest(backtest: dict, df: pd.DataFrame = pd.DataFrame(), summary=True
             start_date,
             backtest.get("end_date"),
             freq=backtest.get("freq") or backtest.get("chart_period"),
+        )
+
+    if df.empty:
+        raise MissingData(
+            f"No data found for {backtest.get('symbol')} on {backtest.get('exchange')} or in the given dataframe"
         )
 
     df = prepare_df(df, new_backtest)

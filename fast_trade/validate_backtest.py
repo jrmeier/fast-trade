@@ -37,6 +37,7 @@ def validate_backtest(backtest):
         "datapoints",
         "enter",
         "exit",
+        "start_date",
     ]
 
     curr_keys = list(backtest.keys())
