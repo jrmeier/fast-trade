@@ -19,7 +19,6 @@ def update_single_archive(symbol: str, exchange: str):
     now = now.replace(second=0, microsecond=0)
 
     start_date = db.execute("SELECT max(date) FROM klines").fetchone()[0]
-    print(start_date)
 
     if start_date is None:
         start_date = now - datetime.timedelta(days=7)
@@ -35,6 +34,7 @@ def update_single_archive(symbol: str, exchange: str):
         start_date=start_date,
         end_date=now,
     )
+    print("\n")
 
 
 def update_archive():
@@ -47,10 +47,14 @@ def update_archive():
             if symbol.startswith("_") or not symbol.endswith(".sqlite"):
                 # ignore files that start with an underscore
                 continue
-            update_single_archive(symbol, exchange)
-            count += 1
+            try:
+                update_single_archive(symbol, exchange)
+                count += 1
+            except Exception as e:
+                print(f"Error updating {symbol} from {exchange}: {e}")
 
-    print(f"Updated {count} symbols in {time.time() - start_time} seconds")
+    updated_time = round(time.time() - start_time, 2)
+    print(f"\n\nUpdated {count} symbols in {updated_time} seconds ✅")
 
 
 if __name__ == "__main__":

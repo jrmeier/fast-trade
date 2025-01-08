@@ -120,6 +120,15 @@ def get_kline(
         update_kline.update_kline(
             symbol=symbol, exchange=exchange, start_date=start_date, end_date=end_date
         )
+
+    if start_date is not None:
+        if isinstance(start_date, str):
+            start_date = datetime.datetime.fromisoformat(start_date)
+
+    if end_date is not None:
+        if isinstance(end_date, str):
+            end_date = datetime.datetime.fromisoformat(end_date)
+
     conn = connect_to_db(db_path)
     query = "SELECT * FROM klines"
     if start_date:

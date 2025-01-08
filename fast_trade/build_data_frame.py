@@ -62,7 +62,15 @@ def prepare_df(df: pd.DataFrame, backtest: dict):
     """
 
     datapoints = backtest.get("datapoints", [])
-    freq = backtest.get("freq", "1Min")
+
+    if backtest.get("chart_period"):
+        # raise a warning if chart_period is not a valid frequency
+        if not infer_frequency(df, backtest.get("chart_period")):
+            raise ValueError(f"Invalid chart period: {backtest.get('chart_period')}")
+        freq = backtest.get("chart_period")
+    else:
+        freq = backtest.get("freq", "1Min")
+
     start_time = backtest.get("start")
     stop_time = backtest.get("stop")
     df = apply_charting_to_df(df, freq, start_time, stop_time)
@@ -176,7 +184,6 @@ def apply_transformers_to_dataframe(
         if len(ind.get("args", [])):
             args = ind.get("args")
             trans_res = transformers_map[transformer](tmp_df, *args)
-            # print("TRANS_RES::: ", trans_res)
         else:
             trans_res = transformers_map[transformer](tmp_df)
 

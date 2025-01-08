@@ -2308,7 +2308,7 @@ class TA:
     ) -> Series:
         """
         The Wave PM (Whistler Active Volatility Energy Price Mass) indicator is an oscillator described in the Mark
-        Whistler’s book “Volatility Illuminated”.
+        Whistler's book “Volatility Illuminated”.
 
         :param DataFrame ohlc: data
         :param int period: period for moving average
@@ -2343,6 +2343,36 @@ class TA:
         wavepm = osc(dev, ma, power)
 
         return pd.Series(wavepm, name="{0} period WAVEPM".format(period))
+
+    @classmethod
+    def ROLLING_MAX(cls, ohlc, periods=10, column="close") -> Series:
+        """
+        Highest value in a rolling window
+
+        :param DataFrame df: data
+        :param int periods: number of periods to look back
+        :param str column: column to look at
+        :return Series: rolling max
+        """
+        if column not in ohlc.columns:
+            raise ValueError(f"Column {column} not found in DataFrame")
+
+        return ohlc[column].rolling(window=periods).max()
+
+    @classmethod
+    def ROLLING_MIN(cls, ohlc, periods=10, column="close") -> Series:
+        """
+        Lowest value in a rolling window
+
+        :param DataFrame df: data
+        :param int periods: number of periods to look back
+        :param str column: column to look at
+        :return Series: rolling min
+        """
+        if column not in ohlc.columns:
+            raise ValueError(f"Column {column} not found in DataFrame")
+
+        return ohlc[column].rolling(window=periods).min()
 
 
 if __name__ == "__main__":

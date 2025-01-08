@@ -97,17 +97,18 @@ def validate_backtest(backtest):
     any_enter_errors = []
     # by default these can always be used
     indicator_keys = list(set(indicator_keys))
+    allowed_operators = [">", "=", "<", ">=", "<="]
 
     for logic in backtest.get("exit", []):
         for log in logic:
             if (
                 log not in indicator_keys
                 and isinstance(log, str)
-                and log not in [">", "=", "<"]
+                and log not in allowed_operators
                 and not log.isnumeric()
             ):
                 exit_errors.append(
-                    f'Datapoint "{log}" referenced in exit logic not found in datapoints. Check datapoints and logic.'
+                    f'Operator "{log}" referenced in exit logic not found in datapoints. Check datapoints and logic.'
                 )
 
         if len(exit_errors):
@@ -118,7 +119,7 @@ def validate_backtest(backtest):
             if (
                 log not in indicator_keys
                 and isinstance(log, str)
-                and log not in [">", "=", "<"]
+                and log not in allowed_operators
                 and not log.isnumeric()
             ):
                 enter_errors.append(
@@ -133,7 +134,7 @@ def validate_backtest(backtest):
             if (
                 log not in indicator_keys
                 and isinstance(log, str)
-                and log not in [">", "=", "<"]
+                and log not in allowed_operators
             ):
                 any_enter_errors.append(
                     f'Datapoint "{log}" referenced in any_enter \
@@ -147,7 +148,7 @@ def validate_backtest(backtest):
             if (
                 log not in indicator_keys
                 and isinstance(log, str)
-                and log not in [">", "=", "<"]
+                and log not in allowed_operators
             ):
                 any_exit_errors.append(
                     f'Datapoint "{log}" referenced in any_exit logic not found in datapoints. Check datapoints and logic.'

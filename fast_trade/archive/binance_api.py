@@ -130,14 +130,18 @@ def get_binance_klines(
                 raise Exception(
                     f"Download failed for {symbol} after 3 errors. Error: {req.text}"
                 )
-
+            if req.status_code == 429:
+                # sleeep for some time
+                time.sleep(10)
+                continue
         sleeper = random.random() * API_DELAY
         if sleeper < 0.1:
             sleeper += 0.1
 
-        if total_api_calls % 10 == 0:
+        if total_api_calls % 30 == 0:
             sleeper += random.randint(1, 3)
-            store_func(klines, symbol, "binanceus")
+            kline_df = binance_kline_to_df(klines)
+            store_func(kline_df, symbol, "binanceus")
 
         status_obj = {
             "symbol": symbol,
