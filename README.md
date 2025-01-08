@@ -347,7 +347,7 @@ This is an example of a simple moving average cross backtest.
 
 ### LogicDetail
 
-Each `logic` is contains a single `if` statement. The two variables are the first and last item in the list, with the operator to compare them `>`, `<` `=`.
+Each `logic` is contains a single `if` statement. The two variables are the first and last item in the list, with the operator to compare them `>`, `<`, `=`, `>=`, or `<=`.
 
 To think of this easily, just say it out loud.
 Ex.
@@ -361,6 +361,7 @@ If the close (closing price) at X time is greater than the "short_sma" (custom d
   "sma_short" # datapoint or column in provided data
 ]
 ```
+If true, thats an enter signal, if false, thats an exit signal.
 
 Valid datapoints:
 
