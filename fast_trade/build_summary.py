@@ -141,8 +141,8 @@ def build_summary(df, performance_start_time):
     start_date = df.index[0]
     end_date = df.index[-1]
     # count the number enter, exit, and hold signals
-    total_enter = len(df[df.action == "e"])
-    total_exit = len(df[df.action == "x"])
+    total_enter = len(df[df.action == "e"]) + len(df[df.action == "ae"])
+    total_exit = len(df[df.action == "x"]) + len(df[df.action == "ax"])
     total_hold = len(df[df.action == "h"])
     trade_log_df = create_trade_log(df)
     total_trades = len(trade_log_df.index)

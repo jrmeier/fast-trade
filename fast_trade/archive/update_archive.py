@@ -34,7 +34,6 @@ def update_single_archive(symbol: str, exchange: str):
         start_date=start_date,
         end_date=now,
     )
-    print("\n")
 
 
 def update_archive():
