@@ -80,4 +80,6 @@ transformers_map = {
     "vfi": TA.VFI,
     "msd": TA.MSD,
     "wto": TA.WTO,
+    "rolling_min": TA.ROLLING_MIN,
+    "rolling_max": TA.ROLLING_MAX,
 }

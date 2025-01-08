@@ -217,6 +217,7 @@ def test_calculate_sharpe_ratio():
 def test_build_summary():
     mock_df = create_mock_trade_log()
     mock_df.close = [10, 11, 11, 9, 9, 10, 11, 90, 11]
+    mock_df["action"] = ["e", "h", "h", "h", "x", "e", "h", "h", "x"]
 
     mock_df["account_value"] = [90, 110, 110, 90, 90, 100, 110, 90, 100]
     mock_df["adj_account_value"] = [90, 110, 110, 90, 90, 100, 110, 90, 100]
@@ -238,7 +239,7 @@ def test_build_summary():
     assert res["total_num_winning_trades"] == 2
     assert res["avg_win_perc"] == 16.111
     assert res["total_num_losing_trades"] == 0
-    assert pd.isna(res["avg_loss_perc"])
+    assert res["avg_loss_perc"] == 0.0
     assert res["best_trade_perc"] == 0.2222
     assert res["min_trade_perc"] == 0.1
     assert res["median_trade_perc"] == 0.1611

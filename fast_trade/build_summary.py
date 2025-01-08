@@ -1,8 +1,127 @@
 import datetime
+import warnings
 
 import numpy as np
 import pandas as pd
 from .calculate_perc_missing import calculate_perc_missing
+
+
+def calculate_market_adjusted_returns(df, return_perc, buy_and_hold_perc):
+    """Calculate returns relative to the underlying asset's movement"""
+    return float(round(return_perc - buy_and_hold_perc, 3))
+
+
+def calculate_position_metrics(df):
+    """Calculate metrics that show how individual positions performed"""
+    in_trade_groups = df[df.in_trade].groupby(
+        (df.in_trade != df.in_trade.shift()).cumsum()
+    )
+
+    try:
+        avg_pos_size = float(round(df[df.in_trade].aux.mean(), 3))
+        max_pos_size = float(round(df[df.in_trade].aux.max(), 3))
+        avg_pos_duration = float(round(in_trade_groups.size().mean(), 3))
+        commission_impact = float(
+            round(df.fee.sum() / df.iloc[-1].adj_account_value * 100, 3)
+        )
+    except (ZeroDivisionError, ValueError):
+        avg_pos_size = 0.0
+        max_pos_size = 0.0
+        avg_pos_duration = 0.0
+        commission_impact = 0.0
+
+    return {
+        "avg_position_size": 0.0 if pd.isna(avg_pos_size) else avg_pos_size,
+        "max_position_size": 0.0 if pd.isna(max_pos_size) else max_pos_size,
+        "avg_position_duration": 0.0 if pd.isna(avg_pos_duration) else avg_pos_duration,
+        "total_commission_impact": (
+            0.0 if pd.isna(commission_impact) else commission_impact
+        ),
+    }
+
+
+def calculate_trade_quality(trade_log_df):
+    """Calculate metrics that show trade quality beyond win/loss"""
+    wins = trade_log_df[trade_log_df.adj_account_value_change_perc > 0]
+    losses = trade_log_df[trade_log_df.adj_account_value_change_perc < 0]
+
+    try:
+        profit_factor = abs(
+            wins.adj_account_value_change_perc.sum()
+            / losses.adj_account_value_change_perc.sum()
+        )
+    except (ZeroDivisionError, ValueError):
+        profit_factor = 0
+
+    try:
+        win_loss_ratio = abs(
+            wins.adj_account_value_change_perc.mean()
+            / losses.adj_account_value_change_perc.mean()
+        )
+    except (ZeroDivisionError, ValueError):
+        win_loss_ratio = 0
+
+    try:
+        largest_win = float(round(trade_log_df.adj_account_value_change_perc.max(), 3))
+        largest_loss = float(round(trade_log_df.adj_account_value_change_perc.min(), 3))
+    except ValueError:
+        largest_win = 0
+        largest_loss = 0
+
+    return {
+        "profit_factor": (
+            0.0 if pd.isna(profit_factor) else float(round(profit_factor, 3))
+        ),
+        "avg_win_loss_ratio": (
+            0.0 if pd.isna(win_loss_ratio) else float(round(win_loss_ratio, 3))
+        ),
+        "largest_winning_trade": 0.0 if pd.isna(largest_win) else largest_win,
+        "largest_losing_trade": 0.0 if pd.isna(largest_loss) else largest_loss,
+    }
+
+
+def calculate_market_exposure(df):
+    """Calculate metrics about market exposure"""
+    try:
+        in_trade_duration = (
+            df[df.in_trade]
+            .groupby((df.in_trade != df.in_trade.shift()).cumsum())
+            .size()
+        )
+        time_in_market = float(round((df.in_trade.sum() / len(df)) * 100, 3))
+        avg_duration = (
+            float(round(in_trade_duration.mean(), 3))
+            if not in_trade_duration.empty
+            else 0
+        )
+    except (ZeroDivisionError, ValueError):
+        time_in_market = 0.0
+        avg_duration = 0.0
+
+    return {
+        "time_in_market_pct": 0.0 if pd.isna(time_in_market) else time_in_market,
+        "avg_trade_duration": 0.0 if pd.isna(avg_duration) else avg_duration,
+    }
+
+
+def calculate_effective_trades(df, trade_log_df):
+    """Calculate trade metrics accounting for commission"""
+    # Get the fee values for the trade log indices
+    trade_fees = df.loc[trade_log_df.index, "fee"]
+
+    profitable_trades = trade_log_df[
+        trade_log_df.adj_account_value_change_perc > trade_fees
+    ]
+    unprofitable_trades = trade_log_df[
+        trade_log_df.adj_account_value_change_perc <= trade_fees
+    ]
+    commission_impact = df.fee.sum() / df.iloc[-1].adj_account_value * 100
+
+    return {
+        "num_profitable_after_commission": int(len(profitable_trades)),
+        "num_unprofitable_after_commission": int(len(unprofitable_trades)),
+        "commission_drag_pct": float(round(commission_impact, 3)),
+    }
 
 
 def build_summary(df, performance_start_time):
@@ -21,6 +140,10 @@ def build_summary(df, performance_start_time):
     performance_stop_time = datetime.datetime.utcnow()
     start_date = df.index[0]
     end_date = df.index[-1]
+    # count the number enter, exit, and hold signals
+    total_enter = len(df[df.action == "e"])
+    total_exit = len(df[df.action == "x"])
+    total_hold = len(df[df.action == "h"])
     trade_log_df = create_trade_log(df)
     total_trades = len(trade_log_df.index)
 
@@ -51,10 +174,17 @@ def build_summary(df, performance_start_time):
     )
 
     return_perc = calculate_return_perc(df)
-
     sharpe_ratio = calculate_shape_ratio(df)
-
     buy_and_hold_perc = calculate_buy_and_hold_perc(df)
+
+    # Calculate new metrics
+    market_adjusted_return = calculate_market_adjusted_returns(
+        df, return_perc, buy_and_hold_perc
+    )
+    position_metrics = calculate_position_metrics(df)
+    trade_quality = calculate_trade_quality(trade_log_df)
+    market_exposure = calculate_market_exposure(df)
+    effective_trades = calculate_effective_trades(df, trade_log_df)
 
     performance_stop_time = datetime.datetime.utcnow()
 
@@ -77,36 +207,62 @@ def build_summary(df, performance_start_time):
         min_trade_time_held = 0
 
     summary = {
-        "return_perc": float(return_perc),
-        "sharpe_ratio": float(sharpe_ratio),  # BETA
-        "buy_and_hold_perc": float(buy_and_hold_perc),
-        "median_trade_len": median_time_held,
-        "mean_trade_len": mean_trade_time_held,
-        "max_trade_held": max_trade_time_held,
-        "min_trade_len": min_trade_time_held,
-        "total_num_winning_trades": float(total_num_winning_trades),
-        "total_num_losing_trades": float(total_num_losing_trades),
-        "avg_win_perc": float(avg_win_perc),
-        "avg_loss_perc": float(avg_loss_perc),
-        "best_trade_perc": float(max_trade_perc),
-        "min_trade_perc": float(min_trade_perc),
-        "median_trade_perc": float(median_trade_perc),
-        "mean_trade_perc": float(mean_trade_perc),
-        "num_trades": int(total_trades),
-        "win_perc": float(win_perc),
-        "loss_perc": float(loss_perc),
-        "equity_peak": float(equity_peak),
-        "equity_final": float(equity_final),
-        "max_drawdown": float(max_drawdown),
-        "total_fees": float(total_fees),
+        # Original metrics
+        "return_perc": float(return_perc if not pd.isna(return_perc) else 0),
+        "sharpe_ratio": float(sharpe_ratio if not pd.isna(sharpe_ratio) else 0),  # BETA
+        "buy_and_hold_perc": float(
+            buy_and_hold_perc if not pd.isna(buy_and_hold_perc) else 0
+        ),
+        "median_trade_len": median_time_held if not pd.isna(median_time_held) else 0,
+        "mean_trade_len": (
+            mean_trade_time_held if not pd.isna(mean_trade_time_held) else 0
+        ),
+        "max_trade_held": (
+            max_trade_time_held if not pd.isna(max_trade_time_held) else 0
+        ),
+        "min_trade_len": min_trade_time_held if not pd.isna(min_trade_time_held) else 0,
+        "total_num_winning_trades": float(
+            total_num_winning_trades if not pd.isna(total_num_winning_trades) else 0
+        ),
+        "total_num_losing_trades": float(
+            total_num_losing_trades if not pd.isna(total_num_losing_trades) else 0
+        ),
+        "avg_win_perc": float(avg_win_perc if not pd.isna(avg_win_perc) else 0),
+        "avg_loss_perc": float(avg_loss_perc if not pd.isna(avg_loss_perc) else 0),
+        "best_trade_perc": float(max_trade_perc if not pd.isna(max_trade_perc) else 0),
+        "min_trade_perc": float(min_trade_perc if not pd.isna(min_trade_perc) else 0),
+        "median_trade_perc": float(
+            median_trade_perc if not pd.isna(median_trade_perc) else 0
+        ),
+        "mean_trade_perc": float(
+            mean_trade_perc if not pd.isna(mean_trade_perc) else 0
+        ),
+        "num_trades": int(total_trades if not pd.isna(total_trades) else 0),
+        "win_perc": float(win_perc if not pd.isna(win_perc) else 0),
+        "loss_perc": float(loss_perc if not pd.isna(loss_perc) else 0),
+        "equity_peak": float(equity_peak if not pd.isna(equity_peak) else 0),
+        "equity_final": float(equity_final if not pd.isna(equity_final) else 0),
+        "max_drawdown": float(max_drawdown if not pd.isna(max_drawdown) else 0),
+        "total_fees": float(total_fees if not pd.isna(total_fees) else 0),
         "first_tic": start_date.strftime("%Y-%m-%d %H:%M:%S"),
         "last_tic": end_date.strftime("%Y-%m-%d %H:%M:%S"),
         "total_tics": len(df.index),
-        "perc_missing": float(perc_missing),
-        "total_missing": int(total_missing_dates),
+        "perc_missing": float(perc_missing if not pd.isna(perc_missing) else 0),
+        "total_missing": int(
+            total_missing_dates if not pd.isna(total_missing_dates) else 0
+        ),
         "test_duration": round(
             (performance_stop_time - performance_start_time).total_seconds(), 3
         ),
+        "num_of_enter_signals": total_enter,
+        "num_of_exit_signals": total_exit,
+        "num_of_hold_signals": total_hold,
+        # New metrics
+        "market_adjusted_return": market_adjusted_return,
+        "position_metrics": position_metrics,
+        "trade_quality": trade_quality,
+        "market_exposure": market_exposure,
+        "effective_trades": effective_trades,
     }
 
     return summary, trade_log_df
@@ -156,58 +312,89 @@ def summarize_time_held(trade_log_df):
 
 
 def summarize_trade_perc(trade_log_df: pd.DataFrame):
-    max_trade_perc = trade_log_df.adj_account_value_change_perc.max()
-    min_trade_perc = trade_log_df.adj_account_value_change_perc.min()
-    mean_trade_perc = trade_log_df.adj_account_value_change_perc.mean()
-    median_trade_perc = trade_log_df.adj_account_value_change_perc.median()
+    """Calculate trade percentages with protection against NaN values"""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=RuntimeWarning)
+        try:
+            max_trade_perc = float(trade_log_df.adj_account_value_change_perc.max())
+            min_trade_perc = float(trade_log_df.adj_account_value_change_perc.min())
+            mean_trade_perc = float(trade_log_df.adj_account_value_change_perc.mean())
+            median_trade_perc = float(
+                trade_log_df.adj_account_value_change_perc.median()
+            )
+        except ValueError:
+            max_trade_perc = 0.0
+            min_trade_perc = 0.0
+            mean_trade_perc = 0.0
+            median_trade_perc = 0.0
 
     return (
-        round(max_trade_perc, 4),
-        round(min_trade_perc, 4),
-        round(mean_trade_perc, 4),
-        round(median_trade_perc, 4),
+        0.0 if pd.isna(max_trade_perc) else float(round(max_trade_perc, 4)),
+        0.0 if pd.isna(min_trade_perc) else float(round(min_trade_perc, 4)),
+        0.0 if pd.isna(mean_trade_perc) else float(round(mean_trade_perc, 4)),
+        0.0 if pd.isna(median_trade_perc) else float(round(median_trade_perc, 4)),
     )
 
 
 def summarize_trades(trades: pd.DataFrame, total_trades):
-    avg_perc = trades.adj_account_value_change_perc.mean() * 100
+    """Calculate trade summaries with protection against NaN values"""
     try:
-        perc = (len(trades.index) / total_trades) * 100
-    except ZeroDivisionError:
+        avg_perc = float(trades.adj_account_value_change_perc.mean() * 100)
+        perc = (
+            float((len(trades.index) / total_trades) * 100) if total_trades > 0 else 0.0
+        )
+    except (ZeroDivisionError, ValueError):
+        avg_perc = 0.0
         perc = 0.0
 
-    return (len(trades.index), round(avg_perc, 3), round(perc, 3))
+    return (
+        int(len(trades.index)),
+        0.0 if pd.isna(avg_perc) else float(round(avg_perc, 3)),
+        0.0 if pd.isna(perc) else float(round(perc, 3)),
+    )
 
 
 def calculate_return_perc(trade_log_df: pd.DataFrame):
+    """Calculate return percentage with protection against NaN values"""
     if trade_log_df.empty:
         return 0.0
-    if trade_log_df.iloc[0].adj_account_value:
-        first_val = trade_log_df.iloc[0].adj_account_value
-        last_val = trade_log_df.iloc[-1].adj_account_value
-
-        return_perc = 100 - (first_val / last_val) * 100
-
-    return round(return_perc, 3)
+    try:
+        if trade_log_df.iloc[0].adj_account_value:
+            first_val = float(trade_log_df.iloc[0].adj_account_value)
+            last_val = float(trade_log_df.iloc[-1].adj_account_value)
+            if last_val == 0:
+                return 0.0
+            return_perc = 100 - (first_val / last_val) * 100
+            return 0.0 if pd.isna(return_perc) else float(round(return_perc, 3))
+    except (ZeroDivisionError, ValueError, AttributeError):
+        return 0.0
+    return 0.0
 
 
 def calculate_buy_and_hold_perc(df):
-    """Uses the first closing price and closing price to determine
-    the return percentage if the strategy was simply buy and hold.
-    """
-    first_close = df.iloc[0].close
-    last_close = df.iloc[-1].close
-    buy_and_hold_perc = (1 - (first_close / last_close)) * 100
-
-    return round(buy_and_hold_perc, 3)
+    """Calculate buy and hold percentage with protection against NaN values"""
+    try:
+        first_close = float(df.iloc[0].close)
+        last_close = float(df.iloc[-1].close)
+        if last_close == 0:
+            return 0.0
+        buy_and_hold_perc = (1 - (first_close / last_close)) * 100
+        return 0.0 if pd.isna(buy_and_hold_perc) else float(round(buy_and_hold_perc, 3))
+    except (ZeroDivisionError, ValueError, AttributeError):
+        return 0.0
 
 
 def calculate_shape_ratio(df):
-    # https://towardsdatascience.com/calculating-sharpe-ratio-with-python-755dcb346805
-    #  portf_val[‘Daily Return’].mean() / portf_val[‘Daily Return’].std()
-    sharpe_ratio = (
-        df["adj_account_value_change_perc"].mean()
-        / df["adj_account_value_change_perc"].std()
-    )
-    sharpe_ratio = (len(df.index) ** 0.5) * sharpe_ratio
-    return round(sharpe_ratio, 3)
+    """Calculate Sharpe ratio with protection against NaN values"""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=RuntimeWarning)
+        try:
+            mean_return = df["adj_account_value_change_perc"].mean()
+            std_return = df["adj_account_value_change_perc"].std()
+            if pd.isna(mean_return) or pd.isna(std_return) or std_return == 0:
+                return 0.0
+            sharpe_ratio = mean_return / std_return
+            sharpe_ratio = (len(df.index) ** 0.5) * sharpe_ratio
+            return 0.0 if pd.isna(sharpe_ratio) else float(round(sharpe_ratio, 3))
+        except (ZeroDivisionError, ValueError):
+            return 0.0

@@ -9,7 +9,6 @@ from fast_trade.archive.db_helpers import get_kline
 from .build_data_frame import prepare_df
 from .validate_backtest import validate_backtest, validate_backtest_with_df
 from .evaluate import evaluate_rules
-from .finta import TA
 
 
 class MissingData(Exception):
@@ -36,15 +35,36 @@ def run_backtest(backtest: dict, df: pd.DataFrame = pd.DataFrame(), summary=True
 
     if errors.get("has_error"):
         raise Exception(errors)
-    # print("DF::: ", df)
-    # return
+
     if df.empty:
         # check the local archive for the data
+        # calculate the start and end dates based on the max number of periods in any dp args
+        def get_max_periods(datapoint):
+            args = datapoint.get("args", [])
+            periods = [int(arg) for arg in args if isinstance(arg, int)]
+            return max(periods)
+
+        args = [get_max_periods(dp) for dp in new_backtest.get("datapoints", [])]
+        max_periods = max(args)
+        # print(max_periods)
+        # get the frequency of the backtest
+        freq = new_backtest.get("freq")
+        if not freq and new_backtest.get("chart_period"):
+            freq = new_backtest.get("chart_period")
+        # convert the frequency to a timedelta
+        td_freq = pd.Timedelta(freq)
+
+        start_date = backtest.get("start_date")
+        start_date = datetime.datetime.fromisoformat(start_date)
+        start_date = start_date - td_freq * max_periods
+
+        # get the data from the local archive
         df = get_kline(
             backtest.get("symbol"),
             backtest.get("exchange"),
-            backtest.get("start_date"),
+            start_date,
             backtest.get("end_date"),
+            freq=backtest.get("freq") or backtest.get("chart_period"),
         )
 
     df = prepare_df(df, new_backtest)
@@ -103,6 +123,16 @@ def prepare_new_backtest(backtest):
     new_backtest["max_lot_size"] = int(backtest.get("max_lot_size", 0))
     new_backtest["rules"] = backtest.get("rules", [])
 
+    # if chart_start and chart_stop are provided, use them
+    if backtest.get("chart_start"):
+        new_backtest["start"] = backtest.get("chart_start")
+        del new_backtest["chart_start"]
+        print("Warning: chart_start is deprecated, use start instead.")
+    if backtest.get("chart_stop"):
+        new_backtest["stop"] = backtest.get("chart_stop")
+        del new_backtest["chart_stop"]
+        print("Warning: chart_stop is deprecated, use stop instead.")
+
     return new_backtest
 
 
@@ -152,10 +182,10 @@ def process_logic_and_generate_actions(df: pd.DataFrame, backtest: object):
     so we know how many frames to pass in
     """
     logics = [
-        backtest["enter"],
-        backtest["exit"],
-        backtest["any_exit"],
-        backtest["any_enter"],
+        backtest.get("enter", []),
+        backtest.get("exit", []),
+        backtest.get("any_exit", []),
+        backtest.get("any_enter", []),
     ]
 
     logics = list(itertools.chain(*logics))
@@ -200,16 +230,16 @@ def determine_action(frame: pd.DataFrame, backtest: dict, last_frames=[]):
         if frame.close <= frame.trailing_stop_loss:
             return "tsl"
 
-    if take_action(frame, backtest["exit"], last_frames):
+    if take_action(frame, backtest.get("exit", []), last_frames):
         return "x"
 
-    if take_action(frame, backtest["any_exit"], last_frames, require_any=True):
+    if take_action(frame, backtest.get("any_exit", []), last_frames, require_any=True):
         return "ax"
 
-    if take_action(frame, backtest["enter"], last_frames):
+    if take_action(frame, backtest.get("enter", []), last_frames):
         return "e"
 
-    if take_action(frame, backtest["any_enter"], last_frames, require_any=True):
+    if take_action(frame, backtest.get("any_enter", []), last_frames, require_any=True):
         return "ae"
 
     return "h"
@@ -269,7 +299,6 @@ def process_single_frame(logics, row, require_any):
     return_value = False
     for logic in logics:
         res = process_single_logic(logic, row)
-        # print("row: ", row)
         results.append(res)
 
     if len(results):
@@ -293,6 +322,10 @@ def process_single_logic(logic, row):
         return_value = bool(val0 == val1)
     if logic[1] == "!=":
         return_value = bool(val0 != val1)
+    if logic[1] == ">=":
+        return_value = bool(val0 >= val1)
+    if logic[1] == "<=":
+        return_value = bool(val0 <= val1)
 
     return return_value
 

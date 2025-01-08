@@ -435,7 +435,7 @@ Simple SMA example
 
 ## Transfomers (Technical Indicators)
 
-Custom datapoints can be added by setting a function name in the [datapoints](/fast_trade/transformers_map.py), then setting that equal to a function that takes in a dataframe as the first argument and whatever arguments passed in.
+See [TRANSFORMER_README.md](TRANSFORMER_README.md) for a list of supported indicators. For the most details, see the actual implementation in [fast_trade/finta.py](fast_trade/finta.py).
 
 Note:
   
