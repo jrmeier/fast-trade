@@ -223,6 +223,8 @@ def test_build_summary():
     mock_df["adj_account_value"] = [90, 110, 110, 90, 90, 100, 110, 90, 100]
     mock_df["adj_account_value_change"] = mock_df["adj_account_value"].diff()
     mock_df["adj_account_value_change_perc"] = mock_df["account_value"].pct_change()
+    mock_df["fee"] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    mock_df["aux"] = [1, 1, 1, 1, 1, 1, 1, 1, 1]
 
     mock_performance_start_time = datetime.datetime.utcnow()
     res, trade_df = build_summary(mock_df, mock_performance_start_time)

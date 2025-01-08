@@ -172,23 +172,24 @@ def build_summary(df, performance_start_time):
     (total_num_losing_trades, avg_loss_perc, loss_perc) = summarize_trades(
         loss_trades, total_trades
     )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=RuntimeWarning)
+        return_perc = calculate_return_perc(df)
+        sharpe_ratio = calculate_shape_ratio(df)
+        buy_and_hold_perc = calculate_buy_and_hold_perc(df)
 
-    return_perc = calculate_return_perc(df)
-    sharpe_ratio = calculate_shape_ratio(df)
-    buy_and_hold_perc = calculate_buy_and_hold_perc(df)
+        # Calculate new metrics
+        market_adjusted_return = calculate_market_adjusted_returns(
+            df, return_perc, buy_and_hold_perc
+        )
+        position_metrics = calculate_position_metrics(df)
+        trade_quality = calculate_trade_quality(trade_log_df)
+        market_exposure = calculate_market_exposure(df)
+        effective_trades = calculate_effective_trades(df, trade_log_df)
 
-    # Calculate new metrics
-    market_adjusted_return = calculate_market_adjusted_returns(
-        df, return_perc, buy_and_hold_perc
-    )
-    position_metrics = calculate_position_metrics(df)
-    trade_quality = calculate_trade_quality(trade_log_df)
-    market_exposure = calculate_market_exposure(df)
-    effective_trades = calculate_effective_trades(df, trade_log_df)
+        performance_stop_time = datetime.datetime.utcnow()
 
-    performance_stop_time = datetime.datetime.utcnow()
-
-    [perc_missing, total_missing_dates] = calculate_perc_missing(df)
+        [perc_missing, total_missing_dates] = calculate_perc_missing(df)
 
     # check if median_time_held is a timedelta object
     if isinstance(median_time_held, datetime.timedelta):
