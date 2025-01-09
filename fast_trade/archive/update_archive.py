@@ -51,6 +51,7 @@ def update_archive():
                 count += 1
             except Exception as e:
                 print(f"Error updating {symbol} from {exchange}: {e}")
+                raise e
 
     updated_time = round(time.time() - start_time, 2)
     print(f"\n\nUpdated {count} symbols in {updated_time} seconds ✅")
