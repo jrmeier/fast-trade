@@ -6,7 +6,7 @@ import pandas as pd
 import math
 import os
 
-API_DELAY = os.getenv("API_DELAY", 0.3)
+API_DELAY = float(os.getenv("API_DELAY", 0.3))
 
 BINANCE_KLINE_REST_HEADER_MATCH = [
     "date",  # Open time
@@ -75,7 +75,7 @@ def get_oldest_date_available(symbol, tld="us"):
     try:
         oldest_date = datetime.datetime.fromtimestamp(data[0][0] / 1000)
         return oldest_date
-    except Exception as e:
+    except Exception:
         print(f"error with {symbol}")
         return datetime.datetime.utcnow() - datetime.timedelta(days=1)
 
@@ -113,7 +113,11 @@ def get_binance_klines(
 
         print(f"Getting {symbol} from {curr_date} to {next_end_date}")
 
-        url = f"https://api.binance.{tld}/api/v3/klines?symbol={symbol}&interval=1m&startTime={startTime}&endTime={endTime}&limit=1000"
+        url = (
+            f"https://api.binance.{tld}/api/v3/klines"
+            f"?symbol={symbol}&interval=1m"
+            f"&startTime={startTime}&endTime={endTime}&limit=1000"
+        )
 
         req = requests.get(url)
         total_api_calls += 1
