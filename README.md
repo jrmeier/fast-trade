@@ -171,9 +171,6 @@ Update the archive. Brings the archive up to date with the latest data for each 
 This update all the existing items in the archive, downloading the latest data for each symbol.
 
 
-
-
-
 ## Testing
 
 ```bash
@@ -195,32 +192,152 @@ Example output:
 
 ```python
 {
-  "return_perc": -3.608,
-  "sharpe_ratio": -0.018705921376959495,
-  "buy_and_hold_perc": -13.661,
-  "median_trade_len": 1260.0,
-  "mean_trade_len": 1430.121951,
-  "max_trade_held": 4680.0,
-  "min_trade_len": 360.0,
-  "total_num_winning_trades": 46,
-  "total_num_losing_trades": 119,
-  "avg_win_per": 0.134,
-  "avg_loss_per": -0.081,
-  "best_trade_perc": 0.592,
-  "min_trade_perc": -2.588,
-  "median_trade_perc": -0.01,
-  "mean_trade_perc": -0.021,
-  "num_trades": 165,
-  "win_perc": 27.879,
-  "loss_perc": 72.121,
-  "equity_peak": 10053.901,
-  "equity_final": 9651.792,
-  "max_drawdown": 9651.792,
-  "total_fees": 81.745,
-  "first_tic": "2020-08-30 18:00:00",
-  "last_tic": "2020-09-06 16:39:00",
-  "total_tics": 3334,
-  "test_duration": 0.199153
+  "return_perc": 10.093,
+  "sharpe_ratio": 0.893,
+  "buy_and_hold_perc": 2.086,
+  "median_trade_len": 4200.0,
+  "mean_trade_len": 7341.7,
+  "max_trade_held": 54300.0,
+  "min_trade_len": 300.0,
+  "total_num_winning_trades": 136.0,
+  "total_num_losing_trades": 371.0,
+  "avg_win_perc": 0.142,
+  "avg_loss_perc": -0.021,
+  "best_trade_perc": 0.012,
+  "min_trade_perc": -0.0025,
+  "median_trade_perc": -0.0001,
+  "mean_trade_perc": 0.0002,
+  "num_trades": 507,
+  "win_perc": 26.824,
+  "loss_perc": 73.176,
+  "equity_peak": 1127.147,
+  "equity_final": 1112.254,
+  "max_drawdown": 985.676,
+  "total_fees": 26.662,
+  "first_tic": "2024-11-27 01:15:00",
+  "last_tic": "2025-01-09 03:10:00",
+  "total_tics": 12408,
+  "perc_missing": 0.0,
+  "total_missing": 0,
+  "test_duration": 0.302,
+  "num_of_enter_signals": 718,
+  "num_of_exit_signals": 5564,
+  "num_of_hold_signals": 6126,
+  "market_adjusted_return": 8.007,
+  "position_metrics": {
+    "avg_position_size": 0.011,
+    "max_position_size": 0.012,
+    "avg_position_duration": 18.327,
+    "total_commission_impact": 2.397
+  },
+  "trade_quality": {
+    "profit_factor": 2.522,
+    "avg_win_loss_ratio": 6.881,
+    "largest_winning_trade": 0.012,
+    "largest_losing_trade": -0.003
+  },
+  "market_exposure": {
+    "time_in_market_pct": 37.516,
+    "avg_trade_duration": 18.327
+  },
+  "effective_trades": {
+    "num_profitable_after_commission": 0,
+    "num_unprofitable_after_commission": 507,
+    "commission_drag_pct": 2.397
+  },
+  "drawdown_metrics": {
+    "max_drawdown_pct": -11.578,
+    "avg_drawdown_pct": -3.07,
+    "max_drawdown_duration": 6178.0,
+    "avg_drawdown_duration": 137.977,
+    "current_drawdown": -1.457
+  },
+  "risk_metrics": {
+    "sortino_ratio": 0.006,
+    "calmar_ratio": 0.0,
+    "value_at_risk_95": -0.002,
+    "annualized_volatility": 0.018,
+    "downside_deviation": 0.001
+  },
+  "trade_streaks": {
+    "current_streak": 371,
+    "max_win_streak": 1,
+    "max_loss_streak": 19,
+    "avg_win_streak": 1.0,
+    "avg_loss_streak": 2.708
+  },
+  "time_analysis": {
+    "best_day": 0.0,
+    "worst_day": 0.0,
+    "avg_daily_return": 0.0,
+    "daily_return_std": 0.0,
+    "profitable_days_pct": 0.0,
+    "best_month": 0.0,
+    "worst_month": 0.0,
+    "avg_monthly_return": 0.0,
+    "monthly_return_std": 0.0,
+    "profitable_months_pct": 0.0
+  },
+  "rules": {
+    "all": true,
+    "any": true,
+    "results": [
+      true
+    ]
+  },
+  "strategy": {
+    "any_enter": [],
+    "any_exit": [],
+    "freq": "5Min",
+    "comission": 0.01,
+    "symbol": "BTCUSDT",
+    "exchange": "binanceus",
+    "datapoints": [
+      {
+        "args": [
+          9
+        ],
+        "name": "zlema",
+        "transformer": "zlema"
+      },
+      {
+        "args": [
+          99
+        ],
+        "name": "zlema_1",
+        "transformer": "zlema"
+      }
+    ],
+    "enter": [
+      [
+        "zlema",
+        ">",
+        "close",
+        4
+      ]
+    ],
+    "exit": [
+      [
+        "zlema_1",
+        "<",
+        "close",
+        2
+      ]
+    ],
+    "start_date": "2024-11-01",
+    "exit_on_end": false,
+    "trailing_stop_loss": null,
+    "rules": [
+      [
+        "return_perc",
+        ">",
+        0.05
+      ]
+    ],
+    "base_balance": 1000,
+    "lot_size_perc": 1.0,
+    "max_lot_size": 0
+  }
 }
 ```
 
@@ -452,13 +569,16 @@ The `bbands` function returns two series, one for the upper band and one for the
 
 Rules are used to filter out backtests that didnt perform well. They are based on the summary object keys. This is usefuly for quickly filtering out backtests that didnt perform well.
 
+Rules can use dotted notation to access nested dictionaries.
+
 Example:
 
 ```python
 [
   ["sharpe_ratio", ">", 0.5],
   ["win_perc", ">", 0.5],
-  ["loss_perc", "<", 0.5]
+  ["loss_perc", "<", 0.5],
+  ["trade_streaks.avg_win_streak", ">", 2]
 ]
 ```
 

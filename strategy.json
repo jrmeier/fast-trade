@@ -40,5 +40,5 @@
         "start_date": "2024-11-01",
         "exit_on_end": false,
         "trailing_stop_loss": null,
-        "rules": [["return_perc",">",0.05]]
+        "rules": [["trade_streaks.avg_win_streak",">",0.05]]
       }
