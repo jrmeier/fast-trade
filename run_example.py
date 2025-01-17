@@ -5,8 +5,8 @@ from fast_trade.archive.db_helpers import get_kline
 strategy = {
     "base_balance": 1000,
     "freq": "1h",
-    "start_date": "2024-06-01",
-    "end_date": "2024-12-31",
+    "start_date": "2025-01-01",
+    "end_date": "2025-01-17",
     "comission": 0.1,
     "datapoints": [
         {
@@ -21,9 +21,21 @@ strategy = {
             "name": "lowest_low",
             "column": "low",
         },
+        {
+            "args": [28, "close"],
+            "transformer": "linear_regression",
+            "name": "linear_reg",
+            "column": "close",
+        },
+        {
+            "args": [14, "close"],
+            "transformer": "roc",
+            "name": "roc",
+            "column": "close",
+        },
     ],
-    "enter": [["high", ">=", "highest_high"]],
-    "exit": [["close", "<=", "lowest_low"]],
+    "enter": [["close", ">", "linear_reg"], ["roc", ">", 0.05,2]],
+    "exit": [["close", "<", "linear_reg",2], ["roc", "<", 0]],
     "exit_on_end": True,
     "exchange": "binanceus",
     "symbol": "BTCUSDT",

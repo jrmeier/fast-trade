@@ -82,4 +82,5 @@ transformers_map = {
     "wto": TA.WTO,
     "rolling_min": TA.ROLLING_MIN,
     "rolling_max": TA.ROLLING_MAX,
+    "linear_regression": TA.LINEAR_REGRESSION,
 }

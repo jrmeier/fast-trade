@@ -662,7 +662,7 @@ class TA:
     def ROC(cls, ohlc: DataFrame, period: int = 12, column: str = "close") -> Series:
         """The Rate-of-Change (ROC) indicator, which is also referred to as simply Momentum,
         is a pure momentum oscillator that measures the percent change in price from one period to the next.
-        The ROC calculation compares the current price with the price “n” periods ago.
+        The ROC calculation compares the current price with the price "n" periods ago.
         """
 
         return pd.Series(
@@ -678,7 +678,7 @@ class TA:
         column: str = "close",
     ) -> Series:
         """The Volatility-Based-Momentum (VBM) indicator, The calculation for a volatility based momentum (VBM)
-        indicator is very similar to ROC, but divides by the security’s historical volatility instead.
+        indicator is very similar to ROC, but divides by the security's historical volatility instead.
         The average true range indicator (ATR) is used to compute historical volatility.
         VBM(n,v) = (Close — Close n periods ago) / ATR(v periods)
         """
@@ -828,7 +828,7 @@ class TA:
 
     @classmethod
     def SAR(cls, ohlc: DataFrame, af: int = 0.02, amax: int = 0.2) -> Series:
-        """SAR stands for “stop and reverse,” which is the actual indicator used in the system.
+        """SAR stands for "stop and reverse," which is the actual indicator used in the system.
         SAR trails price as the trend extends over time. The indicator is below prices when prices are rising and above prices when prices are falling.
         In this regard, the indicator stops and reverses when the price trend reverses and breaks above or below the indicator.
         """
@@ -1134,10 +1134,10 @@ class TA:
     def PIVOT(cls, ohlc: DataFrame) -> DataFrame:
         """
         Pivot Points are significant support and resistance levels that can be used to determine potential trades.
-        The pivot points come as a technical analysis indicator calculated using a financial instrument’s high, low, and close value.
-        The pivot point’s parameters are usually taken from the previous day’s trading range.
-        This means you’ll have to use the previous day’s range for today’s pivot points.
-        Or, last week’s range if you want to calculate weekly pivot points or, last month’s range for monthly pivot points and so on.
+        The pivot points come as a technical analysis indicator calculated using a financial instrument's high, low, and close value.
+        The pivot point's parameters are usually taken from the previous day's trading range.
+        This means you'll have to use the previous day's range for today's pivot points.
+        Or, last week's range if you want to calculate weekly pivot points or, last month's range for monthly pivot points and so on.
         """
 
         df = ohlc.shift()  # pivot is calculated of the previous trading session
@@ -1173,7 +1173,7 @@ class TA:
     def PIVOT_FIB(cls, ohlc: DataFrame) -> DataFrame:
         """
         Fibonacci pivot point levels are determined by first calculating the classic pivot point,
-        then multiply the previous day’s range with its corresponding Fibonacci level.
+        then multiply the previous day's range with its corresponding Fibonacci level.
         Most traders use the 38.2%, 61.8% and 100% retracements in their calculations.
         """
 
@@ -1619,7 +1619,7 @@ class TA:
 
     @classmethod
     def EBBP(cls, ohlc: DataFrame) -> DataFrame:
-        """Bull power and bear power by Dr. Alexander Elder show where today’s high and low lie relative to the a 13-day EMA"""
+        """Bull power and bear power by Dr. Alexander Elder show where today's high and low lie relative to the a 13-day EMA"""
 
         bull_power = pd.Series(ohlc["high"] - cls.EMA(ohlc, 13), name="Bull.")
         bear_power = pd.Series(ohlc["low"] - cls.EMA(ohlc, 13), name="Bear.")
@@ -1878,7 +1878,7 @@ class TA:
         The Ichimoku Cloud, also known as Ichimoku Kinko Hyo, is a versatile indicator that defines support and resistance,
         identifies trend direction, gauges momentum and provides trading signals.
 
-        Ichimoku Kinko Hyo translates into “one look equilibrium chart”.
+        Ichimoku Kinko Hyo translates into "one look equilibrium chart".
         """
 
         tenkan_sen = pd.Series(
@@ -1967,7 +1967,7 @@ class TA:
         The Squeeze indicator attempts to identify periods of consolidation in a market.
         In general the market is either in a period of quiet consolidation or vertical price discovery.
         By identifying these calm periods, we have a better opportunity of getting into trades with the potential for larger moves.
-        Once a market enters into a “squeeze”, we watch the overall market momentum to help forecast the market direction and await a release of market energy.
+        Once a market enters into a "squeeze", we watch the overall market momentum to help forecast the market direction and await a release of market energy.
 
         :param pd.DataFrame ohlc: 'open, high, low, close' pandas DataFrame
         :period: int - number of periods to take into consideration
@@ -2308,7 +2308,7 @@ class TA:
     ) -> Series:
         """
         The Wave PM (Whistler Active Volatility Energy Price Mass) indicator is an oscillator described in the Mark
-        Whistler's book “Volatility Illuminated”.
+        Whistler's book "Volatility Illuminated".
 
         :param DataFrame ohlc: data
         :param int period: period for moving average
@@ -2373,6 +2373,28 @@ class TA:
             raise ValueError(f"Column {column} not found in DataFrame")
 
         return ohlc[column].rolling(window=periods).min()
+
+    @classmethod
+    def LINEAR_REGRESSION(cls, ohlc: DataFrame, periods: int = 14, column: str = "close") -> Series:
+        """
+        Linear Regression indicator.
+        Calculates the linear regression line for the specified period.
+        """
+        # Calculate the linear regression line
+        def linear_regression(x, y):
+            n = len(x)
+            x_mean = np.mean(x)
+            y_mean = np.mean(y)
+            b1 = np.sum((x - x_mean) * (y - y_mean)) / np.sum((x - x_mean) ** 2)
+            b0 = y_mean - b1 * x_mean
+            return b0 + b1 * x[-1]  # Return the last value of the regression line
+
+        # Apply the linear regression to the rolling window
+        lr = ohlc[column].rolling(window=periods).apply(
+            lambda x: linear_regression(np.arange(len(x)), x), raw=False
+        )
+
+        return pd.Series(lr, name="LINEAR_REGRESSION")
 
 
 if __name__ == "__main__":
