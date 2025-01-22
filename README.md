@@ -8,9 +8,7 @@
 A library built with backtest portability and performance in mind for backtest trading strategies. There is also an [Archive](#Archive), which can be used to download compatible kline data from Binance (.com or .us) and Coinbase into sqlite databases..
 
 ## Motivations
-
-Strategies are cheap. This is the main motivation behind fast-trade. Since a backtest is just a JSON object, strategies can be created, stored, modified, versioned, and re-run easily. Ideally, a backtest could be generated and tested quickly; fast-trade is just the library to handle that.
-Fast Trade is also useful for quickly analyzing chart (`ohlcv`) data and downloading it.
+If backests are fast, strategies are cheap.
 
 ## Beta Testing
 
