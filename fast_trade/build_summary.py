@@ -3,6 +3,7 @@ import warnings
 
 import numpy as np
 import pandas as pd
+
 from .calculate_perc_missing import calculate_perc_missing
 
 
@@ -214,7 +215,9 @@ def calculate_trade_streaks(trade_log_df):
         loss_streak_counts = loss_streaks.value_counts()
 
         return {
-            "current_streak": int(sum(trades == trades.iloc[-1])),
+            "current_streak": (
+                int(sum(trades == trades.iloc[-1])) if not trades.empty else 0
+            ),
             "max_win_streak": int(
                 win_streak_counts.max() if not win_streak_counts.empty else 0
             ),

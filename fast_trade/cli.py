@@ -1,20 +1,19 @@
 # flake8: noqa
-from fast_trade.validate_backtest import validate_backtest
-import sys
-import json
-from .cli_helpers import (
-    open_strat_file,
-    save,
-    create_plot,
-)
-from .run_backtest import run_backtest
-import matplotlib.pyplot as plt
-import datetime
 import argparse
+import datetime
+import json
 import os
+import sys
 from pprint import pprint
-from fast_trade.archive.cli import get_assets, download_asset
+
+import matplotlib.pyplot as plt
+
+from fast_trade.archive.cli import download_asset, get_assets
 from fast_trade.archive.update_archive import update_archive
+from fast_trade.validate_backtest import validate_backtest
+
+from .cli_helpers import create_plot, open_strat_file, save
+from .run_backtest import run_backtest
 
 parser = argparse.ArgumentParser(
     description="Fast Trade CLI",
@@ -135,25 +134,25 @@ def backtest_helper(*args, **kwargs):
         summary["mean_trade_len"] = (
             summary.get("mean_trade_len") / 60
         )  # convert to minutes
-    except:
+    except BaseException:
         summary["mean_trade_len"] = 0
     try:
         summary["max_trade_held"] = (
             summary.get("max_trade_held") / 60
         )  # convert to minutes
-    except:
+    except BaseException:
         summary["max_trade_held"] = 0
     try:
         summary["min_trade_len"] = (
             summary.get("min_trade_len") / 60
         )  # convert to minutes
-    except:
+    except BaseException:
         summary["min_trade_len"] = 0
     try:
         summary["median_trade_len"] = (
             summary.get("median_trade_len") / 60
         )  # convert to minutes
-    except:
+    except BaseException:
         summary["median_trade_len"] = 0
 
     pprint(summary)

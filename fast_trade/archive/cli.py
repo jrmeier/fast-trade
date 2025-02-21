@@ -1,9 +1,11 @@
-from fast_trade.archive import binance_api, coinbase_api
 import datetime
-from .update_kline import update_kline
-from .db_helpers import get_local_assets
 import pprint
 import typing
+
+from fast_trade.archive import binance_api, coinbase_api
+
+from .db_helpers import get_local_assets
+from .update_kline import update_kline
 
 
 def get_assets(exchange: str = "local") -> typing.List[str]:

@@ -59,6 +59,9 @@ def evaluate_rules(result: dict, rules: list) -> tuple:
     -------
     tuple, (all(res), any(res), res)
     """
+    if not rules:
+        return False, False, []
+
     res = []
     for rule in rules:
         try:
@@ -72,7 +75,53 @@ def evaluate_rules(result: dict, rules: list) -> tuple:
     return all(res), any(res), res
 
 
+def extract_error_messages(error_dict: dict) -> str:
+    """
+    Extract and format error messages from the error dictionary.
+
+    Parameters
+    ----------
+    error_dict: dict, the dictionary containing error information
+
+    Returns
+    -------
+    str, formatted error messages
+    """
+    messages = []
+
+    def traverse_errors(d):
+        if isinstance(d, dict):
+            for key, value in d.items():
+                if key == "msgs" and isinstance(value, list):
+                    for msg in value:
+                        if isinstance(msg, str):
+                            messages.append(msg)
+                        else:
+                            messages.append(str(msg))
+                else:
+                    traverse_errors(value)
+        elif isinstance(d, list):
+            for item in d:
+                traverse_errors(item)
+
+    traverse_errors(error_dict)
+
+    return "\n".join(messages)
+
+
 if __name__ == "__main__":
     rules = [["trade_streaks.avg_win_streak", ">", 6]]
     result = {"trade_streaks": {"avg_win_streak": 5}}
     print(evaluate_rules(result, rules))
+
+    # Example usage
+    error_example = {
+        "enter": {
+            "error": True,
+            "msgs": [
+                'Datapoint "macd_macd" referenced in enter logic not found in datapoints.',
+                'Datapoint "macd_signal" referenced in enter logic not found in datapoints.',
+            ],
+        }
+    }
+    print(extract_error_messages(error_example))

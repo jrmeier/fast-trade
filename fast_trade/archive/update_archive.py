@@ -1,9 +1,9 @@
 import datetime
-import time
-from .db_helpers import connect_to_db
 import os
-from .update_kline import update_kline
+import time
 
+from .db_helpers import connect_to_db
+from .update_kline import update_kline
 
 ARCHIVE_PATH = os.getenv("ARCHIVE_PATH", os.path.join(os.getcwd(), "ft_archive"))
 

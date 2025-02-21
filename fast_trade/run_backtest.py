@@ -1,24 +1,65 @@
 import datetime
-import pandas as pd
-import re
 import itertools
+import re
 
-from .run_analysis import apply_logic_to_df
-from .build_summary import build_summary
+import pandas as pd
+
 from fast_trade.archive.db_helpers import get_kline
+
 from .build_data_frame import prepare_df
-from .validate_backtest import validate_backtest, validate_backtest_with_df
+from .build_summary import build_summary
 from .evaluate import evaluate_rules
+from .run_analysis import apply_logic_to_df
+from .validate_backtest import validate_backtest, validate_backtest_with_df
+
+
+def extract_error_messages(error_dict: dict) -> str:
+    """
+    Extract and format error messages from the error dictionary.
+
+    Parameters
+    ----------
+    error_dict: dict, the dictionary containing error information
+
+    Returns
+    -------
+    str, formatted error messages
+    """
+    messages = []
+
+    def traverse_errors(d):
+        if isinstance(d, dict):
+            for key, value in d.items():
+                if key == "msgs" and isinstance(value, list):
+                    for msg in value:
+                        if isinstance(msg, str):
+                            messages.append(msg)
+                        elif isinstance(msg, dict):
+                            traverse_errors(msg)
+                        else:
+                            messages.append(str(msg))
+                else:
+                    traverse_errors(value)
+        elif isinstance(d, list):
+            for item in d:
+                traverse_errors(item)
+
+    traverse_errors(error_dict)
+
+    return "\n".join(messages)
 
 
 class MissingData(Exception):
     pass
 
 
-class MissingBacktestKeyException(Exception):
-    def __init__(self, missing_keys):
-        self.missing_keys = "\n".join(missing_keys)
-        super().__init__(f"Missing keys: {self.missing_keys}")
+class BacktestKeyError(Exception):
+    def __init__(self, error_msgs):
+        # Ensure error_msgs is a list of strings
+        if isinstance(error_msgs, str):
+            error_msgs = [error_msgs]
+        self.error_msgs = "\n".join([f"-{msg}" for msg in error_msgs])
+        super().__init__(f"Backtest Error(s):\n{self.error_msgs}")
 
 
 def run_backtest(backtest: dict, df: pd.DataFrame = pd.DataFrame(), summary=True):
@@ -44,8 +85,11 @@ def run_backtest(backtest: dict, df: pd.DataFrame = pd.DataFrame(), summary=True
         error_keys = [
             key for key, value in errors.items() if value and key != "has_error"
         ]
-
-        raise MissingBacktestKeyException(error_keys)
+        error_msgs = extract_error_messages(errors)
+        for ek in error_keys:
+            if ek not in ["any_enter", "any_exit"]:
+                # get the errors from the errors dict
+                raise BacktestKeyError(error_msgs)
 
     if df.empty:
         # check the local archive for the data
@@ -53,6 +97,8 @@ def run_backtest(backtest: dict, df: pd.DataFrame = pd.DataFrame(), summary=True
         def get_max_periods(datapoint):
             args = datapoint.get("args", [])
             periods = [int(arg) for arg in args if isinstance(arg, int)]
+            if len(periods) == 0:
+                return 0
             return max(periods)
 
         args = [get_max_periods(dp) for dp in new_backtest.get("datapoints", [])]
@@ -66,7 +112,7 @@ def run_backtest(backtest: dict, df: pd.DataFrame = pd.DataFrame(), summary=True
         td_freq = pd.Timedelta(freq)
 
         start_date = backtest.get("start_date", None)
-        if start_date:
+        if start_date and not isinstance(start_date, datetime.datetime):
             start_date = datetime.datetime.fromisoformat(start_date)
             start_date = start_date - td_freq * max_periods
 

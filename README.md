@@ -557,13 +557,13 @@ See [TRANSFORMER_README.md](TRANSFORMER_README.md) for a list of supported indic
 
 Note:
   
-If a transfomer function returns multiple series, fast-trade will name concate the name of the series with the name of the transfomer function.
+If a transfomer function returns multiple series, fast-trade will name concate the name of the series with the name of the transfomer function and whatever the returned name is It will be lowercased and maybe not what you expect. See the specific transformer for more details in[./fast_trade/finta.py](fast_trade/finta.py).
 
 Example:
 
-The `bbands` function returns two series, one for the upper band and one for the lower band. The name of the series will be `bbands_upper` and `bbands_lower`.
+The `bbands` function returns three series, one for the upper band and one for the lower band. The name of the series will be `bbands_bb_upper`,`bbands_bb_middle`, and `bbands_bb_lower`.
 
-`bbands` returns 3 columns `upper_bb, middle_band, lower_bb`
+`bbands` returns 3 columns `bb_upper`, `bb_middle`, and `bb_lower` so the series to reference in the logic will be `{transformer_name}_bbands_bb_upper`, `{transformer_name}_bbands_bb_middle`, and `{transformer_name}_bbands_bb_lower`.
 
 ## Rules
 

@@ -89,9 +89,8 @@ def test_apply_transformers_to_dataframe_no_args_multi_col():
     mock_transformers = [{"transformer": "wto", "name": "wto", "args": []}]
 
     result_df = apply_transformers_to_dataframe(mock_df, mock_transformers)
-
-    assert "wto_wt1" in list(result_df.columns)
-    assert "wto_wt2" in list(result_df.columns)
+    assert "wto_wto_wt1" in list(result_df.columns)
+    assert "wto_wto_wt2" in list(result_df.columns)
 
 
 def test_apply_transformers_to_dataframe_freq():
@@ -210,7 +209,7 @@ def test_apply_charting_to_df_start_time_int():
 def test_process_res_df():
     mock_df = pd.read_csv("./test/ohlcv_data.csv.txt", parse_dates=True)
     mock_df.index = pd.to_datetime(mock_df.date, unit="s")
-    mock_ind = {"name": "ind_1"}
+    mock_ind = {"name": "ind_1", "transformer": "sma", "args": [3]}
     val1 = [0, 1, 2, 3, 4, 5, 6, 7, 8]
     val2 = [8, 7, 6, 5, 4, 3, 2, 1, 0]
     mock_trans_res = pd.DataFrame(
@@ -220,8 +219,8 @@ def test_process_res_df():
 
     res = process_res_df(mock_df, mock_ind, mock_trans_res)
 
-    assert list(res.ind_1_val_1.values) == val1
-    assert list(res.ind_1_val_2.values) == val2
+    assert list(res.ind_1_sma_val_1.values) == val1
+    assert list(res.ind_1_sma_val_2.values) == val2
 
 
 def test_apply_transformers_to_dataframe():

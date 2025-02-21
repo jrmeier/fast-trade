@@ -1,12 +1,13 @@
-import math
-import requests
 import datetime
-import time
-import random
-import pandas as pd
-from pprint import pprint
-import typing
+import math
 import os
+import random
+import time
+import typing
+from pprint import pprint
+
+import pandas as pd
+import requests
 
 API_DELAY = os.getenv("API_DELAY", 0.3)
 BASE_URL = "https://api.exchange.coinbase.com"
