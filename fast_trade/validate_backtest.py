@@ -4,6 +4,37 @@ import pandas as pd
 
 from .transformers_map import transformers_map
 
+TRANSFORMER_GENERATED_KEYS = [
+    "_macd",
+    "_signal",
+    "_ppo_line",
+    "_ppo_signal",
+    "_vw_macd",
+    "_ev_macd",
+    "_di_plus",
+    "_di_minus",
+    "_adx",
+    "_bb_upper",
+    "_bb_middle",
+    "_bb_lower",
+    "_kc_upper",
+    "_kc_lower",
+    "_do_upper",
+    "_do_middle",
+    "_do_lower",
+    "_vip",
+    "_vim",
+    "_kst_line",
+    "_kst_signal",
+    "_wt1",
+    "_wt2",
+    "_tenkan_sen",
+    "_kijun_sen",
+    "_senkou_span_a",
+    "_senkou_span_b",
+    "_chikou_span",
+]
+
 
 def validate_backtest(backtest):
     """validates a backtest object and returns errors/warnings
@@ -87,76 +118,86 @@ def validate_backtest(backtest):
 
     # fill the indicator keys
     basic_keys = ["open", "high", "low", "close", "volume"]
-    indicator_keys = [
-        dp.get("name") for dp in backtest.get("datapoints", []) if dp.get("name")
-    ]
-    indicator_keys.extend(basic_keys)
 
-    exit_errors = []
-    any_exit_errors = []
-    enter_errors = []
-    any_enter_errors = []
+    indicator_keys = [dp.get("name") for dp in backtest.get("datapoints", [])]
+    indicator_keys.extend(basic_keys)
     # by default these can always be used
     indicator_keys = list(set(indicator_keys))
     allowed_operators = [">", "=", "<", ">=", "<="]
 
-    for logic in backtest.get("exit", []):
-        for log in logic:
-            if (
-                log not in indicator_keys
-                and isinstance(log, str)
-                and log not in allowed_operators
-                and not log.isnumeric()
-            ):
-                exit_errors.append(
-                    f'Operator "{log}" referenced in exit logic not found in datapoints. Check datapoints and logic.'
-                )
+    def process_logics(logics: list, logic_type: str):
+        logic_errors = []
+        for logic in logics:
+            res = process_logic(logic, logic_type)
+            if res.get("has_error"):
+                logic_errors.append(res)
 
-        if len(exit_errors):
-            backtest_mirror["exit"] = {"error": True, "msgs": exit_errors}
+        if len(logic_errors):
+            return {"error": True, "msgs": logic_errors}
+        if len(logics) == 0 and logic_type not in ["any_enter", "any_exit"]:
+            return {"error": True, "msgs": [f"No {logic_type} logic found"]}
+        return None
 
-    for logic in backtest.get("enter", []):
-        for log in logic:
-            if (
-                log not in indicator_keys
-                and isinstance(log, str)
-                and log not in allowed_operators
-                and not log.isnumeric()
-            ):
-                enter_errors.append(
-                    f'Datapoint "{log}" referenced in enter logic not found in datapoints. Check datapoints and logic.'
-                )
+    def process_logic(logic: list, logic_type: str):
+        # each logic is a list of strings
+        # check each of these individually
+        pos1 = logic[0]
+        operator = logic[1]
+        pos2 = logic[2]
+        if len(logic) > 3:
+            lookback = logic[3]
+        else:
+            lookback = 0
 
-        if len(enter_errors):
-            backtest_mirror["enter"] = {"error": True, "msgs": enter_errors}
+        messages = []
 
-    for logic in backtest.get("any_enter", []):
-        for log in logic:
-            if (
-                log not in indicator_keys
-                and isinstance(log, str)
-                and log not in allowed_operators
-            ):
-                any_enter_errors.append(
-                    f'Datapoint "{log}" referenced in any_enter \
-                    logic not found in datapoints. Check datapoints and logic.'
-                )
-        if len(any_enter_errors):
-            backtest_mirror["any_enter"] = {"error": True, "msgs": any_enter_errors}
+        if pos1 not in indicator_keys:
+            # look deepter
+            if isinstance(pos1, str):
+                if not pos1.isnumeric():
+                    # check if it is a transformer generated key
+                    for tg in TRANSFORMER_GENERATED_KEYS:
+                        if pos1.endswith(tg):
+                            break
+                    else:
+                        messages.append(
+                            f'Datapoint "{pos1}" referenced in {logic_type} logic not found in datapoints.'
+                        )
 
-    for logic in backtest.get("any_exit", []):
-        for log in logic:
-            if (
-                log not in indicator_keys
-                and isinstance(log, str)
-                and log not in allowed_operators
-            ):
-                any_exit_errors.append(
-                    f'Datapoint "{log}" referenced in any_exit logic not found in datapoints. Check datapoints and logic.'
-                )
+        if pos2 not in indicator_keys:
+            # look deepter
+            if isinstance(pos2, str):
+                if not pos2.isnumeric():
+                    for tg in TRANSFORMER_GENERATED_KEYS:
+                        if pos2.endswith(tg):
+                            break
+                    else:
+                        messages.append(
+                            f'Datapoint "{pos2}" referenced in {logic_type} logic not found in datapoints.'
+                        )
 
-        if len(any_exit_errors):
-            backtest_mirror["any_exit"] = {"error": True, "msgs": any_exit_errors}
+        if operator not in allowed_operators:
+            messages.append(
+                f'Operator "{operator}" not valid. See the allowed_operators list.'
+            )
+
+        if lookback < 0:
+            messages.append("Lookback must be greater than 0.")
+
+        if len(messages):
+            return {"has_error": True, "msgs": messages}
+
+        return {"has_error": False, "msgs": []}
+
+    # process each logic
+    backtest_mirror["enter"] = process_logics(backtest.get("enter", []), "enter")
+    backtest_mirror["exit"] = process_logics(backtest.get("exit", []), "exit")
+    backtest_mirror["any_enter"] = process_logics(
+        backtest.get("any_enter", []), "any_enter"
+    )
+    backtest_mirror["any_exit"] = process_logics(
+        backtest.get("any_exit", []), "any_exit"
+    )
 
     lot_size = backtest.get("lot_size", 0)
 
@@ -199,7 +240,15 @@ def validate_backtest_with_df(backtest: dict, df: pd.DataFrame) -> None:
     errors = []
 
     for dp in backtest.get("datapoints", []):
+        # print("dp: ", dp)
         if dp.get("name") not in df.columns:
-            errors.append(f'Datapoint "{dp.get("name")}" not found in dataframe.')
+            # check if the db is a transfromer generated key it just need to start with one of the keys
+            # does the name start with any of the df columns
+            for col in df.columns:
+                # check the column name and see if it starts with an existing column name
+                if col.startswith(dp.get("name")):
+                    break
+            else:
+                errors.append(f'Datapoint "{dp.get("name")}" not found in dataframe.')
     if len(errors):
         raise Exception(errors)

@@ -1,5 +1,6 @@
-import pandas as pd
 from datetime import timedelta
+
+import pandas as pd
 
 
 def apply_logic_to_df(df: pd.DataFrame, backtest: dict):

@@ -1,11 +1,13 @@
 # flake8: noqa
+import datetime
 import json
 import os
-import datetime
-import pandas as pd
-import matplotlib.pyplot as plt
-import requests
 import re
+
+import matplotlib.pyplot as plt
+import pandas as pd
+import requests
+
 from fast_trade.archive.db_helpers import connect_to_db
 
 ARCHIVE_PATH = os.getenv("ARCHIVE_PATH", "ft_archive")

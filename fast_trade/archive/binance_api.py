@@ -1,10 +1,11 @@
-import requests
 import datetime
-import time
-import random
-import pandas as pd
 import math
 import os
+import random
+import time
+
+import pandas as pd
+import requests
 
 API_DELAY = float(os.getenv("API_DELAY", 0.3))
 

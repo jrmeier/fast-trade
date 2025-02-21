@@ -1,9 +1,19 @@
-from datetime import datetime
-import pandas as pd
 import os
 import re
+from datetime import datetime
+
+import pandas as pd
 
 from .transformers_map import transformers_map
+
+
+class TransformerError(Exception):
+    def __init__(self, message):
+        self.message = message
+        super().__init__(self.message)
+
+    def __str__(self):
+        return self.message
 
 
 def build_data_frame(backtest: dict, csv_path: str):
@@ -181,11 +191,17 @@ def apply_transformers_to_dataframe(
         else:
             tmp_df = df
 
-        if len(ind.get("args", [])):
-            args = ind.get("args")
-            trans_res = transformers_map[transformer](tmp_df, *args)
-        else:
-            trans_res = transformers_map[transformer](tmp_df)
+        # make sure the transformer is in the transformers_map
+        if transformer not in transformers_map:
+            raise ValueError(f"Transformer '{transformer}' not a valid transformer.")
+        try:
+            if len(ind.get("args", [])):
+                args = ind.get("args")
+                trans_res = transformers_map[transformer](tmp_df, *args)
+            else:
+                trans_res = transformers_map[transformer](tmp_df)
+        except Exception as e:
+            raise TransformerError(f"Error applying transformer '{transformer}': {e}")
 
         if isinstance(trans_res, pd.DataFrame):
             df = process_res_df(df, ind, trans_res)
@@ -219,7 +235,8 @@ def process_res_df(df, ind, trans_res):
         clean_key = key.lower()
         clean_key = clean_key.replace(".", "")
         clean_key = clean_key.replace(" ", "_")
-        df_key = f"{i_name}_{clean_key}"
+        # include the name of the transformer in the key
+        df_key = f"{i_name}_{ind.get('transformer')}_{clean_key}"
         df[df_key] = trans_res[key]
 
     return df

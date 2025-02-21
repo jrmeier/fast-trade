@@ -1,10 +1,11 @@
 import datetime
-import os
+import typing
+
+import pandas as pd
+
 from .binance_api import get_binance_klines
 from .coinbase_api import get_product_candles
 from .db_helpers import update_klines_to_db
-import pandas as pd
-import typing
 
 supported_exchanges = ["binanceus", "binancecom", "coinbase"]
 

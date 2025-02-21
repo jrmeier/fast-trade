@@ -1,8 +1,9 @@
-import pandas as pd
+import datetime
 import os
 import sqlite3
 import typing
-import datetime
+
+import pandas as pd
 
 ARCHIVE_PATH = os.getenv("ARCHIVE_PATH", os.path.join(os.getcwd(), "ft_archive"))
 
