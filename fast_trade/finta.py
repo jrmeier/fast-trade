@@ -2381,6 +2381,40 @@ class TA:
 
         return ohlc[column].rolling(window=periods).min()
 
+    @classmethod
+    def LINEAR_REGRESSION(cls, ohlc: DataFrame, period: int = 14, column: str = "close") -> Series:
+        """
+        Linear Regression indicator.
+        
+        Formula:
+        - For each window of size 'period', compute the linear regression line
+        - Return the predicted value at the end of each window
+        
+        This is useful for trend identification and can be used for:
+        - Trend direction (slope of the line)
+        - Entry/exit signals when price crosses the regression line
+        
+        Args:
+            ohlc (DataFrame): DataFrame containing OHLC data
+            period (int): Period to compute linear regression over
+            column (str): Column to use for calculation (default: 'close')
+            
+        Returns:
+            Series: Linear regression line values
+        """
+        import numpy as np
+        
+        def calculate_lr_point(values):
+            if len(values) < 2:
+                return values[-1] if len(values) > 0 else np.nan
+                
+            x = np.arange(len(values))
+            y = values
+            
+            # Calculate slope and intercept
+            n = len(x)
+            x_mean = np.mean(x)
+            y_mean = np.mean(y)
 
 if __name__ == "__main__":
     print([k for k in TA.__dict__.keys() if k[0] not in "_"])
