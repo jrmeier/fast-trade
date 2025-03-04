@@ -195,6 +195,7 @@ def optimize_strategy(
     mutation_percent_genes: int = 50,
     parallel_processing: int = 8,
     gene_space_provider=None,
+    K_tournament=4,
 ):
     """
     Optimizes a trading strategy using a genetic algorithm.
@@ -292,6 +293,7 @@ def optimize_strategy(
         random_mutation_min_val=-1.0,
         random_mutation_max_val=1.0,
         save_best_solutions=True,
+        K_tournament=K_tournament
     )
     # Run the GA
     ga_instance.run()
@@ -376,12 +378,13 @@ if __name__ == "__main__":
     optimize_strategy(
         base_strategy=test_base_strategy,
         genes=lambda_genes,
-        num_generations=100,
-        parallel_processing=2,
-        sol_per_pop=10,
+        num_generations=1000,
+        parallel_processing=["thread",6],
+        sol_per_pop=100,
         num_parents_mating=10,
         mutation_percent_genes=[30, 10],  # 30% mutation for poor strategies, 10% for good ones
         crossover_type="uniform",
         mutation_type="adaptive",
-        parent_selection_type="sss",
+        parent_selection_type="tournament",
+        K_tournament=4
     )
