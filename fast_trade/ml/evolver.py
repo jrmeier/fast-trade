@@ -53,9 +53,15 @@ def modify_strategy(strategy, genes):
     if "freq" in gene_dict:
         freq_value = gene_dict["freq"]
         if callable(freq_value):
-            strategy["freq"] = frequency_map[freq_value()]
+            freq_idx = freq_value()
+            # Ensure the index is within bounds
+            freq_idx = max(0, min(freq_idx, len(frequency_map) - 1))
+            strategy["freq"] = frequency_map[freq_idx]
         else:
-            strategy["freq"] = frequency_map[int(freq_value)]
+            # Convert to int and ensure within bounds
+            freq_idx = int(freq_value)
+            freq_idx = max(0, min(freq_idx, len(frequency_map) - 1))
+            strategy["freq"] = frequency_map[freq_idx]
     
     # Process all datapoints
     if "datapoints" in strategy:
@@ -136,6 +142,7 @@ def fitness_func(solution, solution_idx, strategy, genes: list):
     # Modify the strategy based on the mapped genes
     strategy_copy = strategy.copy()
     strategy_copy = modify_strategy(strategy_copy, mapped_genes)
+    # print(strategy_copy)
     
     # Run the backtest
     result = run_backtest(strategy_copy)
@@ -211,11 +218,11 @@ def optimize_strategy(
         The best solution and its fitness value
     """
     # Check if the genes contain callable functions (lambdas or regular functions)
+    started_at = datetime.datetime.now()
     has_callable_genes = any(callable(gene[1]) for gene in genes)
-    
     # If we have callable genes, we'll use them directly and skip the GA optimization
     if has_callable_genes:
-        print("Using callable gene functions directly for values")
+        # print("Using callable gene functions directly for values")
         # Run a specified number of iterations with the callable genes
         best_solution = None
         best_fitness = float('-inf')
@@ -244,19 +251,27 @@ def optimize_strategy(
             "strategy": best_modified_strategy,
             "fitness": best_fitness,
         }
+        # Save the best strategy to disk
         save_json(payload_to_save, fname)
         
-        return best_solution, best_fitness
-    
     # If we don't have callable genes, proceed with the normal GA optimization
     # Define the GA parameters
     # Create gene spaces - each gene needs its own range of possible values
     gene_space = []
     
-    # Use the provided gene space function or fall back to default
-    # get_gene_space = gene_space_provider if gene_space_provider else default_gene_space_provider
+    # Default gene space provider if none was provided
+    if gene_space_provider is None:
+        def default_gene_space_provider(gene_name):
+            if "period" in gene_name.lower():
+                return {"low": 2, "high": 200}
+            elif "rsi" in gene_name.lower():
+                return {"low": 1, "high": 100}
+            elif "ma" in gene_name.lower() or "ema" in gene_name.lower() or "sma" in gene_name.lower():
+                return {"low": 2, "high": 200}
+            else:
+                return {"low": 0, "high": 100}
+        gene_space_provider = default_gene_space_provider
     
-    # Apply the gene space provider to each gene
     for gene in genes:
         gene_name = gene[0]
         gene_space.append(gene_space_provider(gene_name))
@@ -301,7 +316,27 @@ def optimize_strategy(
     # Get the best solution
     solution, solution_fitness, solution_idx = ga_instance.best_solution()
     
-    # Map numeric values to actual strategy values
+    # save the best solution
+    # best_solution_file = f"./ft_archive/{date_str}_best_solution.json"
+    # print(f"Saving best solution to {best_solution_file}")
+    
+    # Ensure the directory exists
+    os.makedirs("./ft_archive", exist_ok=True)
+    
+    # Save the solution to the file
+    # convert the solution to the strategy format
+    strategy_solution = []
+    for i, gene in enumerate(genes):
+        gene_name = gene[0]
+        if "column" in gene_name:
+            strategy_solution.append(columns[int(solution[i]) % len(columns)])
+        else:
+            strategy_solution.append(solution[i])
+    # save the strategy solution to the file
+    # with open(best_solution_file, "w") as f:
+    #     json.dump(strategy_solution, f, indent=4)
+    
+    # # Map numeric values to actual strategy values
     mapped_genes = []
     for i, gene in enumerate(genes):
         gene_name = gene[0]
@@ -312,19 +347,21 @@ def optimize_strategy(
         else:
             # Use the numeric value directly
             mapped_genes.append((gene_name, solution[i]))
-    
-    # Create the best strategy using the mapped genes
+
+    # # Create the best strategy using the mapped genes
     best_strategy = modify_strategy(base_strategy.copy(), mapped_genes)
-    
-    # Save the best strategy
-    rnd_str = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
-    date_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{date_str}_{rnd_str}.json"
-    best_strategy["completed_at"] = datetime.datetime.now().isoformat()
-    best_strategy["fitness"] = solution_fitness
-    save_json(best_strategy, filename)
-    
-    print("Best solution fitness:", solution_fitness)
+
+    payload_to_save = {
+        "strategy": best_strategy,
+        "fitness": solution_fitness,
+        "genes": mapped_genes,
+        "completed_at": datetime.datetime.now().isoformat(),
+        "started_at": started_at.isoformat(),
+        "duration_seconds": (datetime.datetime.now() - started_at).total_seconds(),
+        "duration_minutes": (datetime.datetime.now() - started_at).total_seconds() / 60,
+        "duration_hours": (datetime.datetime.now() - started_at).total_seconds() / 3600,
+    }
+    save_json(payload_to_save, f"{date_str}_winner.json")
     
     return mapped_genes, solution_fitness
 
@@ -334,8 +371,8 @@ if __name__ == "__main__":
         "freq": "#freq",
         "enter": [
             ["rsi_lower", "<", "#rsi_lower"],  # Evolve RSI lower threshold
-            ["zlema_short", ">", "#zlema_short"],
-            ["zlema_long", "<", "#zlema_long"],
+            ["zlema_short", ">", "#zlema_short_column"],
+            ["zlema_long", "<", "#zlema_long_column"],
         ],
         "exit": [
             ["rsi_upper", ">", "#rsi_upper"],  # Evolve RSI upper threshold
@@ -375,14 +412,16 @@ if __name__ == "__main__":
     ]
     
     # Call optimize_strategy with lambda genes
+    # res = modify_strategy(test_base_strategy, lambda_genes)
+    # print(res)
     optimize_strategy(
         base_strategy=test_base_strategy,
         genes=lambda_genes,
         num_generations=1000,
-        parallel_processing=["thread",6],
+        parallel_processing=["thread", 6],
         sol_per_pop=100,
         num_parents_mating=10,
-        mutation_percent_genes=[30, 10],  # 30% mutation for poor strategies, 10% for good ones
+        mutation_percent_genes=[50, 10],  # 30% mutation for poor strategies, 10% for good ones
         crossover_type="uniform",
         mutation_type="adaptive",
         parent_selection_type="tournament",
