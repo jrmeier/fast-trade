@@ -42,11 +42,24 @@ def update_archive():
     start_time = time.time()
 
     for exchange in os.listdir(ARCHIVE_PATH):
-        for symbol in os.listdir(os.path.join(ARCHIVE_PATH, exchange)):
+
+        total_path = os.path.join(ARCHIVE_PATH, exchange)
+
+        if not os.path.isdir(total_path) or exchange in ["ml","saved_batcktests"]:
+            #print(f"skipping: {exchange}")
+            continue
+        for symbol in os.listdir(total_path):
             if symbol.startswith("_") or not symbol.endswith(".sqlite"):
                 # ignore files that start with an underscore
                 continue
+            # make sure its a directory
+            print(f"symbol: {symbol}")
+            symbol_path = os.path.join(total_path, symbol)
+            print("symbol_path: ",symbol_path)
+            if not os.path.isdir(symbol):
+                continue
             try:
+                print(f"trying to update: {symbol}, {exchange}")
                 update_single_archive(symbol, exchange)
                 count += 1
             except Exception as e:

@@ -178,13 +178,15 @@ def save_json(strategy, filename):
     # append the archive path to the filename
     # check the env variable ARCHIVE_PATH
     archive_path = os.getenv("ARCHIVE_PATH")
+    
     if not archive_path:
         archive_path = "./ft_archive"
-    
+    archive_path += "/ml"
     # check the archive path
     if not os.path.exists(archive_path):
         os.makedirs(archive_path)
     filename = os.path.join(archive_path, filename)
+    
     with open(filename, "w") as f:
         json.dump(strategy, f, indent=4)
         
@@ -391,7 +393,7 @@ if __name__ == "__main__":
         "trailing_stop_loss": 0.0,
         "lot_size_perc": 1.0,
         "max_lot_size": 0.0,
-        "start_date": datetime.datetime(2025, 1, 1, 0, 0).isoformat(),
+        "start_date": datetime.datetime(2024, 1, 1, 0, 0).isoformat(),
         "end_date": datetime.datetime(2025, 3, 4, 0, 0).isoformat(),
         "rules": None,
         "symbol": "BTCUSDT",
@@ -417,11 +419,11 @@ if __name__ == "__main__":
     optimize_strategy(
         base_strategy=test_base_strategy,
         genes=lambda_genes,
-        num_generations=1000,
+        num_generations=2000,
         parallel_processing=["thread", 6],
         sol_per_pop=100,
-        num_parents_mating=10,
-        mutation_percent_genes=[50, 10],  # 30% mutation for poor strategies, 10% for good ones
+        num_parents_mating=20,
+        mutation_percent_genes=[80, 10],  # 30% mutation for poor strategies, 10% for good ones
         crossover_type="uniform",
         mutation_type="adaptive",
         parent_selection_type="tournament",
