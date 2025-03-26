@@ -155,14 +155,7 @@ def fitness_func(solution, solution_idx, strategy, genes: list):
     total_trades = result.get("summary").get("total_trades", 0)
 
     # create a weighted fitness function
-    fitness = (
-        market_adjusted_return * 0.4 +
-        total_return * 0.3 +
-        sharpe_ratio * 0.1 +
-        max_drawdown * 0.1 +
-        total_trades * 0.1
-    )
-
+    fitness = sharpe_ratio
     return fitness
 
 
@@ -309,7 +302,7 @@ def optimize_strategy(
         parallel_processing=parallel_processing,
         random_mutation_min_val=-1.0,
         random_mutation_max_val=1.0,
-        save_best_solutions=True,
+        save_best_solutions=False,
         K_tournament=K_tournament
     )
     # Run the GA
@@ -419,11 +412,11 @@ if __name__ == "__main__":
     optimize_strategy(
         base_strategy=test_base_strategy,
         genes=lambda_genes,
-        num_generations=2000,
-        parallel_processing=["thread", 6],
+        num_generations=1000,
+        parallel_processing=12,
         sol_per_pop=100,
         num_parents_mating=20,
-        mutation_percent_genes=[80, 10],  # 30% mutation for poor strategies, 10% for good ones
+        mutation_percent_genes=[80, 20],  # 30% mutation for poor strategies, 10% for good ones
         crossover_type="uniform",
         mutation_type="adaptive",
         parent_selection_type="tournament",
