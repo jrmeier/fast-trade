@@ -1,8 +1,9 @@
-from fast_trade.archive.db_helpers import get_kline
-from fast_trade import prepare_df
-import pandas as pd
 import numpy as np
+import pandas as pd
 from hmmlearn import hmm
+
+from fast_trade import prepare_df
+from fast_trade.archive.db_helpers import get_kline
 
 
 def create_hmm(strategy):

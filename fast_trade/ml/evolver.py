@@ -1,14 +1,17 @@
-from typing import List, Tuple, Dict, Any, Optional, Callable
-from dataclasses import dataclass, field
+import concurrent.futures
 import datetime
-import random
 import json
 import os
-import numpy as np
-from fast_trade import run_backtest
+import random
 import uuid
-import concurrent.futures
+from dataclasses import dataclass, field
 from functools import partial
+from typing import Any, Callable, Dict, List, Optional, Tuple
+
+import numpy as np
+import requests
+
+from fast_trade import run_backtest
 
 # Constants
 FREQUENCY_MAP = ["1Min", "5Min", "15Min", "30Min", "1h", "4h", "8h", "12h"]
@@ -309,6 +312,7 @@ class GeneticAlgorithm:
         config: OptimizationConfig,
         fitness: Dict[str, Any],
         run_id: str,
+        api_url: Optional[str] = None,
     ):
         self.base_strategy = base_strategy
         self.genes = genes
@@ -322,8 +326,9 @@ class GeneticAlgorithm:
         self.started_at = datetime.datetime.now()
         self.fitness = fitness
         self.run_id = run_id
+        self.api_url = api_url
         winners_dir = os.path.join(ARCHIVE_PATH, self.run_id)
-        print(f"Winners directory: {winners_dir}")
+        print(f"Directory: {winners_dir}")
         self.winners_dir = winners_dir
 
         os.makedirs(self.winners_dir, exist_ok=True)
@@ -487,22 +492,26 @@ class GeneticAlgorithm:
             # Evaluate population
             if self.config.use_parallel and self.config.parallel_processing > 1:
                 # Use parallel processing if enabled
-                with concurrent.futures.ProcessPoolExecutor(max_workers=self.config.parallel_processing) as executor:
+                with concurrent.futures.ProcessPoolExecutor(
+                    max_workers=self.config.parallel_processing
+                ) as executor:
                     # Use the standalone wrapper function with partial to bind the other arguments
                     eval_func = partial(
-                        evaluate_solution_wrapper, 
-                        base_strategy=self.base_strategy, 
-                        fitness_weights=self.fitness
+                        evaluate_solution_wrapper,
+                        base_strategy=self.base_strategy,
+                        fitness_weights=self.fitness,
                     )
-                    
+
                     # Execute in parallel
-                    fitness_scores_results = list(executor.map(eval_func, self.population))
+                    fitness_scores_results = list(
+                        executor.map(eval_func, self.population)
+                    )
             else:
                 # Sequential processing
                 fitness_scores_results = [
                     self.evaluate_solution(solution) for solution in self.population
                 ]
-                
+
             self.fitness_scores = [result[0] for result in fitness_scores_results]
             metrics = [result[1] for result in fitness_scores_results]
             # Update best solution
@@ -558,29 +567,51 @@ class GeneticAlgorithm:
 
             self.population = new_population
 
-            # calulcate the time remaining
-            time_remaining = (
-                (datetime.datetime.now() - self.start_time)
-                * self.config.num_generations
-                / (generation + 1)
-            )
-
             # Print progress
             # clear the screen
-            os.system("cls" if os.name == "nt" else "clear")
-            print(
-                f"\nRun {self.run_id} - Generation {generation + 1}/{self.config.num_generations}"
-                f" - Time Remaining: {time_remaining}"  
-            )
-            print("Duration: ", datetime.datetime.now() - self.start_time)
-            print(f"Estimated Time Remaining: {time_remaining}")
-            print(f"Best Fitness: {self.best_fitness:.4f}")
-            print(f"Average Fitness: {float(np.mean(self.fitness_scores)):.4f}")
-            print(f"Diversity: {diversity:.4f}")
-            print(f"Stagnation Counter: {self.stagnation_counter}")
-            # create a link to the best strategy
-            print(f"Best Strategy: {self.winners_dir}/best.json")
-            print("-" * 50)
+            def update_progress():
+                duration = datetime.datetime.now() - self.start_time
+                estimated_time_remaining = (duration * self.config.num_generations) / (
+                    generation + 1
+                )
+                # make this json serializable
+                estimated_time_remaining = datetime.timedelta(
+                    seconds=estimated_time_remaining.total_seconds()
+                )
+                estimated_time_remaining = str(estimated_time_remaining)
+                best_fitness = self.best_fitness
+                avg_fitness = float(np.mean(self.fitness_scores))
+                diversity = self.calculate_diversity()
+                stagnation_counter = self.stagnation_counter
+                best_strategy_link = f"{self.winners_dir}/best.json"
+                os.system("cls" if os.name == "nt" else "clear")
+                # load the best strategy
+                with open(best_strategy_link, "r", encoding="utf-8") as f:
+                    best_strategy = json.load(f)
+                percent_complete = generation / self.config.num_generations
+                payload = {
+                    "duration": str(duration),
+                    "percent_complete": percent_complete,
+                    "current_generation": generation,
+                    "total_generations": self.config.num_generations,
+                    "estimated_time_remaining": str(estimated_time_remaining),
+                    "best_fitness": best_fitness,
+                    "avg_fitness": avg_fitness,
+                    "diversity": diversity,
+                    "stagnation_counter": stagnation_counter,
+                    "best_strategy_link": best_strategy_link,
+                    "run_id": self.run_id,
+                }
+                # make a pretty payload
+                payload_str = json.dumps(payload, indent=2)
+                print(payload_str)
+                print("-" * 50)
+                # send the payload to the api
+                payload["best_strategy"] = best_strategy
+                if self.api_url:
+                    requests.post(self.api_url, json=payload)
+
+            update_progress()
 
         if self.best_solution is None:
             raise ValueError("No valid solution found during optimization")
@@ -606,6 +637,7 @@ def optimize_strategy(
     config: Optional[OptimizationConfig] = None,
     run_id: str = "default",
     config_file: Dict = {},
+    api_url: Optional[str] = None,
 ) -> OptimizationResult:
     """
     Optimizes a trading strategy using a genetic algorithm.
@@ -630,6 +662,9 @@ def optimize_strategy(
             f,
             indent=2,
         )
+        
+    if api_url:
+        print("Reporting to: ", api_url)
 
     config = config or OptimizationConfig()
 
@@ -700,7 +735,12 @@ def optimize_strategy(
 
     # Create and run genetic algorithm
     ga = GeneticAlgorithm(
-        base_strategy, gene_definitions, config, fitness=config.fitness, run_id=run_id
+        base_strategy,
+        gene_definitions,
+        config,
+        fitness=config.fitness,
+        run_id=run_id,
+        api_url=api_url,
     )
     result = ga.run()
 
@@ -784,29 +824,21 @@ def process_genes_from_config(input_genes: List[Dict]) -> List[Tuple[str, Any]]:
     return new_genes
 
 
-if __name__ == "__main__":
-
-    with open("EvolverExample.json", "r", encoding="utf-8") as f:
-        evolver_config = json.load(f)
-
+def run_evolver(evolver_config: Dict):
+    """ Run the evolver with the given config """
     base_strategy = evolver_config["strategy"]
     genes = evolver_config["genes"]
-
-    # wtf = process_genes_from_config(genes)
-    # print("wtf: ", wtf)
-
-    # gene1
-    # gene1 = wtf[0]
-    # print("gene1: ",gene1)
 
     config = OptimizationConfig(
         **evolver_config["config"], fitness=evolver_config["fitness"]
     )
     run_id = str(uuid.uuid4())
+
     optimize_strategy(
         base_strategy=base_strategy,
         genes=genes,
         config=config,
         run_id=run_id,
         config_file=evolver_config,
+        api_url=evolver_config.get("api_url", None),
     )

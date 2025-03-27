@@ -1,5 +1,6 @@
 {
     "name": "EvolverExample",
+    "api_url": "https://fed.fasttrade.dev/api/webhook/evolver",
     "predefined_sets": {
       "columns": ["close", "open", "low", "high"],
       "frequencies": ["1Min", "5Min", "15Min", "30Min", "1h", "4h", "8h", "12h"],
@@ -183,14 +184,14 @@
     },
     "config": {
         "num_generations": 100,
-        "parallel_processing": 8,
+        "parallel_processing": 4,
         "use_parallel": true,
-        "sol_per_pop": 550,
+        "sol_per_pop": 500,
         "num_parents_mating": 20,
-        "mutation_percent_genes": 0.7,
-        "crossover_type": "uniform",
+        "mutation_percent_genes": [],
+        "crossover_type": "two_points",
         "mutation_type": "adaptive",
-        "parent_selection_type": "tournament",
+        "parent_selection_type": "rank",
         "K_tournament": 10,
         "elitism": 5,
         "diversity_threshold": 0.6,
@@ -199,6 +200,8 @@
         "min_improvement": 0.001
     },
     "fitness":{
-        "effective_trades.num_profitable_after_commission": 10
+        "trade_quality.profit_factor": 1,
+        "trade_quality.return_perc": 10,
+        "trade_quality.max_drawdown": -10
     }
 }

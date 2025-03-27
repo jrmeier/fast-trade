@@ -14,7 +14,7 @@ from fast_trade.validate_backtest import validate_backtest
 
 from .cli_helpers import create_plot, open_strat_file, save
 from .run_backtest import run_backtest
-
+from .ml.evolver import run_evolver
 parser = argparse.ArgumentParser(
     description="Fast Trade CLI",
     prog="ft",
@@ -178,8 +178,14 @@ def validate_helper(args):
     validate_backtest(strat_obj)
 
 
-def evolver_helper(args):
-    pass
+def evolver_helper(*args, **kwargs):
+    """ Run the evolver with the given config """
+    # load the evolver config
+    with open(kwargs.get("config"), "r", encoding="utf-8") as f:
+        evolver_config = json.load(f)
+
+    # run the evolver
+    run_evolver(evolver_config)
 
 
 command_map = {
