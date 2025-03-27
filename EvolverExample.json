@@ -1,0 +1,203 @@
+{
+    "name": "EvolverExample",
+    "predefined_sets": {
+      "columns": ["close", "open", "low", "high"],
+      "frequencies": ["1Min", "5Min", "15Min", "30Min", "1h", "4h", "8h", "12h"],
+      "operators": ["<", ">", "=", "!="],
+      "transformers": ["ema", "zlema","sma"]
+    },
+    "genes": [
+      {
+        "name": "freq",
+        "type": "categorical",
+        "values_ref": "frequencies",
+        "args": []
+      },
+      {
+        "name": "rsi_lower",
+        "type": "int",
+        "args": [0, 100]
+      },
+      {
+        "name": "rsi_lower_period",
+        "type": "int",
+        "values_ref": "frequencies",
+        "args": []
+      },
+      {
+        "name": "rsi_upper",
+        "type": "int",
+        "args": [0, 100]
+      },
+      {
+        "name": "rsi_upper_period",
+        "type": "int",
+        "values_ref": "frequencies",
+        "args": []
+      },
+      {
+        "name": "zlema_long_column",
+        "type": "categorical",
+        "values_ref": "columns",
+        "args": []
+      },
+      {
+        "name": "zlema_long_period",
+        "type": "int",
+        "args": [50, 300]
+      },
+      {
+        "name": "zlema_short_column",
+        "type": "categorical",
+        "values_ref": "columns",
+        "args": []
+      },
+      {
+        "name": "zlema_short_period",
+        "type": "int",
+        "args": [1, 49]
+      },
+      {
+        "name": "zlema_long_transformer",
+        "type": "categorical",
+        "values_ref": "transformers",
+        "args": []
+      },
+      {
+        "name": "zlema_short_transformer",
+        "type": "categorical",
+        "values_ref": "transformers",
+        "args": []
+      },
+      {
+        "name": "rsi_upper_operator",
+        "type": "categorical",
+        "values_ref": "operators",
+        "args": []
+      },
+      {
+        "name": "rsi_lower_operator",
+        "type": "categorical",
+        "values_ref": "operators",
+        "args": []
+      },
+      {
+        "name": "zlema_long_operator",
+        "type": "categorical",
+        "values_ref": "operators",
+        "args": []
+      },
+      {
+        "name": "zlema_short_operator",
+        "type": "categorical",
+        "values_ref": "operators",
+        "args": []
+      },
+      {
+        "name": "zlema_short_enter_column",
+        "type": "categorical",
+        "values_ref": "columns",
+        "args": []
+      },
+      {
+        "name": "zlema_long_enter_column",
+        "type": "categorical",
+        "values_ref": "columns",
+        "args": []
+      },
+      {
+        "name": "zlema_short_enter_operator",
+        "type": "categorical",
+        "values_ref": "operators",
+        "args": []
+      },
+      {
+        "name": "zlema_long_enter_operator",
+        "type": "categorical",
+        "values_ref": "operators",
+        "args": []
+      },
+      {
+        "name": "zlema_short_exit_column",
+        "type": "categorical",
+        "values_ref": "columns",
+        "args": []
+      },
+      {
+        "name": "zlema_long_exit_column",
+        "type": "categorical",
+        "values_ref": "columns",
+        "args": []
+      },
+      {
+        "name": "zlema_short_exit_operator",
+        "type": "categorical",
+        "values_ref": "operators",
+        "args": []
+      },
+      {
+        "name": "zlema_long_exit_operator",
+        "type": "categorical",
+        "values_ref": "operators",
+        "args": []
+      }
+    ],
+    "strategy": {
+        "freq": "#freq",
+        "enter": [
+            ["rsi_lower", "#rsi_lower_operator", "#rsi_lower"],
+            ["zlema_short", "#zlema_short_enter_operator", "#zlema_short_enter_column"],
+            ["zlema_long", "#zlema_long_enter_operator", "#zlema_long_enter_column"]
+        ],
+        "exit": [
+            ["rsi_upper", "#rsi_upper_operator", "#rsi_upper"],
+            ["zlema_short", "#zlema_short_exit_operator", "#zlema_short_exit_column"],
+            ["zlema_long", "#zlema_long_exit_operator", "#zlema_long_exit_column"]
+        ],
+        "datapoints": [
+            {"name": "rsi_upper", "transformer": "rsi", "args": ["#rsi_upper_period"]},
+            {"name": "rsi_lower", "transformer": "rsi", "args": ["#rsi_lower_period"]},
+            {
+                "name": "zlema_short",
+                "transformer": "#zlema_short_transformer",
+                "args": ["#zlema_short_period"]
+            },
+            {
+                "name": "zlema_long",
+                "transformer": "#zlema_long_transformer",
+                "args": ["#zlema_long_period"]
+            }
+        ],
+        "base_balance": 1000.0,
+        "exit_on_end": false,
+        "comission": 0.01,
+        "trailing_stop_loss": 0.0,
+        "lot_size_perc": 1.0,
+        "max_lot_size": 0.0,
+        "start_date": "2024-01-27T00:00:00",
+        "end_date": "2025-03-27T00:00:00",
+        "rules": null,
+        "symbol": "BTCUSDT",
+        "exchange": "binanceus",
+        "completed_at": null
+    },
+    "config": {
+        "num_generations": 100,
+        "parallel_processing": 8,
+        "sol_per_pop": 150,
+        "num_parents_mating": 20,
+        "mutation_percent_genes": 0.7,
+        "crossover_type": "uniform",
+        "mutation_type": "adaptive",
+        "parent_selection_type": "tournament",
+        "K_tournament": 10,
+        "elitism": 5,
+        "diversity_threshold": 0.6,
+        "stagnation_threshold": 20,
+        "early_stopping_patience": 50,
+        "min_improvement": 0.001
+    },
+    "fitness":{
+        "effective_trades.num_profitable_after_commission": 10
+    }
+}

@@ -100,6 +100,12 @@ update_archive_parser = sub_parsers.add_parser(
     "update_archive", help="update the archive"
 )
 
+# add the evoler parser
+evolver_parser = sub_parsers.add_parser("evolver", help="run the evolver")
+evolver_parser.add_argument(
+    "--config", help="path to the evolver config file", type=str
+)
+
 
 def backtest_helper(*args, **kwargs):
     # match the mods to the kwargs
@@ -172,12 +178,17 @@ def validate_helper(args):
     validate_backtest(strat_obj)
 
 
+def evolver_helper(args):
+    pass
+
+
 command_map = {
     "download": download_asset,
     "backtest": backtest_helper,
     "validate": validate_helper,
     "assets": get_assets,
     "update_archive": update_archive,
+    "evolver": evolver_helper,
     "-h": parser.print_help,
 }
 

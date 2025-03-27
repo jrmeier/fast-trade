@@ -17,14 +17,14 @@ def create_hmm(strategy):
         exchange=strategy["exchange"],
         freq=strategy["freq"],
         start_date=strategy["start_date"],
-        end_date=strategy["end_date"]
+        end_date=strategy["end_date"],
     )
     kline_df = prepare_df(kline_df, backtest=strategy)
     print(kline_df)
 
     # Calculate percentage change as observations
-    kline_df['pct_change'] = kline_df['close'].pct_change().fillna(0) * 100
-    observations = kline_df['pct_change'].values.reshape(-1, 1)
+    kline_df["pct_change"] = kline_df["close"].pct_change().fillna(0) * 100
+    observations = kline_df["pct_change"].values.reshape(-1, 1)
 
     # Define the HMM model
     model = hmm.GaussianHMM(n_components=3, covariance_type="full", n_iter=100)
@@ -45,35 +45,47 @@ def create_hmm(strategy):
 
 def define_granular_states(kline_df):
     # Calculate percentage change
-    kline_df['pct_change'] = kline_df['close'].pct_change() * 100
+    kline_df["pct_change"] = kline_df["close"].pct_change() * 100
 
     # Define states based on percentage change
     conditions = [
-        (kline_df['pct_change'] > 2),
-        (kline_df['pct_change'] > 1) & (kline_df['pct_change'] <= 2),
-        (kline_df['pct_change'] > 0) & (kline_df['pct_change'] <= 1),
-        (kline_df['pct_change'] > -0.5) & (kline_df['pct_change'] <= 0.5),
-        (kline_df['pct_change'] > -1) & (kline_df['pct_change'] <= -0.5),
-        (kline_df['pct_change'] > -2) & (kline_df['pct_change'] <= -1),
-        (kline_df['pct_change'] <= -2)
+        (kline_df["pct_change"] > 2),
+        (kline_df["pct_change"] > 1) & (kline_df["pct_change"] <= 2),
+        (kline_df["pct_change"] > 0) & (kline_df["pct_change"] <= 1),
+        (kline_df["pct_change"] > -0.5) & (kline_df["pct_change"] <= 0.5),
+        (kline_df["pct_change"] > -1) & (kline_df["pct_change"] <= -0.5),
+        (kline_df["pct_change"] > -2) & (kline_df["pct_change"] <= -1),
+        (kline_df["pct_change"] <= -2),
     ]
     choices = [
-        'Strong Increase', 'Moderate Increase', 'Slight Increase',
-        'Stable', 'Slight Decrease', 'Moderate Decrease', 'Strong Decrease'
+        "Strong Increase",
+        "Moderate Increase",
+        "Slight Increase",
+        "Stable",
+        "Slight Decrease",
+        "Moderate Decrease",
+        "Strong Decrease",
     ]
-    kline_df['state'] = np.select(conditions, choices, default='Stable')
+    kline_df["state"] = np.select(conditions, choices, default="Stable")
     return kline_df
 
 
 def calculate_transition_matrix(kline_df):
     # Calculate transition probabilities
-    states = ['Strong Increase', 'Moderate Increase', 'Slight Increase',
-              'Stable', 'Slight Decrease', 'Moderate Decrease', 'Strong Decrease']
+    states = [
+        "Strong Increase",
+        "Moderate Increase",
+        "Slight Increase",
+        "Stable",
+        "Slight Decrease",
+        "Moderate Decrease",
+        "Strong Decrease",
+    ]
     transition_matrix = pd.DataFrame(0, index=states, columns=states)
 
     for i in range(1, len(kline_df)):
-        prev_state = kline_df.iloc[i-1]['state']
-        current_state = kline_df.iloc[i]['state']
+        prev_state = kline_df.iloc[i - 1]["state"]
+        current_state = kline_df.iloc[i]["state"]
         transition_matrix.loc[prev_state, current_state] += 1
 
     # Normalize to get probabilities
@@ -96,18 +108,18 @@ def simulate_markov_chain(transition_matrix, initial_state, num_steps):
 def convert_states_to_prices(states, last_price):
     # Define typical price changes for each state
     price_changes = {
-        'Strong Increase': 0.03,  # 3% increase
-        'Moderate Increase': 0.02,  # 2% increase
-        'Slight Increase': 0.01,  # 1% increase
-        'Stable': 0.0,  # No change
-        'Slight Decrease': -0.01,  # 1% decrease
-        'Moderate Decrease': -0.02,  # 2% decrease
-        'Strong Decrease': -0.03  # 3% decrease
+        "Strong Increase": 0.03,  # 3% increase
+        "Moderate Increase": 0.02,  # 2% increase
+        "Slight Increase": 0.01,  # 1% increase
+        "Stable": 0.0,  # No change
+        "Slight Decrease": -0.01,  # 1% decrease
+        "Moderate Decrease": -0.02,  # 2% decrease
+        "Strong Decrease": -0.03,  # 3% decrease
     }
 
     prices = [last_price]
     for state in states:
-        last_price *= (1 + price_changes[state])
+        last_price *= 1 + price_changes[state]
         prices.append(last_price)
 
     return prices
@@ -121,22 +133,10 @@ if __name__ == "__main__":
         "start_date": "2024-01-01",
         "end_date": "2025-03-01",
         "datapoints": [
-            {
-                "name": "rsi",
-                "transformer": "rsi",
-                "args": [14]
-            },
-            {
-                "name": "zlema",
-                "transformer": "zlema",
-                "args": [400]
-            },
-            {
-                "name": "roc",
-                "transformer": "roc",
-                "args": [50]
-            }
-        ]
+            {"name": "rsi", "transformer": "rsi", "args": [14]},
+            {"name": "zlema", "transformer": "zlema", "args": [400]},
+            {"name": "roc", "transformer": "roc", "args": [50]},
+        ],
     }
     hidden_states, future_states = create_hmm(strat)
 

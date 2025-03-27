@@ -13,6 +13,8 @@ def update_single_archive(symbol: str, exchange: str):
     if not symbol.endswith(".sqlite"):
         symbol = symbol + ".sqlite"
     path = os.path.join(ARCHIVE_PATH, exchange, symbol)
+
+    print(f"Updating {symbol} from {exchange}")
     db = connect_to_db(path)
 
     now = datetime.datetime.now(datetime.timezone.utc)
@@ -45,19 +47,18 @@ def update_archive():
 
         total_path = os.path.join(ARCHIVE_PATH, exchange)
 
-        if not os.path.isdir(total_path) or exchange in ["ml","saved_batcktests"]:
-            #print(f"skipping: {exchange}")
+        if not os.path.isdir(total_path) or exchange in ["ml", "saved_batcktests"]:
+            # print(f"skipping: {exchange}")
             continue
         for symbol in os.listdir(total_path):
             if symbol.startswith("_") or not symbol.endswith(".sqlite"):
                 # ignore files that start with an underscore
                 continue
             # make sure its a directory
-            print(f"symbol: {symbol}")
             symbol_path = os.path.join(total_path, symbol)
-            print("symbol_path: ",symbol_path)
-            if not os.path.isdir(symbol):
-                continue
+            symbol = symbol.replace(".sqlite", "")
+            # if not os.path.isdir(symbol_path):
+            #     continue
             try:
                 print(f"trying to update: {symbol}, {exchange}")
                 update_single_archive(symbol, exchange)

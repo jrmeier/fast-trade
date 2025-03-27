@@ -6,6 +6,9 @@ import pandas as pd
 
 from .calculate_perc_missing import calculate_perc_missing
 
+# hide the warnings
+warnings.filterwarnings("ignore")
+
 
 def calculate_market_adjusted_returns(df, return_perc, buy_and_hold_perc):
     """Calculate returns relative to the underlying asset's movement"""
