@@ -7,6 +7,8 @@ import os
 import numpy as np
 from fast_trade import run_backtest
 import uuid
+import concurrent.futures
+from functools import partial
 
 # Constants
 FREQUENCY_MAP = ["1Min", "5Min", "15Min", "30Min", "1h", "4h", "8h", "12h"]
@@ -38,6 +40,7 @@ class OptimizationConfig:
     mutation_type: str = "adaptive"
     mutation_percent_genes: float = 0.1
     parallel_processing: int = 8
+    use_parallel: bool = False  # Flag to enable/disable parallel processing
     K_tournament: int = 4
     elitism: int = 2  # Number of best solutions to preserve
     diversity_threshold: float = 0.7
@@ -270,6 +273,32 @@ def save_optimization_results(result: OptimizationResult, run_id: str) -> None:
         json.dump(result_dict, f, indent=2)
 
 
+def evaluate_solution_wrapper(solution, base_strategy, fitness_weights):
+    """Standalone wrapper function for parallel evaluation of solutions.
+    This must be at module level to be picklable for multiprocessing."""
+    # Convert solution to list of tuples for modify_strategy
+    solution_tuples = [(k, str(v)) for k, v in solution.items()]
+    strategy = modify_strategy(base_strategy.copy(), solution_tuples)
+    result = run_backtest(strategy)
+
+    # Calculate fitness using multiple metrics
+    metrics = result.get("summary", {})
+    fitness = 0
+
+    def get_metric_value(metric):
+        keys = metric.split(".")
+        value = metrics
+        for key in keys:
+            value = value.get(key, 0)  # Default to 0 if the key is not found
+        return value
+
+    for metric, weight in fitness_weights.items():
+        metric_value = get_metric_value(metric)
+        fitness += metric_value * weight
+
+    return (fitness, metrics)
+
+
 class GeneticAlgorithm:
     """Enhanced genetic algorithm implementation."""
 
@@ -452,12 +481,28 @@ class GeneticAlgorithm:
         """Run the genetic algorithm."""
         # Initialize population
         self.population = self.create_initial_population()
+        self.start_time = datetime.datetime.now()
 
         for generation in range(self.config.num_generations):
             # Evaluate population
-            fitness_scores_results = [
-                self.evaluate_solution(solution) for solution in self.population
-            ]
+            if self.config.use_parallel and self.config.parallel_processing > 1:
+                # Use parallel processing if enabled
+                with concurrent.futures.ProcessPoolExecutor(max_workers=self.config.parallel_processing) as executor:
+                    # Use the standalone wrapper function with partial to bind the other arguments
+                    eval_func = partial(
+                        evaluate_solution_wrapper, 
+                        base_strategy=self.base_strategy, 
+                        fitness_weights=self.fitness
+                    )
+                    
+                    # Execute in parallel
+                    fitness_scores_results = list(executor.map(eval_func, self.population))
+            else:
+                # Sequential processing
+                fitness_scores_results = [
+                    self.evaluate_solution(solution) for solution in self.population
+                ]
+                
             self.fitness_scores = [result[0] for result in fitness_scores_results]
             metrics = [result[1] for result in fitness_scores_results]
             # Update best solution
@@ -513,12 +558,22 @@ class GeneticAlgorithm:
 
             self.population = new_population
 
+            # calulcate the time remaining
+            time_remaining = (
+                (datetime.datetime.now() - self.start_time)
+                * self.config.num_generations
+                / (generation + 1)
+            )
+
             # Print progress
             # clear the screen
             os.system("cls" if os.name == "nt" else "clear")
             print(
                 f"\nRun {self.run_id} - Generation {generation + 1}/{self.config.num_generations}"
+                f" - Time Remaining: {time_remaining}"  
             )
+            print("Duration: ", datetime.datetime.now() - self.start_time)
+            print(f"Estimated Time Remaining: {time_remaining}")
             print(f"Best Fitness: {self.best_fitness:.4f}")
             print(f"Average Fitness: {float(np.mean(self.fitness_scores)):.4f}")
             print(f"Diversity: {diversity:.4f}")

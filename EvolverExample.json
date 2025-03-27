@@ -184,7 +184,8 @@
     "config": {
         "num_generations": 100,
         "parallel_processing": 8,
-        "sol_per_pop": 150,
+        "use_parallel": true,
+        "sol_per_pop": 550,
         "num_parents_mating": 20,
         "mutation_percent_genes": 0.7,
         "crossover_type": "uniform",
