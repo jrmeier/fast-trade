@@ -299,6 +299,7 @@ def evaluate_solution_wrapper(solution, base_strategy, fitness_weights):
 
     for metric, weight in fitness_weights.items():
         metric_value = get_metric_value(metric)
+        # make sure to keep the metric value as it is, dont convert let it be positive
         fitness += metric_value * weight
 
     return (fitness, metrics)
@@ -488,26 +489,82 @@ class GeneticAlgorithm:
         """Refresh the population when stagnation is detected.
         Keeps the best solutions and creates new random solutions for the rest."""
         print("Refreshing population due to stagnation...")
-        # Create a new population while preserving the best solutions
+        
+        # Calculate current diversity
+        diversity = self.calculate_diversity()
+        
+        # Determine percentage of population to refresh based on diversity
+        if diversity > 0.7:  # High diversity but stagnation - focus more on exploitation
+            refresh_percent = max(0.3, min(0.7, self.config.refresh_percent))
+            # Keep more elites in this case
+            elite_percent = 1.0 - refresh_percent
+        else:  # Low diversity with stagnation - need more exploration
+            refresh_percent = min(0.9, max(0.5, self.config.refresh_percent))
+            # Keep fewer elites
+            elite_percent = 1.0 - refresh_percent
+        
+        # Calculate how many solutions to keep vs refresh
+        pop_size = len(self.population)
+        elite_count = max(1, min(int(pop_size * elite_percent), self.config.elitism * 2))
+        
         # Keep the top elites from current population
-        elite_count = min(self.config.elitism, len(self.population))
         elite_indices = np.argsort(self.fitness_scores)[-elite_count:]
         elites = [self.population[i] for i in elite_indices]
         
-        # Generate new random solutions for the rest
-        new_population = self.create_initial_population()
+        # Generate new solutions
+        # For high diversity scenario, create some solutions with small mutations from elites
+        new_solutions = []
+        if diversity > 0.7:
+            # Create some solutions by small mutations from best solutions
+            for i in range(min(elite_count, 3)):  # Take top 3 elites at most
+                elite = elites[i] if i < len(elites) else elites[0]
+                # Create several variants with small mutations
+                for _ in range(2):  # Create 2 variants per elite
+                    variant = elite.copy()
+                    # Apply smaller mutations (25% of normal mutation rate)
+                    for gene in self.genes:
+                        if random.random() < self.config.mutation_percent_genes * 0.25:
+                            if gene.type == "categorical" and gene.categories:
+                                variant[gene.name] = random.choice(gene.categories)
+                            elif gene.type == "int":
+                                # Smaller range mutations
+                                current = variant[gene.name]
+                                range_size = (gene.max_value - gene.min_value) * 0.2
+                                min_val = max(gene.min_value, current - range_size)
+                                max_val = min(gene.max_value, current + range_size)
+                                variant[gene.name] = random.randint(int(min_val), int(max_val))
+                            elif gene.type == "float":
+                                # Smaller range mutations
+                                current = variant[gene.name]
+                                range_size = (gene.max_value - gene.min_value) * 0.2
+                                min_val = max(gene.min_value, current - range_size)
+                                max_val = min(gene.max_value, current + range_size)
+                                variant[gene.name] = random.uniform(min_val, max_val)
+                            elif gene.type == "boolean":
+                                # Lower chance of flipping boolean
+                                if random.random() < 0.25:
+                                    variant[gene.name] = not variant[gene.name]
+                    new_solutions.append(variant)
         
-        # Replace the worst solutions with elites
-        if elite_count > 0:
-            # Sort new_population by estimating their fitness (without actual evaluation)
-            # and replace the estimated worst ones with elites
-            new_population = new_population[elite_count:] + elites
+        # Calculate how many completely new solutions we need
+        remaining_count = pop_size - len(elites) - len(new_solutions)
+        new_random_solutions = self.create_initial_population()[:remaining_count]
         
-        self.population = new_population
+        # Combine all solutions
+        self.population = new_random_solutions + new_solutions + elites
+        
+        # Ensure we have the right population size
+        if len(self.population) > pop_size:
+            self.population = self.population[:pop_size]
+        
         # Reset fitness scores as we'll recalculate them
         self.fitness_scores = []
-        # Don't reset stagnation counter fully, but reduce it
-        self.stagnation_counter = max(0, self.stagnation_counter // 2)
+        
+        # Don't reset stagnation counter fully, but reduce it based on refresh percentage
+        self.stagnation_counter = int(self.stagnation_counter * (1 - refresh_percent))
+        
+        print(f"Population refreshed: {len(new_random_solutions)} new random solutions, " 
+              f"{len(new_solutions)} variants of elites, {len(elites)} elites kept.")
 
     def run(self) -> OptimizationResult:
         """Run the genetic algorithm."""
@@ -643,7 +700,10 @@ class GeneticAlgorithm:
                 # send the payload to the api
                 payload["best_strategy"] = best_strategy
                 if self.api_url:
-                    requests.post(self.api_url, json=payload)
+                    try:
+                        requests.post(self.api_url, json=payload, timeout=10)
+                    except Exception as e:
+                        print(f"Error sending payload to api: {e}")
 
             update_progress()
 
