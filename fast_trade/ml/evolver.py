@@ -51,6 +51,8 @@ class OptimizationConfig:
     early_stopping_patience: int = 20
     min_improvement: float = 0.001
     fitness: Dict[str, Any] = field(default_factory=dict)
+    refresh_generations: int = 10
+    refresh_percent: float = 0.5
 
 
 @dataclass
@@ -482,6 +484,31 @@ class GeneticAlgorithm:
         with open(full_path, "w", encoding="utf-8") as f:
             json.dump(winner_data, f, indent=2)
 
+    def refresh_population(self) -> None:
+        """Refresh the population when stagnation is detected.
+        Keeps the best solutions and creates new random solutions for the rest."""
+        print("Refreshing population due to stagnation...")
+        # Create a new population while preserving the best solutions
+        # Keep the top elites from current population
+        elite_count = min(self.config.elitism, len(self.population))
+        elite_indices = np.argsort(self.fitness_scores)[-elite_count:]
+        elites = [self.population[i] for i in elite_indices]
+        
+        # Generate new random solutions for the rest
+        new_population = self.create_initial_population()
+        
+        # Replace the worst solutions with elites
+        if elite_count > 0:
+            # Sort new_population by estimating their fitness (without actual evaluation)
+            # and replace the estimated worst ones with elites
+            new_population = new_population[elite_count:] + elites
+        
+        self.population = new_population
+        # Reset fitness scores as we'll recalculate them
+        self.fitness_scores = []
+        # Don't reset stagnation counter fully, but reduce it
+        self.stagnation_counter = max(0, self.stagnation_counter // 2)
+
     def run(self) -> OptimizationResult:
         """Run the genetic algorithm."""
         # Initialize population
@@ -543,6 +570,13 @@ class GeneticAlgorithm:
             if self.stagnation_counter >= self.config.early_stopping_patience:
                 print(f"Early stopping at generation {generation}")
                 break
+                
+            # Refresh population check
+            if self.stagnation_counter >= self.config.stagnation_threshold:
+                self.refresh_population()
+                # Skip the rest of this iteration since we've refreshed the population
+                # and need to reevaluate it in the next generation
+                continue
 
             # Adjust population size based on diversity
             diversity = self.calculate_diversity()
