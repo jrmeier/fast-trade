@@ -192,7 +192,11 @@ def evolver_helper(*args, **kwargs):
             jobs = json.load(f)
         for job in jobs:
             print("running job: ", job)
-            run_evolver(job)
+            # open the job file
+            with open(job.get("file"), "r", encoding="utf-8") as f:
+                job_config = json.load(f)
+            
+            run_evolver(job_config)
     
     else:
         with open(kwargs.get("config"), "r", encoding="utf-8") as f:
