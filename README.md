@@ -5,7 +5,7 @@
 [![Python 3.7+](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/download/releases/3.7.0/)
 [![Python application](https://github.com/jrmeier/fast-trade/workflows/Python%20application/badge.svg)](https://github.com/jrmeier/fast-trade/actions)
 
-A library built with backtest portability and performance in mind for backtest trading strategies. There is also an [Archive](#Archive), which can be used to download compatible kline data from Binance (.com or .us) and Coinbase into sqlite databases..
+A library built with backtest portability and performance in mind for backtest trading strategies. There is also an [Archive](#Archive), which can be used to download compatible kline data from Binance (.com or .us) and Coinbase into sqlite databases. It's also possible to do some strategy optimization use `pygad` to discover and optimize strategies.
 
 ## Motivations
 If backests are fast, strategies are cheap.

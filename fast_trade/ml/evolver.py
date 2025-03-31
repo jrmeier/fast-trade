@@ -41,7 +41,7 @@ class OptimizationConfig:
     parent_selection_type: str = "tournament"
     crossover_type: str = "uniform"
     mutation_type: str = "adaptive"
-    mutation_percent_genes: float = 0.1
+    mutation_percent_genes: float = field(default=0.1, metadata={"type": float})
     parallel_processing: int = 8
     use_parallel: bool = False  # Flag to enable/disable parallel processing
     K_tournament: int = 4
@@ -53,6 +53,10 @@ class OptimizationConfig:
     fitness: Dict[str, Any] = field(default_factory=dict)
     refresh_generations: int = 10
     refresh_percent: float = 0.5
+
+    def __post_init__(self):
+        """Ensure mutation_percent_genes is a float."""
+        self.mutation_percent_genes = float(self.mutation_percent_genes)
 
 
 @dataclass
@@ -457,7 +461,7 @@ class GeneticAlgorithm:
         fitness_scores: List[float],
         metrics: Dict[str, Any],
     ) -> None:
-        """Save the best winner from a generation to a file."""
+        """Save the best winner from the current generation to a file."""
         # Sort winners by fitness score
         sorted_winners = sorted(
             zip(winners, fitness_scores), key=lambda x: x[1], reverse=True
@@ -475,15 +479,23 @@ class GeneticAlgorithm:
             "fitness_score": float(best_score),
             "genes": best_winner,
             "summary": metrics,
+            "generation": generation,
+            "timestamp": datetime.datetime.now().isoformat(),
         }
 
         # Save to file
-        full_path = os.path.join(self.winners_dir, "best.json")
+        full_path = os.path.join(self.winners_dir, "current.json")
         # create the directory if it doesn't exist
         os.makedirs(os.path.dirname(full_path), exist_ok=True)
 
         with open(full_path, "w", encoding="utf-8") as f:
             json.dump(winner_data, f, indent=2)
+
+        # Also save the best overall solution if this is better
+        if best_score > self.best_fitness:
+            best_path = os.path.join(self.winners_dir, "best.json")
+            with open(best_path, "w", encoding="utf-8") as f:
+                json.dump(winner_data, f, indent=2)
 
     def refresh_population(self) -> None:
         """Refresh the population when stagnation is detected.
@@ -674,11 +686,11 @@ class GeneticAlgorithm:
                 avg_fitness = float(np.mean(self.fitness_scores))
                 diversity = self.calculate_diversity()
                 stagnation_counter = self.stagnation_counter
-                best_strategy_link = f"{self.winners_dir}/best.json"
+                current_strategy_link = f"{self.winners_dir}/current.json"
                 os.system("cls" if os.name == "nt" else "clear")
-                # load the best strategy
-                with open(best_strategy_link, "r", encoding="utf-8") as f:
-                    best_strategy = json.load(f)
+                # load the current strategy
+                with open(current_strategy_link, "r", encoding="utf-8") as f:
+                    current_strategy = json.load(f)
                 percent_complete = generation / self.config.num_generations
                 payload = {
                     "duration": str(duration),
@@ -690,7 +702,7 @@ class GeneticAlgorithm:
                     "avg_fitness": avg_fitness,
                     "diversity": diversity,
                     "stagnation_counter": stagnation_counter,
-                    "best_strategy_link": best_strategy_link,
+                    "current_strategy_link": current_strategy_link,
                     "run_id": self.run_id,
                 }
                 # make a pretty payload
@@ -698,7 +710,7 @@ class GeneticAlgorithm:
                 print(payload_str)
                 print("-" * 50)
                 # send the payload to the api
-                payload["best_strategy"] = best_strategy
+                payload["current_strategy"] = current_strategy
                 if self.api_url:
                     try:
                         requests.post(self.api_url, json=payload, timeout=10)

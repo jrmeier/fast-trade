@@ -15,6 +15,8 @@ from fast_trade.validate_backtest import validate_backtest
 from .cli_helpers import create_plot, open_strat_file, save
 from .run_backtest import run_backtest
 from .ml.evolver import run_evolver
+from .ml.markov import run_markov
+
 parser = argparse.ArgumentParser(
     description="Fast Trade CLI",
     prog="ft",
@@ -105,6 +107,9 @@ evolver_parser = sub_parsers.add_parser("evolver", help="run the evolver")
 evolver_parser.add_argument(
     "--config", help="path to the evolver config file", type=str
 )
+evolver_parser.add_argument(
+    "--job", help="path to the job file", type=str
+)
 
 
 def backtest_helper(*args, **kwargs):
@@ -180,12 +185,26 @@ def validate_helper(args):
 
 def evolver_helper(*args, **kwargs):
     """ Run the evolver with the given config """
-    # load the evolver config
-    with open(kwargs.get("config"), "r", encoding="utf-8") as f:
-        evolver_config = json.load(f)
 
-    # run the evolver
-    run_evolver(evolver_config)
+    # if there's a jobs file, run that
+    if kwargs.get("job"):
+        with open(kwargs.get("job"), "r", encoding="utf-8") as f:
+            jobs = json.load(f)
+        for job in jobs:
+            print("running job: ", job)
+            run_evolver(job)
+    
+    else:
+        with open(kwargs.get("config"), "r", encoding="utf-8") as f:
+            evolver_config = json.load(f)
+        run_evolver(evolver_config)
+
+
+def markov_helper(*args, **kwargs):
+    """ Run the markov chain """
+    
+    run_markov(kwargs.get("strategy"))
+    
 
 
 command_map = {
