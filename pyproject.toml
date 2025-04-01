@@ -25,7 +25,7 @@ classifiers = [
     "Natural Language :: English",
 ]
 keywords = ["backtesting", "currency", "ta", "pandas", "finance", "numpy", "analysis", "technical analysis"]
-requires-python = ">=3.8"
+requires-python = ">=3.11"
 dependencies = [
     "pandas>=2.0.0",
     "matplotlib>=3.7.0",

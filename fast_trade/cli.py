@@ -14,7 +14,7 @@ from fast_trade.validate_backtest import validate_backtest
 
 from .cli_helpers import create_plot, open_strat_file, save
 from .run_backtest import run_backtest
-from .ml.evolver import run_evolver
+from .ml.evolution import run_evolver
 from .ml.markov import run_markov
 
 parser = argparse.ArgumentParser(
