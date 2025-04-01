@@ -131,7 +131,6 @@ def run_backtest(backtest: dict, df: pd.DataFrame = pd.DataFrame(), summary=True
         )
 
     df = prepare_df(df, new_backtest)
-
     df = apply_backtest_to_df(df, new_backtest)
     # throw an error if the backtest is not valid
     validate_backtest_with_df(new_backtest, df)

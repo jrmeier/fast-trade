@@ -134,8 +134,6 @@ def validate_backtest(backtest):
 
         if len(logic_errors):
             return {"error": True, "msgs": logic_errors}
-        if len(logics) == 0 and logic_type not in ["any_enter", "any_exit"]:
-            return {"error": True, "msgs": [f"No {logic_type} logic found"]}
         return None
 
     def process_logic(logic: list, logic_type: str):

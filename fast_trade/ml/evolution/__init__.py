@@ -1,17 +1,19 @@
 import json
 import os
 import uuid
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from fast_trade.ml.evolution.genetic_algorithm import GeneticAlgorithm
-from fast_trade.ml.evolution.models import GeneDefinition, OptimizationConfig, OptimizationResult
-from fast_trade.ml.evolution.strategy_modifier import FREQUENCY_MAP
-from fast_trade.ml.evolution.utils import process_genes_from_config, save_optimization_results
+from fast_trade.ml.evolution.models import OptimizationConfig, OptimizationResult
+from fast_trade.ml.evolution.utils import (
+    process_genes_from_config,
+    save_optimization_results,
+)
 
 
 def optimize_strategy(
     base_strategy: Dict[str, Any],
-    genes: List[Tuple[str, Any]],
+    genes: List[Dict[str, Any]],
     config: Optional[OptimizationConfig] = None,
     run_id: str = "default",
     config_file: Dict = {},
@@ -22,7 +24,7 @@ def optimize_strategy(
 
     Args:
         base_strategy: A dictionary representing the base trading strategy.
-        genes: A list of tuples containing (gene_name, gene_value).
+        genes: A list of dictionaries containing gene definitions.
         config: Optional configuration for the genetic algorithm.
         run_id: Unique identifier for this optimization run.
         config_file: Configuration file contents.
@@ -44,76 +46,17 @@ def optimize_strategy(
             f,
             indent=2,
         )
-        
+
     if api_url:
         print("Reporting to: ", api_url)
 
     config = config or OptimizationConfig()
 
-    genes = process_genes_from_config(genes)
-    # Convert gene tuples to GeneDefinition objects
-    gene_definitions: List[GeneDefinition] = []
-    for gene_name, gene_value in genes:
-        if callable(gene_value):
-            # For callable genes, determine type and range
-            sample_value = gene_value()
-            if isinstance(sample_value, int):
-                # Special handling for frequency gene
-                if gene_name == "freq":
-                    gene_definitions.append(
-                        GeneDefinition(
-                            name=gene_name,
-                            type="int",
-                            min_value=0.0,
-                            max_value=float(len(FREQUENCY_MAP) - 1),
-                        )
-                    )
-                # Special handling for period genes
-                elif gene_name.endswith("_period"):
-                    gene_definitions.append(
-                        GeneDefinition(
-                            name=gene_name,
-                            type="int",
-                            min_value=1.0,  # Ensure minimum period is 1
-                            max_value=100.0,
-                        )
-                    )
-                else:
-                    gene_definitions.append(
-                        GeneDefinition(
-                            name=gene_name, type="int", min_value=0.0, max_value=100.0
-                        )
-                    )
-            else:
-                # For column selection, use float type to allow continuous values
-                if gene_name.endswith("_column"):
-                    gene_definitions.append(
-                        GeneDefinition(
-                            name=gene_name, type="float", min_value=0.0, max_value=1.0
-                        )
-                    )
-                else:
-                    gene_definitions.append(
-                        GeneDefinition(
-                            name=gene_name, type="float", min_value=-1.0, max_value=1.0
-                        )
-                    )
-        else:
-            # For static genes, determine type
-            if isinstance(gene_value, bool):
-                gene_definitions.append(GeneDefinition(name=gene_name, type="boolean"))
-            elif isinstance(gene_value, str):
-                gene_definitions.append(
-                    GeneDefinition(
-                        name=gene_name, type="categorical", categories=[gene_value]
-                    )
-                )
-            else:
-                gene_definitions.append(
-                    GeneDefinition(
-                        name=gene_name, type="float", min_value=-1.0, max_value=1.0
-                    )
-                )
+    # Get predefined sets from config_file
+    predefined_sets = config_file.get("predefined_sets", {})
+
+    # Process genes with predefined sets for categorical values
+    gene_definitions = process_genes_from_config(genes, predefined_sets)
 
     # Create and run genetic algorithm
     ga = GeneticAlgorithm(
@@ -123,12 +66,12 @@ def optimize_strategy(
         fitness=config.fitness,
         run_id=run_id,
         api_url=api_url,
+        config_file=config_file,
     )
     result = ga.run()
 
     # Save results
     save_optimization_results(result, run_id)
-
     return result
 
 

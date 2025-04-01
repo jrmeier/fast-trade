@@ -1,9 +1,21 @@
 import json
 import os
-import random
-from typing import Any, Callable, Dict, List, Tuple
+import math
+from typing import Any, Dict, List, Tuple
 
-from fast_trade.ml.evolution.strategy_modifier import COLUMNS, FREQUENCY_MAP
+from fast_trade.ml.evolution.models import GeneDefinition
+
+
+def sanitize_for_json(obj: Any) -> Any:
+    """Sanitize objects for JSON serialization by replacing inf/nan with null."""
+    if isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return None
+    elif isinstance(obj, dict):
+        return {k: sanitize_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [sanitize_for_json(item) for item in obj]
+    return obj
 
 
 def save_optimization_results(result: Any, run_id: str) -> None:
@@ -21,15 +33,19 @@ def save_optimization_results(result: Any, run_id: str) -> None:
         "generation_history": result.generation_history,
     }
 
+    # Sanitize to handle non-JSON-compliant float values
+    sanitized_result = sanitize_for_json(result_dict)
+
     filename = f"{results_dir}/winner.json"
     with open(filename, "w", encoding="utf-8") as f:
-        json.dump(result_dict, f, indent=2)
+        json.dump(sanitized_result, f, indent=2)
 
 
 def evaluate_solution_wrapper(
     solution: Dict[str, Any],
     base_strategy: Dict[str, Any],
     fitness_weights: Dict[str, Any],
+    predefined_sets: Dict[str, Any],
 ) -> Tuple[float, Dict[str, Any]]:
     """Standalone wrapper function for parallel evaluation of solutions.
     This must be at module level to be picklable for multiprocessing."""
@@ -38,7 +54,7 @@ def evaluate_solution_wrapper(
 
     # Convert solution to list of tuples for modify_strategy
     solution_tuples = [(k, str(v)) for k, v in solution.items()]
-    strategy = modify_strategy(base_strategy.copy(), solution_tuples)
+    strategy = modify_strategy(base_strategy.copy(), solution_tuples, predefined_sets)
     result = run_backtest(strategy)
 
     # Calculate fitness using multiple metrics
@@ -59,71 +75,36 @@ def evaluate_solution_wrapper(
     return (fitness, metrics)
 
 
-def process_genes_from_config(input_genes: List[Dict]) -> List[Tuple[str, Any]]:
-    """Process genes from config by creating appropriate generator functions."""
+def process_genes_from_config(
+    input_genes: List[Dict], predefined_sets: Dict[str, Any] = None
+) -> List[GeneDefinition]:
+    """Process genes from config and return a list of GeneDefinition objects with categories from predefined_sets.
+
+    Args:
+        input_genes: List of gene definitions from config
+        predefined_sets: Dictionary of predefined sets for categorical genes
+
+    Returns:
+        List of GeneDefinition objects
+    """
     new_genes = []
-
-    # Define gene generator functions
-    def create_int_generator(min_val: int, max_val: int) -> Callable:
-        return lambda: random.randint(min_val, max_val)
-
-    def create_float_generator(min_val: float, max_val: float) -> Callable:
-        return lambda: random.uniform(min_val, max_val)
-
-    def create_categorical_generator(values: List[str], gene_name: str) -> Callable:
-        if not values:
-            raise ValueError(
-                f"Cannot create categorical generator for gene '{gene_name}' with empty values list"
-            )
-        return lambda: random.choice(values)
+    predefined_sets = predefined_sets or {}
 
     for gene in input_genes:
         gene_type = gene.get("type", "int")
         gene_name = gene["name"]
-        values_ref = gene.get("values_ref", None)
+        values_ref = gene.get("values_ref", "")
+        args = gene.get("args", [])
 
-        if gene_type == "int":
-            range_values = gene.get("range", [0, 100])
-            new_genes.append(
-                (gene_name, create_int_generator(range_values[0], range_values[1]))
-            )
-        elif gene_type == "float":
-            range_values = gene.get("range", [0.0, 100.0])
-            new_genes.append(
-                (gene_name, create_float_generator(range_values[0], range_values[1]))
-            )
-        elif gene_type == "categorical":
-            if values_ref == "columns":
-                values = COLUMNS
-            elif values_ref == "operators":
-                values = ["<", ">", "=", "!="]  # Default operators if not specified
-            elif values_ref == "transformers":
-                values = ["ema", "zlema", "sma"]  # Default transformers if not specified
-            elif values_ref == "frequencies":
-                values = FREQUENCY_MAP
-            else:
-                values = values_ref if isinstance(values_ref, list) else []
+        # Create the GeneDefinition object
+        gene_definition = GeneDefinition(
+            name=gene_name, type=gene_type, args=args, values_ref=values_ref
+        )
 
-            try:
-                new_genes.append(
-                    (gene_name, create_categorical_generator(values, gene_name))
-                )
-            except ValueError as e:
-                print(f"Error processing gene {gene_name}: {str(e)}")
-                # Fallback to a default value based on the gene name
-                if "operator" in gene_name:
-                    values = ["<", ">", "=", "!="]
-                elif "transformer" in gene_name:
-                    values = ["ema", "zlema", "sma"]
-                elif "column" in gene_name:
-                    values = COLUMNS
-                else:
-                    values = ["default"]  # Fallback for unknown categorical genes
-                new_genes.append(
-                    (gene_name, create_categorical_generator(values, gene_name))
-                )
-        else:
-            # Default to int generator if type is unknown
-            new_genes.append((gene_name, create_int_generator(0, 100)))
+        # Add categories for categorical genes
+        if gene_type == "categorical" and values_ref and values_ref in predefined_sets:
+            gene_definition.categories = predefined_sets[values_ref]
 
-    return new_genes 
+        new_genes.append(gene_definition)
+
+    return new_genes

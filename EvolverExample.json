@@ -185,7 +185,7 @@
     "config": {
         "num_generations": 10,
         "parallel_processing": 4,
-        "use_parallel": true,
+        "use_parallel": false,
         "sol_per_pop": 5,
         "num_parents_mating": 2,
         "mutation_percent_genes": 20,

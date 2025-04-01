@@ -1,0 +1,71 @@
+{
+    "name": "EvolverSimple",
+    "api_url": "https://fed.fasttrade.dev/api/webhook/evolver",
+    "predefined_sets": {
+      "columns": ["close", "open", "low", "high"],
+      "frequencies": ["1Min", "5Min", "15Min", "30Min", "1h", "4h", "8h", "12h"],
+      "operators": ["<", ">"],
+      "transformers": ["ema", "zlema","sma"]
+    },
+    "genes": [
+      {
+        "name": "freq",
+        "type": "categorical",
+        "values_ref": "frequencies",
+        "args": []
+      },
+      {
+        "name": "num_any_enter",
+        "type": "int",
+        "args": [1, 3]
+      },
+      {
+        "name": "num_any_exit",
+        "type": "int",
+        "args": [1, 3]
+      },
+      {
+        "name": "num_datapoints",
+        "type": "int",
+        "args": [1, 3]
+      }
+    ],
+    "strategy": {
+        "freq": "#freq",
+        "enter": [],
+        "exit": [],
+        "datapoints": [],
+        "base_balance": 1000.0,
+        "exit_on_end": false,
+        "comission": 0.01,
+        "trailing_stop_loss": 0.0,
+        "lot_size_perc": 1.0,
+        "max_lot_size": 0.0,
+        "start_date": "2024-01-27T00:00:00",
+        "end_date": "2025-03-27T00:00:00",
+        "rules": null,
+        "symbol": "BTCUSDT",
+        "exchange": "binanceus",
+        "completed_at": null
+    },
+    "config": {
+        "num_generations": 10,
+        "parallel_processing": 4,
+        "use_parallel": false,
+        "sol_per_pop": 5,
+        "num_parents_mating": 2,
+        "mutation_percent_genes": 20,
+        "crossover_type": "two_points",
+        "mutation_type": "adaptive",
+        "parent_selection_type": "rank",
+        "K_tournament": 3,
+        "elitism": 2,
+        "diversity_threshold": 0.6,
+        "stagnation_threshold": 20,
+        "early_stopping_patience": 50,
+        "min_improvement": 0.001
+    },
+    "fitness":{
+      "return_perc": 1
+    }
+}

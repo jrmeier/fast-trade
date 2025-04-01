@@ -107,9 +107,7 @@ evolver_parser = sub_parsers.add_parser("evolver", help="run the evolver")
 evolver_parser.add_argument(
     "--config", help="path to the evolver config file", type=str
 )
-evolver_parser.add_argument(
-    "--job", help="path to the job file", type=str
-)
+evolver_parser.add_argument("--job", help="path to the job file", type=str)
 
 
 def backtest_helper(*args, **kwargs):
@@ -184,7 +182,7 @@ def validate_helper(args):
 
 
 def evolver_helper(*args, **kwargs):
-    """ Run the evolver with the given config """
+    """Run the evolver with the given config"""
 
     # if there's a jobs file, run that
     if kwargs.get("job"):
@@ -195,9 +193,9 @@ def evolver_helper(*args, **kwargs):
             # open the job file
             with open(job.get("file"), "r", encoding="utf-8") as f:
                 job_config = json.load(f)
-            
+
             run_evolver(job_config)
-    
+
     else:
         with open(kwargs.get("config"), "r", encoding="utf-8") as f:
             evolver_config = json.load(f)
@@ -205,10 +203,9 @@ def evolver_helper(*args, **kwargs):
 
 
 def markov_helper(*args, **kwargs):
-    """ Run the markov chain """
-    
+    """Run the markov chain"""
+
     run_markov(kwargs.get("strategy"))
-    
 
 
 command_map = {

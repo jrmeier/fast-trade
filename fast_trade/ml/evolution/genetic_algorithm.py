@@ -10,9 +10,13 @@ import numpy as np
 import requests
 
 from fast_trade import run_backtest
-from fast_trade.ml.evolution.models import GeneDefinition, OptimizationConfig, OptimizationResult
+from fast_trade.ml.evolution.models import (
+    GeneDefinition,
+    OptimizationConfig,
+    OptimizationResult,
+)
 from fast_trade.ml.evolution.strategy_modifier import modify_strategy
-from fast_trade.ml.evolution.utils import evaluate_solution_wrapper
+from fast_trade.ml.evolution.utils import evaluate_solution_wrapper, sanitize_for_json
 
 # Constants
 ARCHIVE_PATH = os.getenv("ARCHIVE_PATH", os.path.join(os.getcwd(), "ft_archive/ml"))
@@ -29,6 +33,7 @@ class GeneticAlgorithm:
         fitness: Dict[str, Any],
         run_id: str,
         api_url: Optional[str] = None,
+        config_file: Dict[str, Any] = {},
     ):
         self.base_strategy = base_strategy
         self.genes = genes
@@ -46,7 +51,7 @@ class GeneticAlgorithm:
         winners_dir = os.path.join(ARCHIVE_PATH, self.run_id)
         print(f"Directory: {winners_dir}")
         self.winners_dir = winners_dir
-
+        self.config_file = config_file
         os.makedirs(self.winners_dir, exist_ok=True)
 
     def create_initial_population(self) -> List[Dict[str, Any]]:
@@ -55,8 +60,20 @@ class GeneticAlgorithm:
         for _ in range(self.config.sol_per_pop):
             solution: Dict[str, Any] = {}
             for gene in self.genes:
-                if gene.type == "categorical" and gene.categories:
-                    solution[gene.name] = random.choice(gene.categories)
+                if gene.type == "categorical":
+                    # get the values from the predefined sets
+                    if gene.categories:
+                        solution[gene.name] = random.choice(gene.categories)
+                    else:
+                        # Fallback to using values_ref directly from config
+                        values = self.config_file.get("predefined_sets", {}).get(
+                            gene.values_ref, []
+                        )
+                        if values:
+                            solution[gene.name] = random.choice(values)
+                        else:
+                            # Last resort fallback
+                            solution[gene.name] = "default"
                 elif gene.type == "int":
                     solution[gene.name] = random.randint(
                         int(gene.min_value), int(gene.max_value)
@@ -124,8 +141,16 @@ class GeneticAlgorithm:
         mutated = solution.copy()
         for gene in self.genes:
             if random.random() < self.config.mutation_percent_genes:
-                if gene.type == "categorical" and gene.categories:
-                    mutated[gene.name] = random.choice(gene.categories)
+                if gene.type == "categorical":
+                    if gene.categories:
+                        mutated[gene.name] = random.choice(gene.categories)
+                    else:
+                        # Fallback to getting values from predefined_sets
+                        values = self.config_file.get("predefined_sets", {}).get(
+                            gene.values_ref, []
+                        )
+                        if values:
+                            mutated[gene.name] = random.choice(values)
                 elif gene.type == "int":
                     mutated[gene.name] = random.randint(
                         int(gene.min_value), int(gene.max_value)
@@ -142,7 +167,11 @@ class GeneticAlgorithm:
         """Evaluate a solution using backtesting."""
         # Convert solution to list of tuples for modify_strategy
         solution_tuples = [(k, str(v)) for k, v in solution.items()]
-        strategy = modify_strategy(self.base_strategy.copy(), solution_tuples)
+        strategy = modify_strategy(
+            self.base_strategy.copy(),
+            solution_tuples,
+            self.config_file.get("predefined_sets"),
+        )
         result = run_backtest(strategy)
 
         # Calculate fitness using multiple metrics
@@ -181,7 +210,11 @@ class GeneticAlgorithm:
 
         # Convert solution to list of tuples for modify_strategy
         solution_tuples = [(k, str(v)) for k, v in best_winner.items()]
-        strategy = modify_strategy(self.base_strategy.copy(), solution_tuples)
+        strategy = modify_strategy(
+            self.base_strategy.copy(),
+            solution_tuples,
+            self.config_file.get("predefined_sets"),
+        )
 
         winner_data = {
             "strategy": strategy,
@@ -192,30 +225,35 @@ class GeneticAlgorithm:
             "timestamp": datetime.datetime.now().isoformat(),
         }
 
+        # Sanitize data for JSON serialization
+        sanitized_data = sanitize_for_json(winner_data)
+
         # Save to file
         full_path = os.path.join(self.winners_dir, "current.json")
         # create the directory if it doesn't exist
         os.makedirs(os.path.dirname(full_path), exist_ok=True)
 
         with open(full_path, "w", encoding="utf-8") as f:
-            json.dump(winner_data, f, indent=2)
+            json.dump(sanitized_data, f, indent=2)
 
         # Also save the best overall solution if this is better
         if best_score > self.best_fitness:
             best_path = os.path.join(self.winners_dir, "best.json")
             with open(best_path, "w", encoding="utf-8") as f:
-                json.dump(winner_data, f, indent=2)
+                json.dump(sanitized_data, f, indent=2)
 
     def refresh_population(self) -> None:
         """Refresh the population when stagnation is detected.
         Keeps the best solutions and creates new random solutions for the rest."""
         print("Refreshing population due to stagnation...")
-        
+
         # Calculate current diversity
         diversity = self.calculate_diversity()
-        
+
         # Determine percentage of population to refresh based on diversity
-        if diversity > 0.7:  # High diversity but stagnation - focus more on exploitation
+        if (
+            diversity > 0.7
+        ):  # High diversity but stagnation - focus more on exploitation
             refresh_percent = max(0.3, min(0.7, self.config.refresh_percent))
             # Keep more elites in this case
             elite_percent = 1.0 - refresh_percent
@@ -223,15 +261,17 @@ class GeneticAlgorithm:
             refresh_percent = min(0.9, max(0.5, self.config.refresh_percent))
             # Keep fewer elites
             elite_percent = 1.0 - refresh_percent
-        
+
         # Calculate how many solutions to keep vs refresh
         pop_size = len(self.population)
-        elite_count = max(1, min(int(pop_size * elite_percent), self.config.elitism * 2))
-        
+        elite_count = max(
+            1, min(int(pop_size * elite_percent), self.config.elitism * 2)
+        )
+
         # Keep the top elites from current population
         elite_indices = np.argsort(self.fitness_scores)[-elite_count:]
         elites = [self.population[i] for i in elite_indices]
-        
+
         # Generate new solutions
         # For high diversity scenario, create some solutions with small mutations from elites
         new_solutions = []
@@ -253,7 +293,9 @@ class GeneticAlgorithm:
                                 range_size = (gene.max_value - gene.min_value) * 0.2
                                 min_val = max(gene.min_value, current - range_size)
                                 max_val = min(gene.max_value, current + range_size)
-                                variant[gene.name] = random.randint(int(min_val), int(max_val))
+                                variant[gene.name] = random.randint(
+                                    int(min_val), int(max_val)
+                                )
                             elif gene.type == "float":
                                 # Smaller range mutations
                                 current = variant[gene.name]
@@ -266,26 +308,28 @@ class GeneticAlgorithm:
                                 if random.random() < 0.25:
                                     variant[gene.name] = not variant[gene.name]
                     new_solutions.append(variant)
-        
+
         # Calculate how many completely new solutions we need
         remaining_count = pop_size - len(elites) - len(new_solutions)
         new_random_solutions = self.create_initial_population()[:remaining_count]
-        
+
         # Combine all solutions
         self.population = new_random_solutions + new_solutions + elites
-        
+
         # Ensure we have the right population size
         if len(self.population) > pop_size:
             self.population = self.population[:pop_size]
-        
+
         # Reset fitness scores as we'll recalculate them
         self.fitness_scores = []
-        
+
         # Don't reset stagnation counter fully, but reduce it based on refresh percentage
         self.stagnation_counter = int(self.stagnation_counter * (1 - refresh_percent))
-        
-        print(f"Population refreshed: {len(new_random_solutions)} new random solutions, " 
-              f"{len(new_solutions)} variants of elites, {len(elites)} elites kept.")
+
+        print(
+            f"Population refreshed: {len(new_random_solutions)} new random solutions, "
+            f"{len(new_solutions)} variants of elites, {len(elites)} elites kept."
+        )
 
     def run(self) -> OptimizationResult:
         """Run the genetic algorithm."""
@@ -305,6 +349,7 @@ class GeneticAlgorithm:
                         evaluate_solution_wrapper,
                         base_strategy=self.base_strategy,
                         fitness_weights=self.fitness,
+                        predefined_sets=self.config_file.get("predefined_sets"),
                     )
 
                     # Execute in parallel
@@ -348,7 +393,7 @@ class GeneticAlgorithm:
             if self.stagnation_counter >= self.config.early_stopping_patience:
                 print(f"Early stopping at generation {generation}")
                 break
-                
+
             # Refresh population check
             if self.stagnation_counter >= self.config.stagnation_threshold:
                 self.refresh_population()
@@ -367,7 +412,7 @@ class GeneticAlgorithm:
             new_population: List[Dict[str, Any]] = []
 
             # Elitism: preserve best solutions
-            elite_indices = np.argsort(self.fitness_scores)[-self.config.elitism:]
+            elite_indices = np.argsort(self.fitness_scores)[-self.config.elitism :]
             new_population.extend([self.population[i] for i in elite_indices])
 
             # Create offspring
@@ -438,9 +483,41 @@ class GeneticAlgorithm:
             mapped_genes=best_solution_tuples,
             fitness=self.best_fitness,
             best_strategy=modify_strategy(
-                self.base_strategy.copy(), best_solution_tuples
+                self.base_strategy.copy(),
+                best_solution_tuples,
+                self.config_file.get("predefined_sets"),
             ),
             started_at=self.started_at,
             completed_at=datetime.datetime.now(),
             generation_history=self.generation_history,
-        ) 
+        )
+
+    def report_progress(
+        self,
+        generation: int,
+        best_fitness: float,
+        avg_fitness: float,
+        metrics: Dict[str, Any],
+    ) -> None:
+        """Report progress to API if URL is specified."""
+        if not self.api_url:
+            return
+
+        try:
+            # Prepare payload with metrics and generation data
+            payload = {
+                "run_id": self.run_id,
+                "generation": generation,
+                "best_fitness": float(best_fitness),
+                "avg_fitness": float(avg_fitness),
+                "metrics": metrics,
+                "timestamp": datetime.datetime.now().isoformat(),
+            }
+
+            # Sanitize the payload for JSON serialization
+            sanitized_payload = sanitize_for_json(payload)
+
+            # Send to API
+            requests.post(self.api_url, json=sanitized_payload, timeout=10)
+        except Exception as e:
+            print(f"Error sending payload to api: {str(e)}")

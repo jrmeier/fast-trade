@@ -1,6 +1,6 @@
 import datetime
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
@@ -9,10 +9,17 @@ class GeneDefinition:
 
     name: str
     type: str  # 'int', 'float', 'categorical', 'boolean'
+    args: List[Any] = field(default_factory=list)
+    values_ref: str = ""
+    categories: Optional[List[str]] = None
     min_value: float = 0.0
     max_value: float = 100.0
-    categories: List[str] = field(default_factory=list)
-    constraints: List[Dict[str, Any]] = field(default_factory=list)
+
+    def __post_init__(self):
+        """Set min_value and max_value based on args for int and float types."""
+        if self.type in ("int", "float") and len(self.args) >= 2:
+            self.min_value = self.args[0]
+            self.max_value = self.args[1]
 
 
 @dataclass
@@ -52,4 +59,4 @@ class OptimizationResult:
     best_strategy: Dict[str, Any]
     started_at: datetime.datetime
     completed_at: datetime.datetime
-    generation_history: List[Dict[str, Any]] 
+    generation_history: List[Dict[str, Any]]
