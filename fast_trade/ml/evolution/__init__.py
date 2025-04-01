@@ -71,7 +71,7 @@ def optimize_strategy(
     result = ga.run()
 
     # Save results
-    save_optimization_results(result, run_id)
+    save_optimization_results(result, run_id, api_url)
     return result
 
 

@@ -49,11 +49,11 @@
         "completed_at": null
     },
     "config": {
-        "num_generations": 10,
-        "parallel_processing": 4,
-        "use_parallel": false,
-        "sol_per_pop": 5,
-        "num_parents_mating": 2,
+        "num_generations": 100,
+        "parallel_processing": 8,
+        "use_parallel": true,
+        "sol_per_pop": 10,
+        "num_parents_mating": 5,
         "mutation_percent_genes": 20,
         "crossover_type": "two_points",
         "mutation_type": "adaptive",

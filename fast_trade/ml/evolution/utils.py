@@ -2,7 +2,7 @@ import json
 import os
 import math
 from typing import Any, Dict, List, Tuple
-
+import requests
 from fast_trade.ml.evolution.models import GeneDefinition
 
 
@@ -18,7 +18,7 @@ def sanitize_for_json(obj: Any) -> Any:
     return obj
 
 
-def save_optimization_results(result: Any, run_id: str) -> None:
+def save_optimization_results(result: Any, run_id: str, api_url: str = None) -> None:
     """Save optimization results to a file."""
     archive_path = os.getenv("ARCHIVE_PATH", os.path.join(os.getcwd(), "ft_archive/ml"))
     results_dir = f"{archive_path}/{run_id}"
@@ -39,6 +39,15 @@ def save_optimization_results(result: Any, run_id: str) -> None:
     filename = f"{results_dir}/winner.json"
     with open(filename, "w", encoding="utf-8") as f:
         json.dump(sanitized_result, f, indent=2)
+
+    # send the winner to the api
+    
+    if api_url:
+        payload = {
+            "run_id": run_id,
+            **sanitized_result,
+        }
+        requests.post(api_url, json=payload)
 
 
 def evaluate_solution_wrapper(
