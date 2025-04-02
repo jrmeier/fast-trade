@@ -54,6 +54,83 @@ class GeneticAlgorithm:
         self.config_file = config_file
         os.makedirs(self.winners_dir, exist_ok=True)
 
+        # Send job started webhook
+        if self.api_url:
+            payload = self.create_payload(event="job_started", generation=0)
+            self.update_progress(payload)
+
+    def create_payload(self, event: str = "job_started", generation: int = 0) -> Dict:
+        # For initial payload, use base strategy without modifications
+        if not hasattr(self, 'best_solution') or self.best_solution is None:
+            strat = self.base_strategy
+        else:
+            best_solution_tuples = [(k, str(v)) for k, v in self.best_solution.items()]
+            best_solution_tuples.sort(key=lambda x: x[0])  # Sort by gene name
+            strat = modify_strategy(
+                self.base_strategy.copy(),
+                best_solution_tuples,
+                self.config_file.get("predefined_sets"),
+            )
+
+        # Calculate duration and time remaining if we have a start time
+        duration = None
+        estimated_time_remaining = None
+        if hasattr(self, 'start_time'):
+            duration = datetime.datetime.now() - self.start_time
+            if generation > 0:
+                estimated_time_remaining = (duration * self.config.num_generations) / generation - duration
+                estimated_time_remaining = datetime.timedelta(seconds=estimated_time_remaining.total_seconds())
+                estimated_time_remaining = str(estimated_time_remaining)
+            duration = str(duration)
+
+        # Calculate diversity if we have a population
+        diversity = None
+        if hasattr(self, 'population') and self.population:
+            diversity = self.calculate_diversity()
+
+        # Calculate best fitness and stagnation counter if available
+        best_fitness = getattr(self, 'best_fitness', None)
+        stagnation_counter = getattr(self, 'stagnation_counter', 0)
+
+        # Calculate percent complete
+        percent_complete = 0
+        if generation > 0:
+            percent_complete = generation / self.config.num_generations
+
+        return {
+            "event": event,
+            "run_id": self.run_id,
+            "started_at": self.started_at.isoformat(),
+            "config": self.config_file,
+            "fitness": self.fitness,
+            "strategy": strat,
+            "fitness_weights": self.fitness,
+            "percent_complete": percent_complete,
+            "genes": [gene.__dict__ for gene in self.genes],
+            "status": "running" if event in ["job_started", "job_update"] else "completed" if event == "job_completed" else "failed",
+            "error": None,
+            "best_fitness": best_fitness,
+            "current_generation": generation,
+            "total_generations": self.config.num_generations,
+            "duration": duration,
+            "estimated_time_remaining": estimated_time_remaining,
+            "diversity": diversity,
+            "stagnation_counter": stagnation_counter,
+        }
+
+    def update_progress(self, payload: Dict[str, Any]) -> None:
+        """Send progress update to API if URL is specified."""
+        if self.api_url:
+            try:
+                payload = sanitize_for_json(payload)
+                payload_str = json.dumps(payload, indent=2)
+                print("-" * 50)
+                print(payload_str)
+                print("-" * 50)
+                requests.post(self.api_url, json=payload, timeout=10)
+            except Exception as e:
+                print(f"Error sending payload to api: {e}")
+    
     def create_initial_population(self) -> List[Dict[str, Any]]:
         """Create initial population with diverse solutions."""
         population: List[Dict[str, Any]] = []
@@ -238,12 +315,12 @@ class GeneticAlgorithm:
         if best_score > self.best_fitness:
             # Update best fitness
             self.best_fitness = best_score
-            
+
             # Save as the best overall solution
             best_path = os.path.join(self.winners_dir, "best.json")
             with open(best_path, "w", encoding="utf-8") as f:
                 json.dump(sanitized_data, f, indent=2)
-            
+
             # Also save as elite_N.json where N is based on rank
             elite_path = os.path.join(self.winners_dir, f"elite.json")
             with open(elite_path, "w", encoding="utf-8") as f:
@@ -340,191 +417,158 @@ class GeneticAlgorithm:
 
     def run(self) -> OptimizationResult:
         """Run the genetic algorithm."""
-        # Initialize population
-        self.population = self.create_initial_population()
-        self.start_time = datetime.datetime.now()
-
-        for generation in range(self.config.num_generations):
-            # Evaluate population
-            if self.config.use_parallel and self.config.parallel_processing > 1:
-                # Use parallel processing if enabled
-                with concurrent.futures.ProcessPoolExecutor(
-                    max_workers=self.config.parallel_processing
-                ) as executor:
-                    # Use the standalone wrapper function with partial to bind the other arguments
-                    eval_func = partial(
-                        evaluate_solution_wrapper,
-                        base_strategy=self.base_strategy,
-                        fitness_weights=self.fitness,
-                        predefined_sets=self.config_file.get("predefined_sets"),
-                    )
-
-                    # Execute in parallel
-                    fitness_scores_results = list(
-                        executor.map(eval_func, self.population)
-                    )
-            else:
-                # Sequential processing
-                fitness_scores_results = [
-                    self.evaluate_solution(solution) for solution in self.population
-                ]
-
-            self.fitness_scores = [result[0] for result in fitness_scores_results]
-            metrics = [result[1] for result in fitness_scores_results]
-            # Update best solution
-            best_idx = np.argmax(self.fitness_scores)
-            if self.fitness_scores[best_idx] > self.best_fitness:
-                self.best_solution = self.population[best_idx]
-                self.best_fitness = self.fitness_scores[best_idx]
-                self.stagnation_counter = 0
-            else:
-                self.stagnation_counter += 1
-
-            # Save winners from this generation
-            self.save_winners(
-                generation, self.population, self.fitness_scores, metrics[best_idx]
-            )
-
-            # Record generation history
-            self.generation_history.append(
-                {
-                    "generation": generation,
-                    "best_fitness": self.best_fitness,
-                    "avg_fitness": float(np.mean(self.fitness_scores)),
-                    "diversity": self.calculate_diversity(),
-                    "stagnation_counter": self.stagnation_counter,
-                }
-            )
-
-            # Early stopping check
-            if self.stagnation_counter >= self.config.early_stopping_patience:
-                print(f"Early stopping at generation {generation}")
-                break
-
-            # Refresh population check
-            if self.stagnation_counter >= self.config.stagnation_threshold:
-                self.refresh_population()
-                # Skip the rest of this iteration since we've refreshed the population
-                # and need to reevaluate it in the next generation
-                continue
-
-            # Adjust population size based on diversity
-            diversity = self.calculate_diversity()
-            if diversity < self.config.diversity_threshold:
-                self.config.sol_per_pop = min(self.config.sol_per_pop * 2, 50)
-            elif diversity > 0.9:
-                self.config.sol_per_pop = max(self.config.sol_per_pop // 2, 10)
-
-            # Create new population
-            new_population: List[Dict[str, Any]] = []
-
-            # Elitism: preserve best solutions
-            elite_indices = np.argsort(self.fitness_scores)[-self.config.elitism:]
-            new_population.extend([self.population[i] for i in elite_indices])
-
-            # Create offspring
-            while len(new_population) < self.config.sol_per_pop:
-                parents = self.select_parents()
-                child = self.crossover(parents[0], parents[1])
-                child = self.mutate(child)
-                new_population.append(child)
-
-            self.population = new_population
-
-            # Print progress
-            # clear the screen
-            def update_progress():
-                duration = datetime.datetime.now() - self.start_time
-                estimated_time_remaining = (duration * self.config.num_generations) / (
-                    generation + 1
-                )
-                # make this json serializable
-                estimated_time_remaining = datetime.timedelta(
-                    seconds=estimated_time_remaining.total_seconds()
-                )
-                estimated_time_remaining = str(estimated_time_remaining)
-                best_fitness = self.best_fitness
-                avg_fitness = float(np.mean(self.fitness_scores))
-                diversity = self.calculate_diversity()
-                stagnation_counter = self.stagnation_counter
-                current_strategy_link = f"{self.winners_dir}/current.json"
-                os.system("cls" if os.name == "nt" else "clear")
-                # load the current strategy
-                with open(current_strategy_link, "r", encoding="utf-8") as f:
-                    current_strategy = json.load(f)
-                percent_complete = generation / self.config.num_generations
-                payload = {
-                    "duration": str(duration),
-                    "percent_complete": percent_complete,
-                    "current_generation": generation,
-                    "total_generations": self.config.num_generations,
-                    "estimated_time_remaining": str(estimated_time_remaining),
-                    "best_fitness": best_fitness,
-                    "avg_fitness": avg_fitness,
-                    "diversity": diversity,
-                    "stagnation_counter": stagnation_counter,
-                    "current_strategy_link": current_strategy_link,
-                    "run_id": self.run_id,
-                }
-                # make a pretty payload
-                payload_str = json.dumps(payload, indent=2)
-                print(payload_str)
-                print("-" * 50)
-                # send the payload to the api
-                payload["current_strategy"] = current_strategy
-                if self.api_url:
-                    try:
-                        requests.post(self.api_url, json=payload, timeout=10)
-                    except Exception as e:
-                        print(f"Error sending payload to api: {e}")
-
-            update_progress()
-
-        if self.best_solution is None:
-            raise ValueError("No valid solution found during optimization")
-
-        # Convert best solution to list of tuples for modify_strategy
-        best_solution_tuples = [(k, str(v)) for k, v in self.best_solution.items()]
-
-        return OptimizationResult(
-            mapped_genes=best_solution_tuples,
-            fitness=self.best_fitness,
-            best_strategy=modify_strategy(
-                self.base_strategy.copy(),
-                best_solution_tuples,
-                self.config_file.get("predefined_sets"),
-            ),
-            started_at=self.started_at,
-            completed_at=datetime.datetime.now(),
-            generation_history=self.generation_history,
-        )
-
-    def report_progress(
-        self,
-        generation: int,
-        best_fitness: float,
-        avg_fitness: float,
-        metrics: Dict[str, Any],
-    ) -> None:
-        """Report progress to API if URL is specified."""
-        if not self.api_url:
-            return
-
         try:
-            # Prepare payload with metrics and generation data
-            payload = {
-                "run_id": self.run_id,
-                "generation": generation,
-                "best_fitness": float(best_fitness),
-                "avg_fitness": float(avg_fitness),
-                "metrics": metrics,
-                "timestamp": datetime.datetime.now().isoformat(),
-            }
+            # Initialize population
+            self.population = self.create_initial_population()
+            self.start_time = datetime.datetime.now()
 
-            # Sanitize the payload for JSON serialization
-            sanitized_payload = sanitize_for_json(payload)
+            for generation in range(self.config.num_generations):
+                # Evaluate population
+                if self.config.use_parallel and self.config.parallel_processing > 1:
+                    # Use parallel processing if enabled
+                    with concurrent.futures.ProcessPoolExecutor(
+                        max_workers=self.config.parallel_processing
+                    ) as executor:
+                        # Use the standalone wrapper function with partial to bind the other arguments
+                        eval_func = partial(
+                            evaluate_solution_wrapper,
+                            base_strategy=self.base_strategy,
+                            fitness_weights=self.fitness,
+                            predefined_sets=self.config_file.get("predefined_sets"),
+                        )
 
-            # Send to API
-            requests.post(self.api_url, json=sanitized_payload, timeout=10)
+                        # Execute in parallel
+                        fitness_scores_results = list(
+                            executor.map(eval_func, self.population)
+                        )
+                else:
+                    # Sequential processing
+                    fitness_scores_results = [
+                        self.evaluate_solution(solution) for solution in self.population
+                    ]
+
+                self.fitness_scores = [result[0] for result in fitness_scores_results]
+                metrics = [result[1] for result in fitness_scores_results]
+                # Update best solution
+                best_idx = np.argmax(self.fitness_scores)
+                if self.fitness_scores[best_idx] > self.best_fitness:
+                    self.best_solution = self.population[best_idx]
+                    self.best_fitness = self.fitness_scores[best_idx]
+                    self.stagnation_counter = 0
+                else:
+                    self.stagnation_counter += 1
+
+                # Save winners from this generation
+                self.save_winners(
+                    generation, self.population, self.fitness_scores, metrics[best_idx]
+                )
+
+                # Record generation history
+                self.generation_history.append(
+                    {
+                        "generation": generation,
+                        "best_fitness": self.best_fitness,
+                        "avg_fitness": float(np.mean(self.fitness_scores)),
+                        "diversity": self.calculate_diversity(),
+                        "stagnation_counter": self.stagnation_counter,
+                    }
+                )
+
+                # Early stopping check
+                if self.stagnation_counter >= self.config.early_stopping_patience:
+                    print(f"Early stopping at generation {generation}")
+                    break
+
+                # Refresh population check
+                if self.stagnation_counter >= self.config.stagnation_threshold:
+                    self.refresh_population()
+                    # Skip the rest of this iteration since we've refreshed the population
+                    # and need to reevaluate it in the next generation
+                    continue
+
+                # Adjust population size based on diversity
+                diversity = self.calculate_diversity()
+                if diversity < self.config.diversity_threshold:
+                    self.config.sol_per_pop = min(self.config.sol_per_pop * 2, 50)
+                elif diversity > 0.9:
+                    self.config.sol_per_pop = max(self.config.sol_per_pop // 2, 10)
+
+                # Create new population
+                new_population: List[Dict[str, Any]] = []
+
+                # Elitism: preserve best solutions
+                elite_indices = np.argsort(self.fitness_scores)[-self.config.elitism :]
+                new_population.extend([self.population[i] for i in elite_indices])
+
+                # Create offspring
+                while len(new_population) < self.config.sol_per_pop:
+                    parents = self.select_parents()
+                    child = self.crossover(parents[0], parents[1])
+                    child = self.mutate(child)
+                    new_population.append(child)
+
+                self.population = new_population
+
+                # Print progress
+                def update_progress():
+                    current_strategy_link = f"{self.winners_dir}/current.json"
+                    os.system("cls" if os.name == "nt" else "clear")
+                    # load the current strategy
+                    with open(current_strategy_link, "r", encoding="utf-8") as f:
+                        current_strategy = json.load(f)
+                    
+                    payload = self.create_payload(event="job_update", generation=generation)
+                    payload["strategy"] = current_strategy
+
+                    # make a pretty payload
+                    # send the payload to the api
+                    if self.api_url:
+                        self.update_progress(payload)
+
+                update_progress()
+
+            if self.best_solution is None:
+                raise ValueError("No valid solution found during optimization")
+
+            # Convert best solution to list of tuples for modify_strategy
+            best_solution_tuples = [(k, str(v)) for k, v in self.best_solution.items()]
+            best_solution_tuples.sort(key=lambda x: x[0])  # Sort by gene name
+
+            result = OptimizationResult(
+                mapped_genes=best_solution_tuples,
+                fitness=self.best_fitness,
+                best_strategy=modify_strategy(
+                    self.base_strategy.copy(),
+                    best_solution_tuples,
+                    self.config_file.get("predefined_sets"),
+                ),
+                started_at=self.started_at,
+                completed_at=datetime.datetime.now(),
+                generation_history=self.generation_history,
+            )
+
+            # Send job completed webhook
+            if self.api_url:
+                try:
+                    payload = self.create_payload(event="job_completed", generation=self.config.num_generations)
+                    payload["percent_complete"] = 1
+                    payload["estimated_time_remaining"] = "0"
+                    payload["WT"] = "heyy"
+                    self.update_progress(payload)
+                except Exception as e:
+                    print(f"Error sending job completed webhook: {e}")
+
+            return result
+
         except Exception as e:
-            print(f"Error sending payload to api: {str(e)}")
+            # Send job failed webhook
+            if self.api_url:
+                try:
+                    payload = self.create_payload(event="job_failed", generation=generation if "generation" in locals() else 0)
+                    payload["error"] = str(e)
+                    payload["estimated_time_remaining"] = None
+                    self.update_progress(payload)
+                except Exception as webhook_error:
+                    print(f"Error sending job failed webhook: {webhook_error}")
+            raise e
+

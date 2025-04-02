@@ -7,7 +7,6 @@ from fast_trade.ml.evolution.genetic_algorithm import GeneticAlgorithm
 from fast_trade.ml.evolution.models import OptimizationConfig, OptimizationResult
 from fast_trade.ml.evolution.utils import (
     process_genes_from_config,
-    save_optimization_results,
 )
 
 
@@ -69,9 +68,7 @@ def optimize_strategy(
         config_file=config_file,
     )
     result = ga.run()
-
-    # Save results
-    save_optimization_results(result, run_id, api_url)
+    
     return result
 
 

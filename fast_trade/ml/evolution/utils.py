@@ -18,38 +18,6 @@ def sanitize_for_json(obj: Any) -> Any:
     return obj
 
 
-def save_optimization_results(result: Any, run_id: str, api_url: str = None) -> None:
-    """Save optimization results to a file."""
-    archive_path = os.getenv("ARCHIVE_PATH", os.path.join(os.getcwd(), "ft_archive/ml"))
-    results_dir = f"{archive_path}/{run_id}"
-    os.makedirs(results_dir, exist_ok=True)
-
-    result_dict = {
-        "mapped_genes": result.mapped_genes,
-        "fitness": result.fitness,
-        "best_strategy": result.best_strategy,
-        "started_at": result.started_at.isoformat(),
-        "completed_at": result.completed_at.isoformat(),
-        "generation_history": result.generation_history,
-    }
-
-    # Sanitize to handle non-JSON-compliant float values
-    sanitized_result = sanitize_for_json(result_dict)
-
-    filename = f"{results_dir}/winner.json"
-    with open(filename, "w", encoding="utf-8") as f:
-        json.dump(sanitized_result, f, indent=2)
-
-    # send the winner to the api
-    
-    if api_url:
-        payload = {
-            "run_id": run_id,
-            **sanitized_result,
-        }
-        requests.post(api_url, json=payload)
-
-
 def evaluate_solution_wrapper(
     solution: Dict[str, Any],
     base_strategy: Dict[str, Any],
