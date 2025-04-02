@@ -89,7 +89,7 @@ class GeneticAlgorithm:
             diversity = self.calculate_diversity()
 
         # Calculate best fitness and stagnation counter if available
-        best_fitness = getattr(self, 'best_fitness', None)
+        best_fitness = getattr(self, 'best_fitness', 0)
         stagnation_counter = getattr(self, 'stagnation_counter', 0)
 
         # Calculate percent complete
