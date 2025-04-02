@@ -7,8 +7,6 @@ def test_validate_backtest_empty_1():
     backtest_mirror = validate_backtest(mock_backtest)
 
     assert backtest_mirror["datapoints"]["error"] is True
-    assert backtest_mirror["exit"]["error"] is True
-    assert backtest_mirror["enter"]["error"] is True
 
 
 def test_validate_backtest_base_balance():

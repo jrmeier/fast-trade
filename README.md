@@ -5,9 +5,10 @@
 [![Python 3.7+](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/download/releases/3.7.0/)
 [![Python application](https://github.com/jrmeier/fast-trade/workflows/Python%20application/badge.svg)](https://github.com/jrmeier/fast-trade/actions)
 
-A library built with backtest portability and performance in mind for backtest trading strategies. There is also an [Archive](#Archive), which can be used to download compatible kline data from Binance (.com or .us) and Coinbase into sqlite databases. It's also possible to do some strategy optimization use `pygad` to discover and optimize strategies.
+A library built with backtest portability and performance in mind for backtest trading strategies. There is also an [Archive](#Archive), which can be used to download compatible kline data from Binance (.com or .us) and Coinbase into sqlite databases. It's also possible to do some strategy optimization use `pygad` to discover and optimize strategies. See [Evolution](#Evolution) for all the details there.
 
 ## Motivations
+
 If backests are fast, strategies are cheap.
 
 ## Beta Testing
@@ -580,6 +581,178 @@ Example:
 ]
 ```
 
-## Supported Indicators
+## Evolution
 
-See [finta/README.md](FINTA_README.md) for a list of supported indicators.
+Fast Trade includes a genetic algorithm-based strategy optimization system that can automatically discover and optimize trading strategies. This system allows you to define parameters to optimize and automatically finds the best combinations.
+
+### Basic Usage
+
+```python
+from fast_trade.ml.evolution import optimize_strategy
+
+# Define your base strategy
+base_strategy = {
+    "base_balance": 1000,
+    "freq": "5Min",
+    "comission": 0.01,
+    "datapoints": [
+        {
+            "args": [30],
+            "transformer": "sma",
+            "name": "sma_short"
+        },
+        {
+            "args": [90],
+            "transformer": "sma",
+            "name": "sma_long"
+        }
+    ],
+    "enter": [
+        ["close", ">", "sma_long"],
+        ["close", ">", "sma_short"]
+    ],
+    "exit": [["close", "<", "sma_short"]]
+}
+
+# Define genes to optimize
+genes = [
+    {
+        "name": "sma_short_period",
+        "type": "int",
+        "args": [10, 50],  # min, max values
+        "values_ref": "datapoints.0.args.0"  # path to modify in strategy
+    },
+    {
+        "name": "sma_long_period",
+        "type": "int",
+        "args": [50, 200],
+        "values_ref": "datapoints.1.args.0"
+    }
+]
+
+# Configure optimization
+config = OptimizationConfig(
+    num_generations=100,
+    sol_per_pop=20,
+    num_parents_mating=10,
+    mutation_percent_genes=0.1
+)
+
+# Run optimization
+result = optimize_strategy(
+    base_strategy=base_strategy,
+    genes=genes,
+    config=config,
+    run_id="my_optimization"
+)
+
+# Access results
+best_strategy = result.best_strategy
+fitness_score = result.fitness
+```
+
+### Gene Types
+
+The evolution system supports several types of genes:
+
+- `int`: Integer values with min/max range
+- `float`: Floating point values with min/max range
+- `categorical`: Discrete choices from a predefined list
+- `boolean`: True/false values
+
+Example gene definitions:
+
+```python
+genes = [
+    # Integer gene
+    {
+        "name": "period",
+        "type": "int",
+        "args": [10, 100],
+        "values_ref": "datapoints.0.args.0"
+    },
+    
+    # Float gene
+    {
+        "name": "threshold",
+        "type": "float",
+        "args": [0.1, 0.5],
+        "values_ref": "strategy.threshold"
+    },
+    
+    # Categorical gene
+    {
+        "name": "indicator",
+        "type": "categorical",
+        "categories": ["sma", "ema", "rsi"],
+        "values_ref": "datapoints.0.transformer"
+    },
+    
+    # Boolean gene
+    {
+        "name": "use_stop_loss",
+        "type": "boolean",
+        "values_ref": "strategy.use_stop_loss"
+    }
+]
+```
+
+### Optimization Configuration
+
+The `OptimizationConfig` class allows you to fine-tune the genetic algorithm:
+
+```python
+config = OptimizationConfig(
+    num_generations=100,          # Number of generations to run
+    sol_per_pop=20,              # Solutions per population
+    num_parents_mating=10,       # Number of parents to select
+    parent_selection_type="tournament",  # Selection method
+    crossover_type="uniform",    # Crossover method
+    mutation_type="adaptive",    # Mutation method
+    mutation_percent_genes=0.1,  # Percentage of genes to mutate
+    parallel_processing=8,       # Number of parallel processes
+    use_parallel=False,          # Enable/disable parallel processing
+    elitism=2,                   # Number of best solutions to preserve
+    diversity_threshold=0.7,     # Minimum population diversity
+    stagnation_threshold=10,     # Generations without improvement before refresh
+    early_stopping_patience=20,  # Generations without improvement before stopping
+    min_improvement=0.001,       # Minimum improvement threshold
+    refresh_generations=10,      # Generations between population refresh
+    refresh_percent=0.5          # Percentage of population to refresh
+)
+```
+
+### Results
+
+The optimization process returns an `OptimizationResult` object containing:
+
+- `mapped_genes`: List of optimized gene values
+- `fitness`: Best fitness score achieved
+- `best_strategy`: The optimized strategy configuration
+- `started_at`: Optimization start timestamp
+- `completed_at`: Optimization completion timestamp
+- `generation_history`: History of generation performance
+
+### Predefined Sets
+
+You can define predefined sets of values to use in your optimization:
+
+```python
+config_file = {
+    "predefined_sets": {
+        "timeframes": ["1Min", "5Min", "15Min", "1H", "4H", "1D"],
+        "indicators": ["sma", "ema", "rsi", "macd"]
+    }
+}
+```
+
+These sets can then be referenced in categorical genes:
+
+```python
+{
+    "name": "timeframe",
+    "type": "categorical",
+    "values_ref": "strategy.freq",
+    "values_ref": "predefined_sets.timeframes"
+}
+```
