@@ -585,7 +585,16 @@ Example:
 
 Fast Trade includes a genetic algorithm-based strategy optimization system that can automatically discover and optimize trading strategies. This system allows you to define parameters to optimize and automatically finds the best combinations.
 
+See [EvolverExample](EvolverExample.json) for a complete example. 
+
+
+### CLI
+
+To use this from the cli, use the command `ft evolver --config path/to/config.json`
+
+
 ### Basic Usage
+
 
 ```python
 from fast_trade.ml.evolution import optimize_strategy
@@ -699,6 +708,7 @@ genes = [
 
 ### Optimization Configuration
 
+See the [PyGad Documentation](https://pygad.readthedocs.io/en/latest/) for details.
 The `OptimizationConfig` class allows you to fine-tune the genetic algorithm:
 
 ```python
@@ -742,7 +752,8 @@ config_file = {
     "predefined_sets": {
         "timeframes": ["1Min", "5Min", "15Min", "1H", "4H", "1D"],
         "indicators": ["sma", "ema", "rsi", "macd"]
-    }
+    },
+    "api_url": None # optional, sends a post request to an endpoint to monitor the job progress
 }
 ```
 
