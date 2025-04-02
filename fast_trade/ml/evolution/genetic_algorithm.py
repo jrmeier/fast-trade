@@ -61,7 +61,7 @@ class GeneticAlgorithm:
 
     def create_payload(self, event: str = "job_started", generation: int = 0) -> Dict:
         # For initial payload, use base strategy without modifications
-        if not hasattr(self, 'best_solution') or self.best_solution is None:
+        if not hasattr(self, "best_solution") or self.best_solution is None:
             strat = self.base_strategy
         else:
             best_solution_tuples = [(k, str(v)) for k, v in self.best_solution.items()]
@@ -75,22 +75,26 @@ class GeneticAlgorithm:
         # Calculate duration and time remaining if we have a start time
         duration = None
         estimated_time_remaining = None
-        if hasattr(self, 'start_time'):
+        if hasattr(self, "start_time"):
             duration = datetime.datetime.now() - self.start_time
             if generation > 0:
-                estimated_time_remaining = (duration * self.config.num_generations) / generation - duration
-                estimated_time_remaining = datetime.timedelta(seconds=estimated_time_remaining.total_seconds())
+                estimated_time_remaining = (
+                    duration * self.config.num_generations
+                ) / generation - duration
+                estimated_time_remaining = datetime.timedelta(
+                    seconds=estimated_time_remaining.total_seconds()
+                )
                 estimated_time_remaining = str(estimated_time_remaining)
             duration = str(duration)
 
         # Calculate diversity if we have a population
         diversity = None
-        if hasattr(self, 'population') and self.population:
+        if hasattr(self, "population") and self.population:
             diversity = self.calculate_diversity()
 
         # Calculate best fitness and stagnation counter if available
-        best_fitness = getattr(self, 'best_fitness', 0)
-        stagnation_counter = getattr(self, 'stagnation_counter', 0)
+        best_fitness = getattr(self, "best_fitness", 0)
+        stagnation_counter = getattr(self, "stagnation_counter", 0)
 
         # Calculate percent complete
         percent_complete = 0
@@ -107,9 +111,13 @@ class GeneticAlgorithm:
             "fitness_weights": self.fitness,
             "percent_complete": percent_complete,
             "genes": [gene.__dict__ for gene in self.genes],
-            "status": "running" if event in ["job_started", "job_update"] else "completed" if event == "job_completed" else "failed",
+            "status": (
+                "running"
+                if event in ["job_started", "job_update"]
+                else "completed" if event == "job_completed" else "failed"
+            ),
             "error": None,
-            "best_fitness": best_fitness,
+            "best_fitness": best_fitness or 0,
             "current_generation": generation,
             "total_generations": self.config.num_generations,
             "duration": duration,
@@ -130,7 +138,7 @@ class GeneticAlgorithm:
                 requests.post(self.api_url, json=payload, timeout=10)
             except Exception as e:
                 print(f"Error sending payload to api: {e}")
-    
+
     def create_initial_population(self) -> List[Dict[str, Any]]:
         """Create initial population with diverse solutions."""
         population: List[Dict[str, Any]] = []
@@ -516,8 +524,10 @@ class GeneticAlgorithm:
                     # load the current strategy
                     with open(current_strategy_link, "r", encoding="utf-8") as f:
                         current_strategy = json.load(f)
-                    
-                    payload = self.create_payload(event="job_update", generation=generation)
+
+                    payload = self.create_payload(
+                        event="job_update", generation=generation
+                    )
                     payload["strategy"] = current_strategy
 
                     # make a pretty payload
@@ -550,7 +560,9 @@ class GeneticAlgorithm:
             # Send job completed webhook
             if self.api_url:
                 try:
-                    payload = self.create_payload(event="job_completed", generation=self.config.num_generations)
+                    payload = self.create_payload(
+                        event="job_completed", generation=self.config.num_generations
+                    )
                     payload["percent_complete"] = 1
                     payload["estimated_time_remaining"] = "0"
                     payload["WT"] = "heyy"
@@ -564,11 +576,13 @@ class GeneticAlgorithm:
             # Send job failed webhook
             if self.api_url:
                 try:
-                    payload = self.create_payload(event="job_failed", generation=generation if "generation" in locals() else 0)
+                    payload = self.create_payload(
+                        event="job_failed",
+                        generation=generation if "generation" in locals() else 0,
+                    )
                     payload["error"] = str(e)
                     payload["estimated_time_remaining"] = None
                     self.update_progress(payload)
                 except Exception as webhook_error:
                     print(f"Error sending job failed webhook: {webhook_error}")
             raise e
-

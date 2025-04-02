@@ -68,7 +68,7 @@ def optimize_strategy(
         config_file=config_file,
     )
     result = ga.run()
-    
+
     return result
 
 
