@@ -199,13 +199,13 @@ class GeneticAlgorithm:
         fitness_scores: List[float],
         metrics: Dict[str, Any],
     ) -> None:
-        """Save the best winner from the current generation to a file."""
+        """Save only the top elites across all generations."""
         # Sort winners by fitness score
         sorted_winners = sorted(
             zip(winners, fitness_scores), key=lambda x: x[1], reverse=True
         )
 
-        # Save only the best winner
+        # Save the best winner of this generation
         best_winner, best_score = sorted_winners[0]
 
         # Convert solution to list of tuples for modify_strategy
@@ -216,6 +216,7 @@ class GeneticAlgorithm:
             self.config_file.get("predefined_sets"),
         )
 
+        # Save the current generation's best to current.json
         winner_data = {
             "strategy": strategy,
             "fitness_score": float(best_score),
@@ -228,18 +229,24 @@ class GeneticAlgorithm:
         # Sanitize data for JSON serialization
         sanitized_data = sanitize_for_json(winner_data)
 
-        # Save to file
+        # Save to current.json (best of this generation)
         full_path = os.path.join(self.winners_dir, "current.json")
-        # create the directory if it doesn't exist
-        os.makedirs(os.path.dirname(full_path), exist_ok=True)
-
         with open(full_path, "w", encoding="utf-8") as f:
             json.dump(sanitized_data, f, indent=2)
 
-        # Also save the best overall solution if this is better
+        # Also save the best overall solution if this generation's best is better
         if best_score > self.best_fitness:
+            # Update best fitness
+            self.best_fitness = best_score
+            
+            # Save as the best overall solution
             best_path = os.path.join(self.winners_dir, "best.json")
             with open(best_path, "w", encoding="utf-8") as f:
+                json.dump(sanitized_data, f, indent=2)
+            
+            # Also save as elite_N.json where N is based on rank
+            elite_path = os.path.join(self.winners_dir, f"elite.json")
+            with open(elite_path, "w", encoding="utf-8") as f:
                 json.dump(sanitized_data, f, indent=2)
 
     def refresh_population(self) -> None:
@@ -412,7 +419,7 @@ class GeneticAlgorithm:
             new_population: List[Dict[str, Any]] = []
 
             # Elitism: preserve best solutions
-            elite_indices = np.argsort(self.fitness_scores)[-self.config.elitism :]
+            elite_indices = np.argsort(self.fitness_scores)[-self.config.elitism:]
             new_population.extend([self.population[i] for i in elite_indices])
 
             # Create offspring
