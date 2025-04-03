@@ -149,28 +149,16 @@ def modify_strategy(
     new_strategy["datapoints"] = []
     for datapoint in strategy.get("datapoints", []):
         new_datapoint = datapoint.copy()
-        base_name = new_datapoint["name"]
+        transformer_name = new_datapoint["transformer"]
+        if transformer_name.startswith("#"):
+            transformer_name = transformer_name[1:]
 
         # Handle transformer - using direct gene name
-        if base_name in gene_map:
+        if transformer_name in gene_map:
             try:
-                float_value = float(gene_map[base_name])
-                transformer_idx = int(
-                    float_value
-                    * (len(new_strategy["predefined_sets"]["transformers"]) - 1)
-                )
-                transformer_idx = max(
-                    0,
-                    min(
-                        transformer_idx,
-                        len(new_strategy["predefined_sets"]["transformers"]) - 1,
-                    ),
-                )
-                new_datapoint["transformer"] = new_strategy["predefined_sets"][
-                    "transformers"
-                ][transformer_idx]
+                new_datapoint["transformer"] = gene_map[transformer_name]
             except (ValueError, TypeError):
-                new_datapoint["transformer"] = "sma"
+                new_datapoint["transformer"] = gene_map[transformer_name]
 
         # Handle args (periods)
         if "args" in new_datapoint:
@@ -189,7 +177,6 @@ def modify_strategy(
                 else:
                     new_args.append(arg)
             new_datapoint["args"] = new_args
-
         new_strategy["datapoints"].append(new_datapoint)
 
     def generate_random_datapoint(

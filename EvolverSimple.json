@@ -1,6 +1,6 @@
 {
     "name": "EvolverSimple",
-    "api_url": null,
+    "api_url": "",
     "predefined_sets": {
       "columns": ["close", "open", "low", "high"],
       "frequencies": ["1Min", "5Min", "15Min", "30Min", "1h", "4h", "8h", "12h"],
@@ -15,26 +15,38 @@
         "args": []
       },
       {
-        "name": "num_any_enter",
-        "type": "int",
-        "args": [1, 3]
+        "name": "sma_transformer",
+        "type": "categorical",
+        "values_ref": "transformers",
+        "args": []
       },
       {
-        "name": "num_any_exit",
+        "name": "sma_args",
         "type": "int",
-        "args": [1, 3]
+        "args": [1, 300]
       },
       {
-        "name": "num_datapoints",
-        "type": "int",
-        "args": [1, 3]
+        "name": "sma_column",
+        "type": "categorical",
+        "values_ref": "columns",
+        "args": []
       }
     ],
     "strategy": {
         "freq": "#freq",
-        "enter": [],
-        "exit": [],
-        "datapoints": [],
+        "enter": [
+          ["close", ">", "sma_100"]
+        ],
+        "exit": [
+          ["close", "<", "sma_100"]
+        ],
+        "datapoints": [
+          {
+            "name": "sma_100",
+            "transformer": "#sma_transformer",
+            "args": ["#sma_args","#sma_column"]
+          }
+        ],
         "base_balance": 1000.0,
         "exit_on_end": false,
         "comission": 0.01,
@@ -51,7 +63,7 @@
     "config": {
         "num_generations": 5,
         "parallel_processing": 8,
-        "use_parallel": true,
+        "use_parallel": false,
         "sol_per_pop": 10,
         "num_parents_mating": 2,
         "mutation_percent_genes": 20,

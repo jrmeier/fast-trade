@@ -128,16 +128,20 @@ class GeneticAlgorithm:
 
     def update_progress(self, payload: Dict[str, Any]) -> None:
         """Send progress update to API if URL is specified."""
+        import time
+
+        payload = sanitize_for_json(payload)
+        payload_str = json.dumps(payload, indent=2)
+        print("-" * 50)
+        print(payload_str)
+        print("-" * 50)
+        
         if self.api_url:
             try:
-                payload = sanitize_for_json(payload)
-                payload_str = json.dumps(payload, indent=2)
-                print("-" * 50)
-                print(payload_str)
-                print("-" * 50)
                 requests.post(self.api_url, json=payload, timeout=10)
             except Exception as e:
                 print(f"Error sending payload to api: {e}")
+        # time.sleep(1000)
 
     def create_initial_population(self) -> List[Dict[str, Any]]:
         """Create initial population with diverse solutions."""
