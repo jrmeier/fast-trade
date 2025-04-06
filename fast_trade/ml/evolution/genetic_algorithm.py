@@ -52,6 +52,7 @@ class GeneticAlgorithm:
         print(f"Directory: {winners_dir}")
         self.winners_dir = winners_dir
         self.config_file = config_file
+        self.elites: List[Dict[str, Any]] = []
         os.makedirs(self.winners_dir, exist_ok=True)
 
         # Send job started webhook
@@ -116,6 +117,7 @@ class GeneticAlgorithm:
                 if event in ["job_started", "job_update"]
                 else "completed" if event == "job_completed" else "failed"
             ),
+            "elites": self.elites,
             "error": None,
             "best_fitness": best_fitness or 0,
             "current_generation": generation,
@@ -124,18 +126,22 @@ class GeneticAlgorithm:
             "estimated_time_remaining": estimated_time_remaining,
             "diversity": diversity,
             "stagnation_counter": stagnation_counter,
+            "generation_history": self.generation_history,
         }
 
     def update_progress(self, payload: Dict[str, Any]) -> None:
         """Send progress update to API if URL is specified."""
         import time
 
+        payload = {**self.create_payload(), **payload}
         payload = sanitize_for_json(payload)
         payload_str = json.dumps(payload, indent=2)
+
+        with open(f"{self.winners_dir}/payload.json", "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2)
         print("-" * 50)
         print(payload_str)
         print("-" * 50)
-        
         if self.api_url:
             try:
                 requests.post(self.api_url, json=payload, timeout=10)
@@ -512,6 +518,8 @@ class GeneticAlgorithm:
                 elite_indices = np.argsort(self.fitness_scores)[-self.config.elitism :]
                 new_population.extend([self.population[i] for i in elite_indices])
 
+                self.elites = [self.population[i] for i in elite_indices]
+
                 # Create offspring
                 while len(new_population) < self.config.sol_per_pop:
                     parents = self.select_parents()
@@ -522,24 +530,11 @@ class GeneticAlgorithm:
                 self.population = new_population
 
                 # Print progress
-                def update_progress():
-                    current_strategy_link = f"{self.winners_dir}/current.json"
-                    os.system("cls" if os.name == "nt" else "clear")
-                    # load the current strategy
-                    with open(current_strategy_link, "r", encoding="utf-8") as f:
-                        current_strategy = json.load(f)
+                os.system("cls" if os.name == "nt" else "clear")
+                # load the current strategy
+                payload = self.create_payload(event="job_update", generation=generation)
 
-                    payload = self.create_payload(
-                        event="job_update", generation=generation
-                    )
-                    payload["strategy"] = current_strategy
-
-                    # make a pretty payload
-                    # send the payload to the api
-                    if self.api_url:
-                        self.update_progress(payload)
-
-                update_progress()
+                self.update_progress(payload)
 
             if self.best_solution is None:
                 raise ValueError("No valid solution found during optimization")
