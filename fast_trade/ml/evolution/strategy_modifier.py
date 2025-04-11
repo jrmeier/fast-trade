@@ -2,8 +2,8 @@ from typing import Any, Dict, List, Tuple
 import random
 
 # Constants
-FREQUENCY_MAP = ["1Min", "5Min", "15Min", "30Min", "1h", "4h", "8h", "12h"]
-COLUMNS = ["close", "open", "low", "high"]
+FREQUENCY_MAP = ["1Min", "5Min", "10Min","15Min", "30Min", "45Min","1h","2h", "4h", "8h", "12h","24h","36h","48h","72h"]
+COLUMNS = ["close", "open", "low", "high","volume"]
 OPERATORS = ["<", ">", "=", "!="]
 TRANSFORMERS = ["ema", "zlema", "sma"]
 
@@ -131,17 +131,7 @@ def modify_strategy(
     if "freq" in gene_map:
         freq_value = gene_map["freq"]
         # Check if the value is already a valid frequency
-        if freq_value in FREQUENCY_MAP:
-            new_strategy["freq"] = freq_value
-        else:
-            # Try to convert to float and use as index
-            try:
-                freq_idx = int(float(freq_value) * (len(FREQUENCY_MAP) - 1))
-                freq_idx = max(0, min(freq_idx, len(FREQUENCY_MAP) - 1))
-                new_strategy["freq"] = FREQUENCY_MAP[freq_idx]
-            except ValueError:
-                # Default to strategy freq or 1h if conversion fails
-                new_strategy["freq"] = strategy.get("freq", "1h")
+        new_strategy["freq"] = freq_value
     else:
         new_strategy["freq"] = strategy.get("freq", "1h")
 
