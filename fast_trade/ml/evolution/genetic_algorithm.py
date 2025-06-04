@@ -212,9 +212,8 @@ class GeneticAlgorithm:
         """Select parents using tournament selection."""
         parents: List[Dict[str, Any]] = []
         for _ in range(self.config.num_parents_mating):
-            tournament = random.sample(
-                list(enumerate(self.population)), self.config.K_tournament
-            )
+            tournament_size = min(self.config.K_tournament, len(self.population))
+            tournament = random.sample(list(enumerate(self.population)), tournament_size)
             winner_idx = max(tournament, key=lambda x: self.fitness_scores[x[0]])[0]
             parents.append(self.population[winner_idx])
         return parents
@@ -507,10 +506,11 @@ class GeneticAlgorithm:
                 # Adjust population size based on diversity
                 diversity = self.calculate_diversity()
                 if diversity < self.config.diversity_threshold:
-                    self.config.sol_per_pop = min(self.config.sol_per_pop * 2, 50)
+                    pass
+                    # self.config.sol_per_pop = min(self.config.sol_per_pop * 2, 50)
                 elif diversity > 0.9:
-                    self.config.sol_per_pop = max(self.config.sol_per_pop // 2, 10)
-
+                    #self.config.sol_per_pop = max(self.config.sol_per_pop // 2, 10)
+                    pass
                 # Create new population
                 new_population: List[Dict[str, Any]] = []
 
@@ -528,7 +528,7 @@ class GeneticAlgorithm:
                     new_population.append(child)
 
                 self.population = new_population
-
+                print("len self.population: ", len(self.population))
                 # Print progress
                 os.system("cls" if os.name == "nt" else "clear")
                 # load the current strategy
