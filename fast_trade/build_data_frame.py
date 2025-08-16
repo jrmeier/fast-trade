@@ -197,6 +197,8 @@ def apply_transformers_to_dataframe(
         try:
             if len(ind.get("args", [])):
                 args = ind.get("args")
+                # convert args to int if they are numbers
+                args = [int(arg) if str(arg).isdigit() else arg for arg in args]
                 trans_res = transformers_map[transformer](tmp_df, *args)
             else:
                 trans_res = transformers_map[transformer](tmp_df)

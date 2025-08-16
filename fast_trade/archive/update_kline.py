@@ -24,12 +24,15 @@ def update_kline(
         start_date = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
             days=30
         )
+    if start_date.tzinfo is None:
+        start_date = start_date.replace(tzinfo=datetime.timezone.utc)
     if end_date is None:
         # now
         end_date = datetime.datetime.now(datetime.timezone.utc)
 
-    start_date = start_date.replace(tzinfo=datetime.timezone.utc)
-    end_date = end_date.replace(tzinfo=datetime.timezone.utc)
+    if end_date.tzinfo is None:
+        end_date = end_date.replace(tzinfo=datetime.timezone.utc)
+
     now = datetime.datetime.now(datetime.timezone.utc)
 
     if end_date > now:

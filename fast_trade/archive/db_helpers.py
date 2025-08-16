@@ -114,13 +114,6 @@ def get_kline(
     Get the klines from the db
     """
     db_path = f"{ARCHIVE_PATH}/{exchange}/{symbol}.sqlite"
-    # if the db exists, if not try and downlaod it
-    if not os.path.exists(db_path):
-        import fast_trade.archive.update_kline as update_kline
-
-        update_kline.update_kline(
-            symbol=symbol, exchange=exchange, start_date=start_date, end_date=end_date
-        )
 
     if start_date is not None:
         if isinstance(start_date, str):
@@ -129,6 +122,14 @@ def get_kline(
     if end_date is not None:
         if isinstance(end_date, str):
             end_date = datetime.datetime.fromisoformat(end_date)
+
+    # if the db exists, if not try and downlaod it
+    if not os.path.exists(db_path):
+        import fast_trade.archive.update_kline as update_kline
+
+        update_kline.update_kline(
+            symbol=symbol, exchange=exchange, start_date=start_date, end_date=end_date
+        )
 
     conn = connect_to_db(db_path)
     query = "SELECT * FROM klines"

@@ -1,6 +1,6 @@
 import datetime
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 
 @dataclass
@@ -54,7 +54,7 @@ class OptimizationConfig:
 class OptimizationResult:
     """Results from the optimization process."""
 
-    mapped_genes: List[tuple[str, str]]
+    mapped_genes: List[Tuple[str, str]]
     fitness: float
     best_strategy: Dict[str, Any]
     started_at: datetime.datetime

@@ -18,6 +18,25 @@ def sanitize_for_json(obj: Any) -> Any:
     return obj
 
 
+def to_numeric(value):
+    if isinstance(value, str):
+        if value.isdigit():
+            return int(value)
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            return value
+    return value
+
+
+def deep_convert_to_numeric(data):
+    if isinstance(data, dict):
+        return {key: deep_convert_to_numeric(value) for key, value in data.items()}
+    if isinstance(data, list):
+        return [deep_convert_to_numeric(item) for item in data]
+    return to_numeric(data)
+
+
 def evaluate_solution_wrapper(
     solution: Dict[str, Any],
     base_strategy: Dict[str, Any],
@@ -32,6 +51,11 @@ def evaluate_solution_wrapper(
     # Convert solution to list of tuples for modify_strategy
     solution_tuples = [(k, str(v)) for k, v in solution.items()]
     strategy = modify_strategy(base_strategy.copy(), solution_tuples, predefined_sets)
+
+    # Modify the strategy based on the solution's genes
+    strategy = deep_convert_to_numeric(strategy)
+
+    # Now, run the backtest with the modified strategy
     result = run_backtest(strategy)
 
     # Calculate fitness using multiple metrics

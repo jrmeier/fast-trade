@@ -42,7 +42,6 @@ def process_conditions(
         List of modified conditions
     """
     new_conditions = []
-
     for idx, condition in enumerate(original_conditions):
         new_condition = condition.copy()
         pos1 = new_condition[0]
@@ -102,7 +101,6 @@ def process_conditions(
                 except Exception:
                     # leave operator unchanged if invalid
                     pass
-
         # Position 4 - lookback (if exists)
         if len(new_condition) > 3 and lookback.startswith("#"):
             gene_name = lookback[1:]
@@ -273,15 +271,112 @@ def modify_strategy(
     return new_strategy
 
 
+def get_random_gene_values(
+    genes: List[Dict[str, Any]], predefined_sets: Dict[str, List[str]]
+) -> List[Tuple[str, Any]]:
+    """Generate random values for a list of genes."""
+    gene_values = []
+    for gene in genes:
+        gene_name = gene["name"]
+        gene_type = gene["type"]
+        if gene_type == "categorical":
+            values_ref = gene.get("values_ref")
+            if values_ref and values_ref in predefined_sets:
+                gene_values.append(
+                    (gene_name, random.choice(predefined_sets[values_ref]))
+                )
+        elif gene_type == "int":
+            min_val, max_val = gene["args"]
+            gene_values.append((gene_name, random.randint(min_val, max_val)))
+    return gene_values
+
+
+def to_numeric(new_value):
+    """
+    Helper function to convert string values to numeric types if possible.
+    """
+    if new_value.isdigit():
+        return int(new_value)
+    try:
+        return float(new_value)
+    except (ValueError, TypeError):
+        return new_value
+
+
+def replace_placeholders(data, replacements):
+    """
+    Recursively replace placeholders in a data structure (dict, list, string)
+    with values from a replacements dictionary.
+    """
+    if isinstance(data, str):
+        if data.startswith("#"):
+            key = data[1:]
+            if key in replacements:
+                return to_numeric(replacements[key])
+        return data
+    if isinstance(data, list):
+        return [replace_placeholders(item, replacements) for item in data]
+    if isinstance(data, dict):
+        return {k: replace_placeholders(v, replacements) for k, v in data.items()}
+    return data
+
+
 if __name__ == "__main__":
-    strategy = {
-        "enter": [["close", ">", "sma_100"]],
-        "exit": [["close", "<", "sma_100"]],
-        "datapoints": [{"name": "sma_100", "transformer": "sma", "args": [100]}],
-        "freq": "1h",
-    }
-    genes = [("sma_100", "sma")]
     predefined_sets = {
+        "frequencies": [
+            "1Min",
+            "5Min",
+            "10Min",
+            "15Min",
+            "30Min",
+            "45Min",
+            "1h",
+            "2h",
+            "4h",
+            "8h",
+        ],
+        "operators": ["<", ">"],
+        "transformers": ["sma", "ema", "zlema"],
         "columns": ["close", "open", "low", "high", "volume"],
-        "operators": ["<", ">", "="],
     }
+    genes = [
+        {
+            "name": "freq",
+            "type": "categorical",
+            "values_ref": "frequencies",
+            "args": [],
+        },
+        {"name": "num_enter", "type": "int", "args": [1, 4]},
+        {"name": "num_exit", "type": "int", "args": [1, 4]},
+        {"name": "num_datapoints", "type": "int", "args": [3, 12]},
+        {"name": "num_any_enter", "type": "int", "args": [0, 2]},
+        {"name": "num_any_exit", "type": "int", "args": [0, 2]},
+        {"name": "rsi_overbought", "type": "int", "args": [65, 95]},
+        {"name": "rsi_oversold", "type": "int", "args": [5, 45]},
+        {"name": "rsi_overbought_lookback", "type": "int", "args": [1, 10]},
+        {"name": "rsi_oversold_lookback", "type": "int", "args": [1, 10]},
+    ]
+    strategy = {
+        "freq": "#freq",
+        "enter": [["rsi", ">", "#rsi_overbought", "#rsi_overbought_lookback"]],
+        "exit": [["rsi", "<", "#rsi_oversold", "#rsi_oversold_lookback"]],
+        "datapoints": [{"name": "rsi", "transformer": "rsi", "args": ["#rsi_period"]}],
+        "base_balance": 1000.0,
+        "exit_on_end": False,
+        "comission": 0.01,
+        "trailing_stop_loss": 0.0,
+        "lot_size_perc": 1.0,
+        "max_lot_size": 0.0,
+        "start_date": "2025-07-01T00:00:00",
+        "end_date": "2025-09-01T00:00:00",
+        "rules": None,
+        "symbol": "BTC-USD",
+        "exchange": "coinbase",
+        "completed_at": None,
+    }
+
+    gene_values = get_random_gene_values(genes, predefined_sets)
+    res = modify_strategy(strategy, gene_values, predefined_sets)
+    import pprint
+
+    pprint.pprint(res)
