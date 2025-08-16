@@ -2,8 +2,24 @@ from typing import Any, Dict, List, Tuple
 import random
 
 # Constants
-FREQUENCY_MAP = ["1Min", "5Min", "10Min","15Min", "30Min", "45Min","1h","2h", "4h", "8h", "12h","24h","36h","48h","72h"]
-COLUMNS = ["close", "open", "low", "high","volume"]
+FREQUENCY_MAP = [
+    "1Min",
+    "5Min",
+    "10Min",
+    "15Min",
+    "30Min",
+    "45Min",
+    "1h",
+    "2h",
+    "4h",
+    "8h",
+    "12h",
+    "24h",
+    "36h",
+    "48h",
+    "72h",
+]
+COLUMNS = ["close", "open", "low", "high", "volume"]
 OPERATORS = ["<", ">", "=", "!="]
 TRANSFORMERS = ["ema", "zlema", "sma"]
 
@@ -34,68 +50,58 @@ def process_conditions(
         pos2 = new_condition[2]
         lookback = new_condition[3] if len(new_condition) > 3 else 1
 
-        # Position 2 - operator
         if pos1.startswith("#"):
             gene_name = pos1[1:]
-            # Check if the value is already a valid column
-            if gene_map[gene_name] in predefined_sets["columns"]:
-                new_condition[0] = gene_map[gene_name]
+            val = gene_map.get(gene_name)
+            # If val matches a known column use it, else if it's a datapoint name use it, else leave as-is
+            if isinstance(val, str):
+                if val in predefined_sets.get("columns", []):
+                    new_condition[0] = val
+                else:
+                    # allow referencing a datapoint by name
+                    new_condition[0] = val
             else:
-                try:
-                    float_value = float(gene_map[gene_name])
-                    operator_idx = int(
-                        float_value * (len(predefined_sets["operators"]) - 1)
-                    )
-                    operator_idx = max(
-                        0,
-                        min(
-                            operator_idx,
-                            len(predefined_sets["operators"]) - 1,
-                        ),
-                    )
-                    new_condition[1] = predefined_sets["operators"][operator_idx]
-                except (ValueError, TypeError):
-                    raise ValueError(f"Invalid gene name: {gene_name}")
+                # numeric on LHS is not meaningful for most comparisons; keep original
+                pass
 
         if pos2.startswith("#"):
             gene_name = pos2[1:]
-            # Check if the value is already a valid column
-            if gene_map[gene_name] in predefined_sets["columns"]:
-                new_condition[2] = gene_map[gene_name]
-            else:
+            val = gene_map.get(gene_name)
+            # If numeric: use numeric threshold directly
+            if isinstance(val, (int, float)) or (
+                isinstance(val, str) and val.replace(".", "", 1).isdigit()
+            ):
                 try:
-                    float_value = float(gene_map[gene_name])
-                    operator_idx = int(
-                        float_value * (len(predefined_sets["columns"]) - 1)
+                    new_condition[2] = (
+                        float(val) if "." in str(val) else int(float(val))
                     )
-                    operator_idx = max(
-                        0,
-                        min(
-                            operator_idx,
-                            len(predefined_sets["columns"]) - 1,
-                        ),
-                    )
-                    new_condition[2] = predefined_sets["columns"][operator_idx]
-                except (ValueError, TypeError):
-                    raise ValueError(f"Invalid gene name: {gene_name}")
+                except Exception:
+                    new_condition[2] = val
+            elif isinstance(val, str):
+                # If it's a known column or datapoint name, pass it through
+                if val in predefined_sets.get("columns", []):
+                    new_condition[2] = val
+                else:
+                    new_condition[2] = val
+            else:
+                # default fallback: keep original token
+                pass
 
         if operator.startswith("#"):
             gene_name = operator[1:]
-            # Check if the value is already a valid operator
-            if gene_map[gene_name] in predefined_sets["operators"]:
-                new_condition[1] = gene_map[gene_name]
+            val = gene_map.get(gene_name)
+            if isinstance(val, str) and val in predefined_sets.get("operators", []):
+                new_condition[1] = val
             else:
+                # try to coerce numeric to index if provided
                 try:
-                    operator_idx = int(
-                        float(gene_map[gene_name])
-                        * (len(predefined_sets["operators"]) - 1)
-                    )
-                    operator_idx = max(
-                        0, min(operator_idx, len(predefined_sets["operators"]) - 1)
-                    )
-                    new_condition[1] = predefined_sets["operators"][operator_idx]
-                except (ValueError, TypeError):
-                    raise ValueError(f"Invalid gene name: {gene_name}")
+                    idx = int(float(val))
+                    ops = predefined_sets.get("operators", [])
+                    if ops:
+                        new_condition[1] = ops[max(0, min(idx, len(ops) - 1))]
+                except Exception:
+                    # leave operator unchanged if invalid
+                    pass
 
         # Position 4 - lookback (if exists)
         if len(new_condition) > 3 and lookback.startswith("#"):
@@ -265,3 +271,17 @@ def modify_strategy(
     }
 
     return new_strategy
+
+
+if __name__ == "__main__":
+    strategy = {
+        "enter": [["close", ">", "sma_100"]],
+        "exit": [["close", "<", "sma_100"]],
+        "datapoints": [{"name": "sma_100", "transformer": "sma", "args": [100]}],
+        "freq": "1h",
+    }
+    genes = [("sma_100", "sma")]
+    predefined_sets = {
+        "columns": ["close", "open", "low", "high", "volume"],
+        "operators": ["<", ">", "="],
+    }

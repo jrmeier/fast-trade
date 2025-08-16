@@ -1,0 +1,98 @@
+{
+    "name": "RSIEvolver",
+    "api_url": "https://fed.fasttrade.dev/api/webhook/evolve",
+    "predefined_sets": {
+      "columns": ["close", "open", "low", "high", "volume"],
+      "rsi_periods": [14, 20, 25, 30, 35, 40, 45, 50, 55, 60],
+      "rsi_overbought": [70, 75, 80, 85, 90, 95],
+      "rsi_oversold": [30, 35, 40, 45, 50, 55],
+      "freq": ["1Min", "5Min", "15Min", "30Min", "1h", "4h", "8h", "12h"],
+      "operators": ["<", ">"]
+    },
+    "genes": [
+      {
+        "name": "freq",
+        "type": "categorical",
+        "values_ref": "freq",
+        "args": []
+      },
+      {
+        "name": "rsi_period",
+        "type": "int",
+        "values_ref": "",
+        "args": [5, 100]
+      },
+      {
+        "name": "rsi_overbought",
+        "type": "int",
+        "values_ref": "",
+        "args": [65, 95]
+      },
+      {
+        "name": "rsi_oversold",
+        "type": "int",
+        "values_ref": "",
+        "args": [5, 45]
+      },
+      {
+        "name": "operator_enter",
+        "type": "categorical",
+        "values_ref": "operators",
+        "args": []
+      },
+      {
+        "name": "operator_exit",
+        "type": "categorical",
+        "values_ref": "operators",
+        "args": []
+      }
+    ],
+    "strategy": {
+        "freq": "#freq",
+        "enter": [
+          ["rsi", "#operator_enter", "#rsi_overbought"]
+        ],
+        "exit": [
+          ["rsi", "#operator_exit", "#rsi_oversold"]
+        ],
+        "datapoints": [
+          {
+            "name": "rsi",
+            "transformer": "rsi",
+            "args": ["#rsi_period"]
+          }
+        ],
+        "base_balance": 1000.0,
+        "exit_on_end": false,
+        "comission": 0.01,
+        "trailing_stop_loss": 0.0,
+        "lot_size_perc": 1.0,
+        "max_lot_size": 0.0,
+        "start_date": "2025-08-01T00:00:00",
+        "end_date": "2025-09-01T00:00:00",
+        "rules": null,
+        "symbol": "BTC-USDT",
+        "exchange": "coinbase",
+        "completed_at": null
+    },
+    "config": {
+        "num_generations": 10,
+        "parallel_processing": 8,
+        "use_parallel": false,
+        "sol_per_pop": 160,
+        "num_parents_mating": 3,
+        "mutation_percent_genes": 0.7,
+        "crossover_type": "uniform",
+        "mutation_type": "adaptive",
+        "parent_selection_type": "roulette",
+        "K_tournament": 2,
+        "elitism": 1,
+        "diversity_threshold": 0.6,
+        "stagnation_threshold": 20,
+        "early_stopping_patience": 50,
+        "min_improvement": 0.001
+    },
+    "fitness":{
+      "return_perc": 1
+    }
+}

@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import requests
+from typing import Any, Dict, List, Tuple
 
 from fast_trade import run_backtest
 from fast_trade.ml.evolution.models import (
@@ -17,6 +18,31 @@ from fast_trade.ml.evolution.models import (
 )
 from fast_trade.ml.evolution.strategy_modifier import modify_strategy
 from fast_trade.ml.evolution.utils import evaluate_solution_wrapper, sanitize_for_json
+
+
+# Helper functions for genetic algorithm
+def _rank_scaled_probs(fitness: List[float]) -> List[float]:
+    order = sorted(range(len(fitness)), key=lambda i: fitness[i])
+    ranks = [0] * len(fitness)
+    for r, i in enumerate(order, 1):
+        ranks[i] = r
+    s = float(sum(ranks)) or 1.0
+    return [r / s for r in ranks]
+
+
+def _genome_key(sol: Dict[str, Any]) -> Tuple:
+    return tuple(sorted(sol.items()))
+
+
+def _mutate_categorical(current: Any, categories: List[Any]) -> Any:
+    # ensure the allele changes
+    if not categories:
+        return current
+    alts = [c for c in categories if c != current]
+    if not alts:
+        return current
+    return random.choice(alts)
+
 
 # Constants
 ARCHIVE_PATH = os.getenv("ARCHIVE_PATH", os.path.join(os.getcwd(), "ft_archive/ml"))
@@ -49,7 +75,6 @@ class GeneticAlgorithm:
         self.run_id = run_id
         self.api_url = api_url
         winners_dir = os.path.join(ARCHIVE_PATH, self.run_id)
-        print(f"Directory: {winners_dir}")
         self.winners_dir = winners_dir
         self.config_file = config_file
         self.elites: List[Dict[str, Any]] = []
@@ -191,8 +216,20 @@ class GeneticAlgorithm:
             vector: List[float] = []
             for gene in self.genes:
                 value = solution[gene.name]
-                if gene.type == "categorical" and gene.categories:
-                    vector.append(float(gene.categories.index(value)))
+                if gene.type == "categorical":
+                    categories = gene.categories
+                    if not categories and gene.values_ref:
+                        categories = self.config_file.get("predefined_sets", {}).get(
+                            gene.values_ref, []
+                        )
+                    if categories:
+                        try:
+                            vector.append(float(categories.index(value)))
+                        except ValueError:
+                            vector.append(0.0)
+                    else:
+                        vector.append(0.0)
+
                 else:
                     vector.append(float(value))
             feature_vectors.append(vector)
@@ -209,12 +246,31 @@ class GeneticAlgorithm:
         return float(np.mean(distances)) if distances else 0.0
 
     def select_parents(self) -> List[Dict[str, Any]]:
-        """Select parents using tournament selection."""
         parents: List[Dict[str, Any]] = []
+        sel = (
+            getattr(self.config, "parent_selection_type", "tournament") or "tournament"
+        )
+        sel = sel.lower()
+        if sel == "roulette":
+            probs = _rank_scaled_probs(self.fitness_scores)
+            for _ in range(self.config.num_parents_mating):
+                r = random.random()
+                acc = 0.0
+                pick = 0
+                for i, p in enumerate(probs):
+                    acc += p
+                    if r <= acc:
+                        pick = i
+                        break
+                parents.append(self.population[pick])
+            return parents
+        # default: tournament
         for _ in range(self.config.num_parents_mating):
             tournament_size = min(self.config.K_tournament, len(self.population))
-            tournament = random.sample(list(enumerate(self.population)), tournament_size)
-            winner_idx = max(tournament, key=lambda x: self.fitness_scores[x[0]])[0]
+            tournament = random.sample(
+                list(range(len(self.population))), tournament_size
+            )
+            winner_idx = max(tournament, key=lambda i: self.fitness_scores[i])
             parents.append(self.population[winner_idx])
         return parents
 
@@ -231,20 +287,23 @@ class GeneticAlgorithm:
         return child
 
     def mutate(self, solution: Dict[str, Any]) -> Dict[str, Any]:
-        """Mutate a solution using adaptive mutation."""
         mutated = solution.copy()
+        # Expect mutation_percent_genes to be a probability in [0,1]; if given as percent, scale down.
+        p = float(self.config.mutation_percent_genes)
+        if p > 1.0:
+            p = p / 100.0
         for gene in self.genes:
-            if random.random() < self.config.mutation_percent_genes:
+            if random.random() < p:
                 if gene.type == "categorical":
-                    if gene.categories:
-                        mutated[gene.name] = random.choice(gene.categories)
-                    else:
-                        # Fallback to getting values from predefined_sets
-                        values = self.config_file.get("predefined_sets", {}).get(
+                    categories = gene.categories
+                    if not categories and gene.values_ref:
+                        categories = self.config_file.get("predefined_sets", {}).get(
                             gene.values_ref, []
                         )
-                        if values:
-                            mutated[gene.name] = random.choice(values)
+                    if categories:
+                        mutated[gene.name] = _mutate_categorical(
+                            mutated.get(gene.name), categories
+                        )
                 elif gene.type == "int":
                     mutated[gene.name] = random.randint(
                         int(gene.min_value), int(gene.max_value)
@@ -386,8 +445,14 @@ class GeneticAlgorithm:
                     # Apply smaller mutations (25% of normal mutation rate)
                     for gene in self.genes:
                         if random.random() < self.config.mutation_percent_genes * 0.25:
-                            if gene.type == "categorical" and gene.categories:
-                                variant[gene.name] = random.choice(gene.categories)
+                            if gene.type == "categorical":
+                                categories = gene.categories
+                                if not categories and gene.values_ref:
+                                    categories = self.config_file.get(
+                                        "predefined_sets", {}
+                                    ).get(gene.values_ref, [])
+                                if categories:
+                                    variant[gene.name] = random.choice(categories)
                             elif gene.type == "int":
                                 # Smaller range mutations
                                 current = variant[gene.name]
@@ -509,7 +574,7 @@ class GeneticAlgorithm:
                     pass
                     # self.config.sol_per_pop = min(self.config.sol_per_pop * 2, 50)
                 elif diversity > 0.9:
-                    #self.config.sol_per_pop = max(self.config.sol_per_pop // 2, 10)
+                    # self.config.sol_per_pop = max(self.config.sol_per_pop // 2, 10)
                     pass
                 # Create new population
                 new_population: List[Dict[str, Any]] = []
@@ -520,12 +585,48 @@ class GeneticAlgorithm:
 
                 self.elites = [self.population[i] for i in elite_indices]
 
-                # Create offspring
-                while len(new_population) < self.config.sol_per_pop:
+                # Create offspring with de-dup and immigrants
+                seen = set(_genome_key(ind) for ind in new_population)
+                target = self.config.sol_per_pop
+                immigrant_quota = max(1, int(0.1 * target))  # 10% random immigrants
+                # offspring
+                while len(new_population) < target - immigrant_quota:
                     parents = self.select_parents()
                     child = self.crossover(parents[0], parents[1])
                     child = self.mutate(child)
+                    key = _genome_key(child)
+                    # ensure uniqueness; try a few times before accepting
+                    tries = 0
+                    while key in seen and tries < 5:
+                        child = self.mutate(child)
+                        key = _genome_key(child)
+                        tries += 1
+                    if key in seen:
+                        # fallback: inject a brand-new random individual
+                        rand = self.create_initial_population()[0]
+                        key = _genome_key(rand)
+                        if key not in seen:
+                            child = rand
                     new_population.append(child)
+                    seen.add(key)
+                # immigrants
+                for _ in range(immigrant_quota):
+                    rand = self.create_initial_population()[0]
+                    key = _genome_key(rand)
+                    if key not in seen:
+                        new_population.append(rand)
+                        seen.add(key)
+                    else:
+                        # mutate until unique
+                        tries = 0
+                        cand = self.mutate(rand)
+                        k2 = _genome_key(cand)
+                        while k2 in seen and tries < 5:
+                            cand = self.mutate(cand)
+                            k2 = _genome_key(cand)
+                            tries += 1
+                        new_population.append(cand)
+                        seen.add(k2)
 
                 self.population = new_population
                 print("len self.population: ", len(self.population))
