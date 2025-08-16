@@ -211,56 +211,57 @@ def modify_strategy(
         operator = random.choice(predefined_sets["operators"])
         return [pos1, operator, pos2]
 
-    # if there are no enter or exit conditions, skip the process_conditions function
+    # Process enter conditions
+    new_strategy["enter"] = []
     if len(strategy.get("enter", [])) > 0:
         new_strategy["enter"] = process_conditions(
             strategy.get("enter", []), gene_map, predefined_sets, "enter"
         )
-    else:
-        # look in the genes for any enter conditions
-        if "num_enter" in gene_map:
-            # generate the number of enter conditions
-            gen_number = gene_map["num_enter"]
-            new_strategy["enter"] = [
+    if "num_enter" in gene_map:
+        gen_number = int(gene_map["num_enter"])
+        for _ in range(gen_number):
+            new_strategy["enter"].append(
                 generate_random_condition(predefined_sets, "enter")
-                for _ in range(int(gen_number))
-            ]
+            )
 
+    # Process exit conditions
+    new_strategy["exit"] = []
     if len(strategy.get("exit", [])) > 0:
         new_strategy["exit"] = process_conditions(
             strategy.get("exit", []), gene_map, predefined_sets, "exit"
         )
-    else:
-        if "num_exit" in gene_map:
-            gen_number = gene_map["num_exit"]
-            new_strategy["exit"] = [
+    if "num_exit" in gene_map:
+        gen_number = int(gene_map["num_exit"])
+        for _ in range(gen_number):
+            new_strategy["exit"].append(
                 generate_random_condition(predefined_sets, "exit")
-                for _ in range(int(gen_number))
-            ]
+            )
 
+    # Process any_enter conditions
+    new_strategy["any_enter"] = []
     if len(strategy.get("any_enter", [])) > 0:
         new_strategy["any_enter"] = process_conditions(
             strategy.get("any_enter", []), gene_map, predefined_sets, "any_enter"
         )
-    else:
-        if "num_any_enter" in gene_map:
-            gen_number = gene_map["num_any_enter"]
-            new_strategy["any_enter"] = [
+    if "num_any_enter" in gene_map:
+        gen_number = int(gene_map["num_any_enter"])
+        for _ in range(gen_number):
+            new_strategy["any_enter"].append(
                 generate_random_condition(predefined_sets, "any_enter")
-                for _ in range(int(gen_number))
-            ]
+            )
 
+    # Process any_exit conditions
+    new_strategy["any_exit"] = []
     if len(strategy.get("any_exit", [])) > 0:
         new_strategy["any_exit"] = process_conditions(
             strategy.get("any_exit", []), gene_map, predefined_sets, "any_exit"
         )
-    else:
-        if "num_any_exit" in gene_map:
-            gen_number = gene_map["num_any_exit"]
-            new_strategy["any_exit"] = [
+    if "num_any_exit" in gene_map:
+        gen_number = int(gene_map["num_any_exit"])
+        for _ in range(gen_number):
+            new_strategy["any_exit"].append(
                 generate_random_condition(predefined_sets, "any_exit")
-                for _ in range(int(gen_number))
-            ]
+            )
 
     # Copy other strategy properties
     new_strategy = {
@@ -346,15 +347,14 @@ if __name__ == "__main__":
             "values_ref": "frequencies",
             "args": [],
         },
-        {"name": "num_enter", "type": "int", "args": [1, 4]},
-        {"name": "num_exit", "type": "int", "args": [1, 4]},
-        {"name": "num_datapoints", "type": "int", "args": [3, 12]},
-        {"name": "num_any_enter", "type": "int", "args": [0, 2]},
-        {"name": "num_any_exit", "type": "int", "args": [0, 2]},
+        {"name": "num_enter", "type": "int", "args": [2, 4]},
+        {"name": "num_exit", "type": "int", "args": [2, 4]},
+        {"name": "num_datapoints", "type": "int", "args": [1, 4]},
         {"name": "rsi_overbought", "type": "int", "args": [65, 95]},
         {"name": "rsi_oversold", "type": "int", "args": [5, 45]},
         {"name": "rsi_overbought_lookback", "type": "int", "args": [1, 10]},
         {"name": "rsi_oversold_lookback", "type": "int", "args": [1, 10]},
+        {"name": "rsi_period", "type": "int", "args": [2, 30]},
     ]
     strategy = {
         "freq": "#freq",
