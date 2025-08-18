@@ -7,8 +7,7 @@ from functools import partial
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
-import requests
-from typing import Any, Dict, List, Tuple
+
 
 from fast_trade import run_backtest
 from fast_trade.ml.evolution.models import (
@@ -17,7 +16,18 @@ from fast_trade.ml.evolution.models import (
     OptimizationResult,
 )
 from fast_trade.ml.evolution.strategy_modifier import modify_strategy
-from fast_trade.ml.evolution.utils import evaluate_solution_wrapper, sanitize_for_json
+from fast_trade.ml.evolution.utils import (
+    evaluate_solution_wrapper,
+    sanitize_for_json,
+    atomic_write_json,
+    deep_convert_to_numeric,
+)
+from fast_trade.ml.evolution.reporter import (
+    ConsoleReporter,
+    FileReporter,
+    WebhookReporter,
+    CompositeReporter,
+)
 
 
 # Helper functions for genetic algorithm
@@ -80,23 +90,35 @@ class GeneticAlgorithm:
         self.elites: List[Dict[str, Any]] = []
         os.makedirs(self.winners_dir, exist_ok=True)
 
-        # Send job started webhook
+        # Reporters
+        reporters = [ConsoleReporter(), FileReporter(self.winners_dir, "payload.json")]
         if self.api_url:
-            payload = self.create_payload(event="job_started", generation=0)
-            self.update_progress(payload)
+            reporters.append(WebhookReporter(self.api_url))
+        self.reporter = CompositeReporter(reporters)
+
+        # Send job started webhook
+        payload = self.create_payload(event="job_started", generation=0)
+        self.update_progress(payload)
 
     def create_payload(self, event: str = "job_started", generation: int = 0) -> Dict:
         # For initial payload, use base strategy without modifications
         if not hasattr(self, "best_solution") or self.best_solution is None:
             strat = self.base_strategy
+            summary = {}
         else:
-            best_solution_tuples = [(k, str(v)) for k, v in self.best_solution.items()]
+            best_solution_tuples = [(k, v) for k, v in self.best_solution.items()]
             best_solution_tuples.sort(key=lambda x: x[0])  # Sort by gene name
+            print("BEST SOLUTION:", self.best_solution)
             strat = modify_strategy(
                 self.base_strategy.copy(),
                 best_solution_tuples,
                 self.config_file.get("predefined_sets"),
             )
+            strat = deep_convert_to_numeric(strat)
+            # get the results of the strategy
+            backtest_results = run_backtest(strat)
+            summary = backtest_results["summary"]
+            strat = backtest_results["backtest"]
 
         # Calculate duration and time remaining if we have a start time
         duration = None
@@ -152,27 +174,17 @@ class GeneticAlgorithm:
             "diversity": diversity,
             "stagnation_counter": stagnation_counter,
             "generation_history": self.generation_history,
+            "summary": summary,
         }
 
     def update_progress(self, payload: Dict[str, Any]) -> None:
-        """Send progress update to API if URL is specified."""
-        import time
-
-        payload = {**self.create_payload(), **payload}
-        payload = sanitize_for_json(payload)
-        payload_str = json.dumps(payload, indent=2)
-
-        with open(f"{self.winners_dir}/payload.json", "w", encoding="utf-8") as f:
-            json.dump(payload, f, indent=2)
-        print("-" * 50)
-        print(payload_str)
-        print("-" * 50)
-        if self.api_url:
-            try:
-                requests.post(self.api_url, json=payload, timeout=10)
-            except Exception as e:
-                print(f"Error sending payload to api: {e}")
-        # time.sleep(1000)
+        """Send progress update via configured reporters."""
+        merged = {**self.create_payload(), **payload}
+        merged = sanitize_for_json(merged)
+        try:
+            self.reporter.report(merged)
+        except Exception as e:
+            print(f"Reporter pipeline error: {e}")
 
     def create_initial_population(self) -> List[Dict[str, Any]]:
         """Create initial population with diverse solutions."""
@@ -202,6 +214,49 @@ class GeneticAlgorithm:
                     solution[gene.name] = random.uniform(gene.min_value, gene.max_value)
                 elif gene.type == "boolean":
                     solution[gene.name] = random.choice([True, False])
+                elif gene.type == "date":
+                    # args: [min_date_str, max_date_str, min_days, max_days]
+                    args = getattr(gene, "args", []) or []
+                    try:
+                        min_date_str, max_date_str, min_days, max_days = args
+                    except Exception:
+                        min_date_str, max_date_str, min_days, max_days = (
+                            None,
+                            None,
+                            1,
+                            14,
+                        )
+                    now = datetime.datetime.now()
+                    try:
+                        min_bound = (
+                            datetime.datetime.fromisoformat(min_date_str)
+                            if min_date_str
+                            else None
+                        )
+                    except Exception:
+                        min_bound = None
+                    try:
+                        max_bound = (
+                            datetime.datetime.fromisoformat(max_date_str)
+                            if max_date_str
+                            else None
+                        )
+                    except Exception:
+                        max_bound = None
+
+                    days1 = random.randint(int(min_days), int(max_days))
+                    days2 = random.randint(int(min_days), int(max_days))
+                    start_date = now - datetime.timedelta(days=days1)
+                    end_date = start_date + datetime.timedelta(days=days2)
+
+                    if min_bound and start_date < min_bound:
+                        start_date = min_bound
+                    if max_bound and end_date > max_bound:
+                        end_date = max_bound
+                    if end_date <= start_date:
+                        end_date = start_date + datetime.timedelta(days=1)
+
+                    solution[gene.name] = (start_date, end_date)
             population.append(solution)
         return population
 
@@ -215,7 +270,7 @@ class GeneticAlgorithm:
         for solution in self.population:
             vector: List[float] = []
             for gene in self.genes:
-                value = solution[gene.name]
+                value = solution.get(gene.name)
                 if gene.type == "categorical":
                     categories = gene.categories
                     if not categories and gene.values_ref:
@@ -224,14 +279,31 @@ class GeneticAlgorithm:
                         )
                     if categories:
                         try:
-                            vector.append(float(categories.index(value)))
+                            if value is None:
+                                vector.append(0.0)
+                            else:
+                                vector.append(float(categories.index(value)))
                         except ValueError:
                             vector.append(0.0)
                     else:
                         vector.append(0.0)
 
+                elif gene.type == "date":
+                    # Expect a tuple of (start_date, end_date)
+                    try:
+                        if value is None:
+                            raise ValueError("missing date value")
+                        start_date, end_date = value
+                        vector.append(float(start_date.timestamp()))
+                        vector.append(float(end_date.timestamp()))
+                    except Exception:
+                        vector.append(0.0)
+                        vector.append(0.0)
                 else:
-                    vector.append(float(value))
+                    try:
+                        vector.append(float(value) if value is not None else 0.0)
+                    except Exception:
+                        vector.append(0.0)
             feature_vectors.append(vector)
 
         # Calculate average pairwise distance
@@ -288,10 +360,8 @@ class GeneticAlgorithm:
 
     def mutate(self, solution: Dict[str, Any]) -> Dict[str, Any]:
         mutated = solution.copy()
-        # Expect mutation_percent_genes to be a probability in [0,1]; if given as percent, scale down.
+        # Config already normalized mutation_percent_genes to [0,1]
         p = float(self.config.mutation_percent_genes)
-        if p > 1.0:
-            p = p / 100.0
         for gene in self.genes:
             if random.random() < p:
                 if gene.type == "categorical":
@@ -312,6 +382,49 @@ class GeneticAlgorithm:
                     mutated[gene.name] = random.uniform(gene.min_value, gene.max_value)
                 elif gene.type == "boolean":
                     mutated[gene.name] = not mutated[gene.name]
+                elif gene.type == "date":
+                    # Re-generate a new random window within the provided args
+                    args = getattr(gene, "args", []) or []
+                    try:
+                        min_date_str, max_date_str, min_days, max_days = args
+                    except Exception:
+                        min_date_str, max_date_str, min_days, max_days = (
+                            None,
+                            None,
+                            1,
+                            14,
+                        )
+                    now = datetime.datetime.now()
+                    try:
+                        min_bound = (
+                            datetime.datetime.fromisoformat(min_date_str)
+                            if min_date_str
+                            else None
+                        )
+                    except Exception:
+                        min_bound = None
+                    try:
+                        max_bound = (
+                            datetime.datetime.fromisoformat(max_date_str)
+                            if max_date_str
+                            else None
+                        )
+                    except Exception:
+                        max_bound = None
+
+                    days1 = random.randint(int(min_days), int(max_days))
+                    days2 = random.randint(int(min_days), int(max_days))
+                    start_date = now - datetime.timedelta(days=days1)
+                    end_date = start_date + datetime.timedelta(days=days2)
+
+                    if min_bound and start_date < min_bound:
+                        start_date = min_bound
+                    if max_bound and end_date > max_bound:
+                        end_date = max_bound
+                    if end_date <= start_date:
+                        end_date = start_date + datetime.timedelta(days=1)
+
+                    mutated[gene.name] = (start_date, end_date)
         return mutated
 
     def evaluate_solution(
@@ -319,7 +432,7 @@ class GeneticAlgorithm:
     ) -> Tuple[float, Dict[str, Any]]:
         """Evaluate a solution using backtesting."""
         # Convert solution to list of tuples for modify_strategy
-        solution_tuples = [(k, str(v)) for k, v in solution.items()]
+        solution_tuples = [(k, v) for k, v in solution.items()]
         strategy = modify_strategy(
             self.base_strategy.copy(),
             solution_tuples,
@@ -362,7 +475,7 @@ class GeneticAlgorithm:
         best_winner, best_score = sorted_winners[0]
 
         # Convert solution to list of tuples for modify_strategy
-        solution_tuples = [(k, str(v)) for k, v in best_winner.items()]
+        solution_tuples = [(k, v) for k, v in best_winner.items()]
         strategy = modify_strategy(
             self.base_strategy.copy(),
             solution_tuples,
@@ -384,23 +497,21 @@ class GeneticAlgorithm:
 
         # Save to current.json (best of this generation)
         full_path = os.path.join(self.winners_dir, "current.json")
-        with open(full_path, "w", encoding="utf-8") as f:
-            json.dump(sanitized_data, f, indent=2)
+        atomic_write_json(full_path, sanitized_data)
 
-        # Also save the best overall solution if this generation's best is better
-        if best_score > self.best_fitness:
+        if best_score >= self.best_fitness:
             # Update best fitness
             self.best_fitness = best_score
+            # Sync best solution to ensure payload uses overall best across generations
+            self.best_solution = best_winner
 
             # Save as the best overall solution
             best_path = os.path.join(self.winners_dir, "best.json")
-            with open(best_path, "w", encoding="utf-8") as f:
-                json.dump(sanitized_data, f, indent=2)
+            atomic_write_json(best_path, sanitized_data)
 
             # Also save as elite_N.json where N is based on rank
             elite_path = os.path.join(self.winners_dir, f"elite.json")
-            with open(elite_path, "w", encoding="utf-8") as f:
-                json.dump(sanitized_data, f, indent=2)
+            atomic_write_json(elite_path, sanitized_data)
 
     def refresh_population(self) -> None:
         """Refresh the population when stagnation is detected.
@@ -473,6 +584,53 @@ class GeneticAlgorithm:
                                 # Lower chance of flipping boolean
                                 if random.random() < 0.25:
                                     variant[gene.name] = not variant[gene.name]
+                            elif gene.type == "date":
+                                # Small shifts to start/end within +/-3 days
+                                try:
+                                    start_date, end_date = variant[gene.name]
+                                    shift_start = datetime.timedelta(
+                                        days=random.randint(-3, 3)
+                                    )
+                                    shift_end = datetime.timedelta(
+                                        days=random.randint(-3, 3)
+                                    )
+                                    new_start = start_date + shift_start
+                                    new_end = end_date + shift_end
+                                    # Clamp using args if available
+                                    args = getattr(gene, "args", []) or []
+                                    try:
+                                        min_date_str, max_date_str, _, _ = args
+                                    except Exception:
+                                        min_date_str, max_date_str = None, None
+                                    try:
+                                        min_bound = (
+                                            datetime.datetime.fromisoformat(
+                                                min_date_str
+                                            )
+                                            if min_date_str
+                                            else None
+                                        )
+                                    except Exception:
+                                        min_bound = None
+                                    try:
+                                        max_bound = (
+                                            datetime.datetime.fromisoformat(
+                                                max_date_str
+                                            )
+                                            if max_date_str
+                                            else None
+                                        )
+                                    except Exception:
+                                        max_bound = None
+                                    if min_bound and new_start < min_bound:
+                                        new_start = min_bound
+                                    if max_bound and new_end > max_bound:
+                                        new_end = max_bound
+                                    if new_end <= new_start:
+                                        new_end = new_start + datetime.timedelta(days=1)
+                                    variant[gene.name] = (new_start, new_end)
+                                except Exception:
+                                    pass
                     new_solutions.append(variant)
 
         # Calculate how many completely new solutions we need
@@ -524,16 +682,22 @@ class GeneticAlgorithm:
                             executor.map(eval_func, self.population)
                         )
                 else:
-                    # Sequential processing
+                    # Sequential processing via same evaluator for consistency
+                    eval_func = partial(
+                        evaluate_solution_wrapper,
+                        base_strategy=self.base_strategy,
+                        fitness_weights=self.fitness,
+                        predefined_sets=self.config_file.get("predefined_sets"),
+                    )
                     fitness_scores_results = [
-                        self.evaluate_solution(solution) for solution in self.population
+                        eval_func(solution) for solution in self.population
                     ]
 
                 self.fitness_scores = [result[0] for result in fitness_scores_results]
                 metrics = [result[1] for result in fitness_scores_results]
                 # Update best solution
                 best_idx = np.argmax(self.fitness_scores)
-                if self.fitness_scores[best_idx] > self.best_fitness:
+                if self.fitness_scores[best_idx] >= self.best_fitness:
                     self.best_solution = self.population[best_idx]
                     self.best_fitness = self.fitness_scores[best_idx]
                     self.stagnation_counter = 0
@@ -631,7 +795,6 @@ class GeneticAlgorithm:
                 self.population = new_population
                 print("len self.population: ", len(self.population))
                 # Print progress
-                os.system("cls" if os.name == "nt" else "clear")
                 # load the current strategy
                 payload = self.create_payload(event="job_update", generation=generation)
 
@@ -641,7 +804,7 @@ class GeneticAlgorithm:
                 raise ValueError("No valid solution found during optimization")
 
             # Convert best solution to list of tuples for modify_strategy
-            best_solution_tuples = [(k, str(v)) for k, v in self.best_solution.items()]
+            best_solution_tuples = [(k, v) for k, v in self.best_solution.items()]
             best_solution_tuples.sort(key=lambda x: x[0])  # Sort by gene name
 
             result = OptimizationResult(
@@ -665,7 +828,6 @@ class GeneticAlgorithm:
                     )
                     payload["percent_complete"] = 1
                     payload["estimated_time_remaining"] = "0"
-                    payload["WT"] = "heyy"
                     self.update_progress(payload)
                 except Exception as e:
                     print(f"Error sending job completed webhook: {e}")

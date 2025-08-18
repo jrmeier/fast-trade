@@ -1,5 +1,6 @@
 from typing import Any, Dict, List, Tuple
 import random
+from datetime import datetime, timedelta
 
 # Constants
 FREQUENCY_MAP = [
@@ -130,7 +131,7 @@ def modify_strategy(
 
     # Create a mapping of gene names to values
     gene_map = {gene_name: gene_value for gene_name, gene_value in genes}
-
+    # print(gene_map)
     # Set frequency
     if "freq" in gene_map:
         freq_value = gene_map["freq"]
@@ -138,6 +139,15 @@ def modify_strategy(
         new_strategy["freq"] = freq_value
     else:
         new_strategy["freq"] = strategy.get("freq", "1h")
+
+    # if start_date is in the gene map, then calculate the end date
+    if "start_end_date" in gene_map:
+        # calculate the end date
+        # new_strategy["end_date"] = end_date
+        # get the gene args
+        start_date, end_date = gene_map["start_end_date"]
+        new_strategy["start_date"] = start_date.isoformat()
+        new_strategy["end_date"] = end_date.isoformat()
 
     # Create datapoints
     new_strategy["datapoints"] = []
@@ -209,7 +219,9 @@ def modify_strategy(
             pos2 = random.choice(pos_choices)
 
         operator = random.choice(predefined_sets["operators"])
-        return [pos1, operator, pos2]
+
+        lookback = random.randint(1, 10)
+        return [pos1, operator, pos2, lookback]
 
     # Process enter conditions
     new_strategy["enter"] = []
@@ -289,6 +301,13 @@ def get_random_gene_values(
         elif gene_type == "int":
             min_val, max_val = gene["args"]
             gene_values.append((gene_name, random.randint(min_val, max_val)))
+        elif gene_type == "date":
+            min_val, max_val, min_days, max_days = gene["args"]
+            start_date = datetime.now() - timedelta(
+                days=random.randint(min_days, max_days)
+            )
+            end_date = start_date + timedelta(days=random.randint(min_days, max_days))
+            gene_values.append((gene_name, (start_date, end_date)))
     return gene_values
 
 
@@ -355,6 +374,11 @@ if __name__ == "__main__":
         {"name": "rsi_overbought_lookback", "type": "int", "args": [1, 10]},
         {"name": "rsi_oversold_lookback", "type": "int", "args": [1, 10]},
         {"name": "rsi_period", "type": "int", "args": [2, 30]},
+        {
+            "name": "start_end_date",
+            "type": "date",
+            "args": ["2025-08-01", "2025-08-10", 7, 14],
+        },
     ]
     strategy = {
         "freq": "#freq",

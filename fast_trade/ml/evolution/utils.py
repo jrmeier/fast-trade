@@ -1,13 +1,19 @@
 import json
+import datetime
 import os
 import math
 from typing import Any, Dict, List, Tuple
 import requests
 from fast_trade.ml.evolution.models import GeneDefinition
+import tempfile
 
 
 def sanitize_for_json(obj: Any) -> Any:
     """Sanitize objects for JSON serialization by replacing inf/nan with null."""
+    if isinstance(obj, (datetime.datetime, datetime.date)):
+        return obj.isoformat()
+    if isinstance(obj, tuple):
+        return [sanitize_for_json(item) for item in obj]
     if isinstance(obj, float):
         if math.isnan(obj) or math.isinf(obj):
             return None
@@ -16,6 +22,29 @@ def sanitize_for_json(obj: Any) -> Any:
     elif isinstance(obj, list):
         return [sanitize_for_json(item) for item in obj]
     return obj
+
+
+def atomic_write_json(path: str, data: Any) -> None:
+    """Atomically write JSON to a file by writing to a temp file then renaming.
+
+    Ensures readers never see a partially written file.
+    """
+    directory = os.path.dirname(path)
+    os.makedirs(directory, exist_ok=True)
+    fd, tmp_path = tempfile.mkstemp(prefix=".tmp_", dir=directory)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, path)
+    except Exception:
+        # Best-effort cleanup
+        try:
+            os.remove(tmp_path)
+        except Exception:
+            pass
+        raise
 
 
 def to_numeric(value):
@@ -49,7 +78,7 @@ def evaluate_solution_wrapper(
     from fast_trade import run_backtest
 
     # Convert solution to list of tuples for modify_strategy
-    solution_tuples = [(k, str(v)) for k, v in solution.items()]
+    solution_tuples = [(k, v) for k, v in solution.items()]
     strategy = modify_strategy(base_strategy.copy(), solution_tuples, predefined_sets)
 
     # Modify the strategy based on the solution's genes

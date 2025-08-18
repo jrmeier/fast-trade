@@ -46,8 +46,20 @@ class OptimizationConfig:
     refresh_percent: float = 0.5
 
     def __post_init__(self):
-        """Ensure mutation_percent_genes is a float."""
-        self.mutation_percent_genes = float(self.mutation_percent_genes)
+        """Normalize mutation_percent_genes to a probability in [0, 1]."""
+        try:
+            value = float(self.mutation_percent_genes)
+        except (TypeError, ValueError):
+            value = 0.1
+        # If user supplied percentage (e.g., 5 or 10), scale down
+        if value > 1.0:
+            value = value / 100.0
+        # Clamp to [0, 1]
+        if value < 0.0:
+            value = 0.0
+        if value > 1.0:
+            value = 1.0
+        self.mutation_percent_genes = value
 
 
 @dataclass
