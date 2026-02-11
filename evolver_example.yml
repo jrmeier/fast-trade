@@ -1,0 +1,114 @@
+strategy:
+  freq: "#freq"
+  symbol: BTCUSDT
+  exchange: binanceus
+  start_date: 2026-01-01
+  end_date: 2026-03-01
+  any_enter:
+    -
+      - rsi
+      - <
+      - "#rsi_lower"
+  any_exit:
+    -
+      - rsi
+      - >
+      - "#rsi_upper"
+  datapoints:
+    -
+      name: sma_fast
+      transformer: zlema
+      args:
+        - "#fast_period"
+    -
+      name: sma_slow
+      transformer: zlema
+      args:
+        - "#slow_period"
+    -
+      name: rsi
+      transformer: rsi
+      args:
+        - "#rsi_period"
+  enter:
+    -
+      - sma_fast
+      - >
+      - sma_slow
+  exit:
+    -
+      - sma_fast
+      - <
+      - sma_slow
+  base_balance: 1000.0
+  exit_on_end: false
+  comission: 0.0
+  trailing_stop_loss: 0.0
+  lot_size_perc: 1.0
+  max_lot_size: 0.0
+  rules: null
+genes:
+  -
+    name: freq
+    space:
+      low: 0
+      high: 7
+  -
+    name: fast_period
+    space:
+      low: 2
+      high: 20
+  -
+    name: slow_period
+    space:
+      low: 20
+      high: 200
+  -
+    name: rsi_period
+    space:
+      low: 4
+      high: 14
+  -
+    name: rsi_lower
+    space:
+      low: 5
+      high: 40
+  -
+    name: rsi_upper
+    space:
+      low: 60
+      high: 95
+settings:
+  num_generations: 50
+  num_parents_mating: 3
+  sol_per_pop: 100
+  mutation_type: random
+  mutation_percent_genes: 20
+  crossover_type: single_point
+  parent_selection_type: sss
+  K_tournament: 2
+  parallel_processing:
+    - thread
+    - 2
+fitness:
+  preset: aggressive
+fitness_presets:
+  aggressive:
+    weights:
+      return_perc: 0.5
+      market_adjusted_return: 0.3
+      sharpe_ratio: 0.1
+      drawdown_metrics.max_drawdown_pct: -0.2
+      num_trades: 0.1
+    min_trades: 5
+    low_trades_penalty: -1.0
+  conservative:
+    weights:
+      return_perc: 0.2
+      market_adjusted_return: 0.2
+      sharpe_ratio: 0.3
+      drawdown_metrics.max_drawdown_pct: -0.4
+      num_trades: 0.1
+      risk_metrics.sortino_ratio: 0.2
+    min_trades: 5
+    low_trades_penalty: -5.0

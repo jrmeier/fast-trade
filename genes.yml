@@ -1,0 +1,25 @@
+-
+  name: freq
+  space:
+    low: 0
+    high: 7
+-
+  name: fast_period
+  space:
+    low: 5
+    high: 30
+-
+  name: slow_period
+  space:
+    low: 40
+    high: 200
+-
+  name: rsi_lower
+  space:
+    low: 10
+    high: 40
+-
+  name: rsi_upper
+  space:
+    low: 60
+    high: 90

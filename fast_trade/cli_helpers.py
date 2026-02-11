@@ -4,8 +4,8 @@ import json
 import os
 import re
 
-import matplotlib.pyplot as plt
 import pandas as pd
+import plotly.graph_objects as go
 import requests
 
 from fast_trade.archive.db_helpers import connect_to_db
@@ -15,6 +15,18 @@ ARCHIVE_PATH = os.getenv("ARCHIVE_PATH", "ft_archive")
 
 class MissingStrategyFile(Exception):
     pass
+
+
+def _load_json_or_yaml(fp: str):
+    if fp.endswith((".yml", ".yaml")):
+        try:
+            import yaml
+        except Exception as exc:
+            raise MissingStrategyFile(f"PyYAML is required to load {fp}: {exc}")
+        with open(fp, "r") as fh:
+            return yaml.safe_load(fh)
+    with open(fp, "r") as fh:
+        return json.load(fh)
 
 
 def open_strat_file(fp):
@@ -33,91 +45,97 @@ def open_strat_file(fp):
 
     strat_obj = {}
     try:
-        with open(fp, "r") as json_file:
-            strat_obj = json.load(json_file)
-            return strat_obj
+        strat_obj = _load_json_or_yaml(fp)
+        return strat_obj
 
     except FileNotFoundError:
         raise MissingStrategyFile("Could not open strategy file at path: {}".format(fp))
 
 
-def create_plot(df, trade_df):
-    # Filter for numeric columns only
-    numeric_df = df.select_dtypes(include=["number"])
+def create_plot(df, trade_df, show: bool = True):
+    fig = go.Figure()
+    if "close" in df.columns:
+        fig.add_trace(
+            go.Scatter(
+                x=df.index,
+                y=df["close"],
+                mode="lines",
+                name="close",
+                line=dict(color="#6EE7B7", width=1),
+            )
+        )
 
-    numeric_df = numeric_df.drop(
-        columns=[
-            "open",
-            "high",
-            "low",
-            "adj_account_value",
-            "account_value",
-            "aux",
-            "fee",
-            "adj_account_value_change_perc",
-            "adj_account_value_change",
-        ]
+    if trade_df is not None and not trade_df.empty and "close" in trade_df.columns:
+        colors = ["#22C55E" if row["in_trade"] else "#EF4444" for _, row in trade_df.iterrows()]
+        fig.add_trace(
+            go.Scatter(
+                x=trade_df.index,
+                y=trade_df["close"],
+                mode="markers",
+                name="trades",
+                marker=dict(size=6, color=colors),
+            )
+        )
+
+    fig.update_layout(
+        template="plotly_dark",
+        title="Backtest Price & Trades",
+        xaxis_title="Date",
+        yaxis_title="Price",
+        margin=dict(l=40, r=40, t=50, b=40),
+        height=500,
     )
 
-    # Calculate the range of each column
-    ranges = numeric_df.max() - numeric_df.min()
-
-    # Define a threshold for grouping columns with similar ranges
-    close_range = ranges["close"]
-    threshold = close_range * 0.1  # Adjust this factor as needed
-
-    # Group columns based on their range
-    close_group = [
-        col for col in numeric_df.columns if abs(ranges[col] - close_range) < threshold
-    ]
-    separate_group = [col for col in numeric_df.columns if col not in close_group]
-
-    # Create subplots
-    num_plots = 1 + len(
-        separate_group
-    )  # One plot for the close group, others for separate columns
-    fig, axs = plt.subplots(num_plots, 1, figsize=(10, 6 * num_plots), sharex=True)
-
-    # Ensure axs is iterable
-    if num_plots == 1:
-        axs = [axs]
-
-    # Plot the close group together
-    for column in close_group:
-        numeric_df.plot(y=column, ax=axs[0], legend=True, label=column)
-
-    # Iterate over the trade DataFrame and plot each point with the appropriate color
-    for index, row in trade_df.iterrows():
-        color = "green" if row["in_trade"] else "red"
-        for column in close_group:
-            axs[0].scatter(index, row[column], color=color, s=10, alpha=0.7)
-
-    axs[0].set_title("Close Group Over Time")
-    axs[0].set_ylabel("Value")
-    axs[0].grid(True, linestyle="--", alpha=0.5)
-
-    # Plot each separate column in its own subplot
-    for ax, column in zip(axs[1:], separate_group):
-        numeric_df.plot(y=column, ax=ax, legend=False, label=column)
-
-        for index, row in trade_df.iterrows():
-            color = "green" if row["in_trade"] else "red"
-            ax.scatter(index, row[column], color=color, s=10, alpha=0.7)
-
-        ax.set_title(f"{column} Over Time")
-        ax.set_ylabel(column)
-        ax.grid(True, linestyle="--", alpha=0.5)
-
-    # Set the x-axis label for the last subplot
-    axs[-1].set_xlabel("Date")
-
-    # Adjust layout
-    plt.tight_layout()
-    plt.show()
+    if show:
+        fig.show()
     return fig
 
 
-def save(result):
+def render_plot_preview_from_data(df, trade_df, width: int = 80, height: int = 12) -> None:
+    if df is None or df.empty or "close" not in df.columns:
+        return
+    series = df["close"].values
+    if len(series) == 0:
+        return
+
+    import math
+
+    min_val = float(series.min())
+    max_val = float(series.max())
+    span = max(max_val - min_val, 1e-9)
+
+    step = max(1, int(len(series) / width))
+    sampled = series[::step][:width]
+
+    grid = [[" " for _ in range(len(sampled))] for _ in range(height)]
+    for x, val in enumerate(sampled):
+        y = int((val - min_val) / span * (height - 1))
+        y = height - 1 - y
+        grid[y][x] = "#"
+
+    # mark trades if available
+    if trade_df is not None and not trade_df.empty and "close" in trade_df.columns:
+        trade_series = trade_df["close"].values
+        trade_idx = trade_df.index
+        # map trade points to sampled x positions
+        for idx, val in zip(trade_idx, trade_series):
+            # approximate position by index in df
+            try:
+                pos = df.index.get_loc(idx)
+            except Exception:
+                continue
+            x = int(pos / step)
+            if x < 0 or x >= len(sampled):
+                continue
+            y = int((val - min_val) / span * (height - 1))
+            y = height - 1 - y
+            grid[y][x] = "x"
+
+    for row in grid:
+        print("".join(row))
+
+
+def save(result, save_all: bool = False):
     """
     Save the dataframe, backtest, and plot into the specified path
     """
@@ -138,22 +156,58 @@ def save(result):
 
     # save the backtest args
     # summary file
-    with open(f"{new_save_dir}/summary.json", "w") as summary_file:
-        summary_file.write(json.dumps(result["summary"], indent=2))
+    try:
+        import yaml
+    except Exception:
+        yaml = None
+
+    summary_path = f"{new_save_dir}/summary.yml"
+    with open(summary_path, "w") as summary_file:
+        if yaml is not None:
+            yaml.safe_dump(result["summary"], summary_file, sort_keys=False)
+        else:
+            summary_file.write(json.dumps(result["summary"], indent=2))
 
     # dataframe
     # result["df"].to_csv(f"{new_save_dir}/dataframe.csv")
     # result["trade_df"].to_csv(f"{new_save_dir}/trade_dataframe.csv")
-    df_con = connect_to_db(f"{new_save_dir}/dataframe.db", create=True)
-    result["df"].to_sql(
-        "dataframe", con=df_con, if_exists="replace", index=True, index_label="date"
-    )
-    trade_con = connect_to_db(f"{new_save_dir}/trade_log.db", create=True)
-    result["trade_df"].to_sql(
-        "trade_log", con=trade_con, if_exists="replace", index=True, index_label="date"
-    )
+    if save_all:
+        result["df"].to_parquet(
+            f"{new_save_dir}/dataframe.parquet", index=True
+        )
+        result["trade_df"].to_parquet(
+            f"{new_save_dir}/trade_log.parquet", index=True
+        )
 
     # plot
-    create_plot(result["df"], result["trade_df"])
+    fig = create_plot(result["df"], result["trade_df"], show=False)
+    plot_path = f"{new_save_dir}/plot.png"
+    plot_format = "png"
+    try:
+        fig.write_image(plot_path, scale=2)
+    except Exception:
+        plot_path = f"{new_save_dir}/plot.html"
+        plot_format = "html"
+        fig.write_html(plot_path)
 
-    plt.savefig(f"{new_save_dir}/plot.png")
+    return {"path": new_save_dir, "plot_path": plot_path, "plot_format": plot_format}
+def render_plot_preview(path: str, width: int = 80) -> None:
+    try:
+        from PIL import Image
+    except Exception:
+        return
+
+    chars = " .:-=+*#%@"
+    try:
+        img = Image.open(path).convert("L")
+        aspect_ratio = img.height / img.width if img.width else 1
+        height = max(1, int(width * aspect_ratio * 0.55))
+        img = img.resize((width, height))
+        pixels = img.getdata()
+        lines = []
+        for i in range(0, len(pixels), width):
+            line = "".join(chars[p * (len(chars) - 1) // 255] for p in pixels[i : i + width])
+            lines.append(line)
+        print("\n".join(lines))
+    except Exception:
+        return

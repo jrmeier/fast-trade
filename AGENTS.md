@@ -6,7 +6,7 @@
   - cli.py (entrypoint `ft`), archive/ (data download/update helpers)
 - test/: pytest suite (`test_*.py`)
 - saved_backtests/: optional output when using `ft backtest --save`
-- example_backtest.json, strategy.json: reference strategies
+- example_backtest.yml, strategy.yml: reference strategies
 - pyproject.toml: packaging, deps, and console script
 
 ## Build, Test, and Development Commands
@@ -15,7 +15,7 @@
 - Coverage: `coverage run -m pytest && coverage report -m`
 - Lint: `flake8` (configured via `.flake8`, max line length 122)
 - CLI help: `ft -h`
-- Quick run: `ft backtest ./strategy.json [--save] [--plot]`
+- Quick run: `ft backtest ./strategy.yml [--save] [--plot]`
 - Download data: `ft download BTCUSDT binanceus --start 2024-12-01 --end 2025-01-01`
 
 ## Coding Style & Naming Conventions

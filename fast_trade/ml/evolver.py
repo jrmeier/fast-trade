@@ -1,10 +1,13 @@
-import pygad
 import datetime
-from fast_trade import run_backtest
-import random
-import string
+import warnings
 import json
 import os
+import random
+import string
+
+import pygad
+
+from fast_trade import run_backtest
 from fast_trade.transformers_map import transformers_map
 
 frequency_map = ["1Min", "5Min", "15Min", "30Min", "1h", "4h", "8h", "12h"]
@@ -100,25 +103,15 @@ def modify_strategy(strategy, genes, with_columns=False):
             if "args" in datapoint:
                 datapoint["args"] = process_value(datapoint["args"])
 
-            # if key trnsfomer starts with #, make sure it's a valid transformer
-            if "transformer" in datapoint and datapoint["transformer"].startswith("#"):
-                # select the transformer from the transformers_map
-                transformer_name = datapoint["transformer"].replace("#", "")
-                # find the gene name that starts with the transformer name
-                gene_name = next(
-                    (gene[0] for gene in genes if gene[0].startswith(transformer_name)),
-                    None,
-                )
-                if gene_name:
-                    datapoint["transformer"] = gene_name
-                else:
-                    raise ValueError(f"Invalid transformer: {transformer_name}")
-
             # Process any other fields that might contain placeholders
             for key in datapoint:
                 if key != "args":  # Already processed args
                     datapoint[key] = process_value(datapoint[key])
                 # if the key is transformer, make sure it's a valid transformer
+            if "transformer" in datapoint:
+                transformer = datapoint["transformer"]
+                if transformer not in transformers_map:
+                    raise ValueError(f"Invalid transformer: {transformer}")
 
     # Process logic arrays
     for logic_key in ["enter", "exit", "any_enter", "any_exit"]:
@@ -133,7 +126,20 @@ def modify_strategy(strategy, genes, with_columns=False):
     return strategy
 
 
-def fitness_func(solution, solution_idx, strategy, genes: list):
+def _get_metric(summary: dict, key: str, default=0.0):
+    if "." not in key:
+        return summary.get(key, default)
+    current = summary
+    for part in key.split("."):
+        if not isinstance(current, dict):
+            return default
+        current = current.get(part)
+        if current is None:
+            return default
+    return current
+
+
+def fitness_func(solution, solution_idx, strategy, genes: list, fitness_config=None):
     """
     Evaluates the fitness of a solution by running a backtest with the given strategy and genes.
 
@@ -168,37 +174,80 @@ def fitness_func(solution, solution_idx, strategy, genes: list):
         # Modify the strategy based on the mapped genes
         strategy_copy = modify_strategy(strategy.copy(), mapped_genes)
 
-    # Run the backtest
-    result = run_backtest(strategy_copy)
+    try:
+        result = run_backtest(strategy_copy)
+    except Exception:
+        return -1e9
 
     # Use the result to calculate fitness (e.g., total return)
-    market_adjusted_return = result.get("summary").get("market_adjusted_return", 0.0)
-    total_return = result.get("summary").get("total_return", 0.0)
-    sharpe_ratio = result.get("summary").get("sharpe_ratio", 0.0)
-    max_drawdown = result.get("summary").get("max_drawdown", 0.0)
-    total_trades = result.get("summary").get("total_trades", 0)
+    summary = result.get("summary", {})
 
-    # create a weighted fitness function
-    fitness = (
-        market_adjusted_return * 0.4
-        + total_return * 0.3
-        + sharpe_ratio * 0.1
-        + max_drawdown * 0.1
-        + total_trades * 0.1
-    )
+    fitness_presets = {
+        "aggressive": {
+            "weights": {
+                "return_perc": 0.5,
+                "market_adjusted_return": 0.3,
+                "sharpe_ratio": 0.1,
+                "drawdown_metrics.max_drawdown_pct": -0.2,
+                "num_trades": 0.1,
+            },
+            "min_trades": 5,
+            "low_trades_penalty": -5.0,
+        },
+        "conservative": {
+            "weights": {
+                "return_perc": 0.2,
+                "market_adjusted_return": 0.2,
+                "sharpe_ratio": 0.3,
+                "drawdown_metrics.max_drawdown_pct": -0.4,
+                "num_trades": 0.1,
+                "risk_metrics.sortino_ratio": 0.2,
+            },
+            "min_trades": 5,
+            "low_trades_penalty": -5.0,
+        },
+    }
+
+    default_fitness = fitness_presets["aggressive"]
+    if isinstance(fitness_config, dict) and fitness_config.get("preset"):
+        preset_name = fitness_config.get("preset")
+        config = fitness_presets.get(preset_name, default_fitness)
+    else:
+        config = fitness_config or default_fitness
+    weights = config.get("weights", default_fitness["weights"])
+    min_trades = config.get("min_trades", 0)
+    low_trades_penalty = config.get("low_trades_penalty", -5.0)
+
+    fitness = 0.0
+    for metric, weight in weights.items():
+        val = _get_metric(summary, metric, 0.0)
+        if metric.endswith("max_drawdown_pct"):
+            val = abs(val)
+        fitness += val * weight
+
+    if min_trades:
+        trades = _get_metric(summary, "num_trades", 0)
+        if trades < min_trades:
+            fitness += low_trades_penalty
 
     return fitness
 
 
-def fitness_wrapper(ga_instance, solution, solution_idx, base_strategy, genes):
-    return fitness_func(solution, solution_idx, strategy=base_strategy, genes=genes)
+def fitness_wrapper(ga_instance, solution, solution_idx, base_strategy, genes, fitness_config):
+    return fitness_func(
+        solution,
+        solution_idx,
+        strategy=base_strategy,
+        genes=genes,
+        fitness_config=fitness_config,
+    )
 
 
-def save_json(strategy, filename):
+def save_yaml(strategy, filename):
     if not filename:
         rnd_str = "".join(random.choices(string.ascii_letters + string.digits, k=10))
         date_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{date_str}_{rnd_str}.json"
+        filename = f"{date_str}_{rnd_str}.yml"
     # append the archive path to the filename
     # check the env variable ARCHIVE_PATH
     archive_path = os.getenv("ARCHIVE_PATH")
@@ -211,10 +260,21 @@ def save_json(strategy, filename):
     # make sure this archive path is a directory and ends with ml
     if not archive_path.endswith("ml"):
         archive_path = os.path.join(archive_path, "ml")
+    if not os.path.exists(archive_path):
+        os.makedirs(archive_path)
 
     filename = os.path.join(archive_path, filename)
+    if not filename.endswith((".yml", ".yaml")):
+        filename = f"{filename}.yml"
+    try:
+        import yaml
+    except Exception:
+        yaml = None
     with open(filename, "w") as f:
-        json.dump(strategy, f, indent=4)
+        if yaml is not None:
+            yaml.safe_dump(strategy, f, sort_keys=False)
+        else:
+            json.dump(strategy, f, indent=2)
 
 
 def optimize_strategy(
@@ -231,6 +291,8 @@ def optimize_strategy(
     parallel_processing: int = 8,
     gene_space_provider=None,
     K_tournament=4,
+    progress_callback=None,
+    fitness_config=None,
 ):
     """
     Optimizes a trading strategy using a genetic algorithm.
@@ -245,6 +307,7 @@ def optimize_strategy(
     Returns:
         The best solution and its fitness value
     """
+    date_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     # Check if the genes contain callable functions (lambdas or regular functions)
     started_at = datetime.datetime.now()
     has_callable_genes = any(callable(gene[1]) for gene in genes)
@@ -258,8 +321,16 @@ def optimize_strategy(
 
         for i in range(num_generations):
             # Each iteration calls the function to get new values
-            fitness = fitness_func(None, i, base_strategy, genes)
-            print(f"Generation {i+1}/{num_generations}, Fitness: {fitness}")
+            fitness = fitness_func(None, i, base_strategy, genes, fitness_config=fitness_config)
+            if progress_callback:
+                progress_callback(
+                    {
+                        "generation": i + 1,
+                        "total_generations": num_generations,
+                        "best_fitness": best_fitness,
+                        "fitness": fitness,
+                    }
+                )
 
             if fitness > best_fitness:
                 best_fitness = fitness
@@ -277,15 +348,14 @@ def optimize_strategy(
         # print(f"Best fitness: {best_fitness}")
 
         # Save the best strategy
-        date_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        fname = f"{date_str}.json"
+        fname = f"{date_str}.yml"
         best_modified_strategy["completed_at"] = datetime.datetime.now().isoformat()
         payload_to_save = {
             "strategy": best_modified_strategy,
             "fitness": best_fitness,
         }
         # Save the best strategy to disk
-        save_json(payload_to_save, fname)
+        save_yaml(payload_to_save, fname)
 
     # If we don't have callable genes, proceed with the normal GA optimization
     # Define the GA parameters
@@ -315,6 +385,8 @@ def optimize_strategy(
         gene_name = gene[0]
         if callable(gene[1]):
             gene_space.append(gene[1]())
+        elif gene[1] is None:
+            gene_space.append(gene_space_provider(gene_name))
         else:
             gene_space.append(gene[1])
 
@@ -334,11 +406,37 @@ def optimize_strategy(
                 solution.append(random.randint(1, 100))
         initial_population.append(solution)
 
+    if isinstance(parallel_processing, int):
+        parallel_processing = ["thread", parallel_processing]
+
+    def on_generation(ga):
+        if progress_callback:
+            solution, solution_fitness, _ = ga.best_solution()
+            mapped = []
+            for i, gene in enumerate(genes):
+                gene_name = gene[0]
+                if gene_name == "freq":
+                    freq_idx = int(solution[i])
+                    freq_idx = max(0, min(freq_idx, len(frequency_map) - 1))
+                    mapped.append((gene_name, frequency_map[freq_idx]))
+                elif "column" in gene_name:
+                    mapped.append((gene_name, columns[int(solution[i]) % len(columns)]))
+                else:
+                    mapped.append((gene_name, solution[i]))
+            progress_callback(
+                {
+                    "generation": ga.generations_completed,
+                    "total_generations": num_generations,
+                    "best_fitness": solution_fitness,
+                    "best_genes": mapped,
+                }
+            )
+
     ga_instance = pygad.GA(
         num_generations=num_generations,
         num_parents_mating=num_parents_mating,
         fitness_func=lambda ga, sol, idx: fitness_wrapper(
-            ga, sol, idx, base_strategy, genes
+            ga, sol, idx, base_strategy, genes, fitness_config
         ),
         sol_per_pop=sol_per_pop,
         num_genes=len(
@@ -355,15 +453,18 @@ def optimize_strategy(
         random_mutation_max_val=1.0,
         save_best_solutions=True,
         K_tournament=K_tournament,
+        on_generation=on_generation,
     )
     # Run the GA
-    ga_instance.run()
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=UserWarning, module="pygad.pygad")
+        ga_instance.run()
 
     # Get the best solution
     solution, solution_fitness, solution_idx = ga_instance.best_solution()
 
     # save the best solution
-    # best_solution_file = f"./ft_archive/{date_str}_best_solution.json"
+    # best_solution_file = f"./ft_archive/{date_str}_best_solution.yml"
     # print(f"Saving best solution to {best_solution_file}")
 
     # Ensure the directory exists
@@ -374,7 +475,11 @@ def optimize_strategy(
     strategy_solution = []
     for i, gene in enumerate(genes):
         gene_name = gene[0]
-        if "column" in gene_name:
+        if gene_name == "freq":
+            freq_idx = int(solution[i])
+            freq_idx = max(0, min(freq_idx, len(frequency_map) - 1))
+            strategy_solution.append(frequency_map[freq_idx])
+        elif "column" in gene_name:
             strategy_solution.append(columns[int(solution[i]) % len(columns)])
         else:
             strategy_solution.append(solution[i])
@@ -386,7 +491,11 @@ def optimize_strategy(
     mapped_genes = []
     for i, gene in enumerate(genes):
         gene_name = gene[0]
-        if "column" in gene_name:
+        if gene_name == "freq":
+            freq_idx = int(solution[i])
+            freq_idx = max(0, min(freq_idx, len(frequency_map) - 1))
+            mapped_genes.append((gene_name, frequency_map[freq_idx]))
+        elif "column" in gene_name:
             # Map numeric value to a column name
             column_idx = int(solution[i]) % len(columns)
             mapped_genes.append((gene_name, columns[column_idx]))
@@ -407,7 +516,7 @@ def optimize_strategy(
         "duration_minutes": (datetime.datetime.now() - started_at).total_seconds() / 60,
         "duration_hours": (datetime.datetime.now() - started_at).total_seconds() / 3600,
     }
-    save_json(payload_to_save, f"{date_str}_winner.json")
+    save_yaml(payload_to_save, f"{date_str}_winner.yml")
 
     return mapped_genes, solution_fitness
 

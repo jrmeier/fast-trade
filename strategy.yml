@@ -1,0 +1,39 @@
+any_enter:
+
+any_exit:
+
+freq: 5Min
+comission: 0.01
+symbol: BTCUSDT
+exchange: binanceus
+datapoints:
+  -
+    args:
+      - 9
+    name: zlema
+    transformer: zlema
+  -
+    args:
+      - 99
+    name: zlema_1
+    transformer: zlema
+enter:
+  -
+    - zlema
+    - >
+    - close
+    - 4
+exit:
+  -
+    - zlema_1
+    - <
+    - close
+    - 2
+start_date: 2025-12-01
+exit_on_end: false
+trailing_stop_loss: null
+rules:
+  -
+    - trade_streaks.avg_win_streak
+    - >
+    - 0.05

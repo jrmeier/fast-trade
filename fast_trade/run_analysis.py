@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 
 
-def apply_logic_to_df(df: pd.DataFrame, backtest: dict):
+def apply_logic_to_df(df: pd.DataFrame, backtest: dict, progress_callback=None):
     """Analyzes the dataframe and runs sort of a market simulation, entering and exiting positions
 
     Parameters
@@ -53,6 +53,7 @@ def apply_logic_to_df(df: pd.DataFrame, backtest: dict):
         close_prices = df["close"].values
 
         # Process each row sequentially (still need to do this due to state dependencies)
+        update_every = max(1, n // 200)
         for i in range(n):
             curr_action = actions[i]
             close = close_prices[i]
@@ -113,6 +114,8 @@ def apply_logic_to_df(df: pd.DataFrame, backtest: dict):
             adj_account_value_array[i] = account_value_array[i] + convert_aux_to_base(
                 aux_array[i], close
             )
+            if progress_callback and (i % update_every == 0 or i == n - 1):
+                progress_callback({"percent": int((i + 1) / n * 100)})
 
         # Handle exit_on_end if needed
         if backtest.get("exit_on_end") and in_trade_array[-1]:
@@ -164,7 +167,9 @@ def apply_logic_to_df(df: pd.DataFrame, backtest: dict):
         fee_list = []
         adj_account_value_list = []
 
-        for row in df.itertuples():
+        total_rows = len(df)
+        update_every = max(1, total_rows // 200)
+        for idx, row in enumerate(df.itertuples()):
             close = row.close
             curr_action = row.action
             fee = 0.0
@@ -194,6 +199,10 @@ def apply_logic_to_df(df: pd.DataFrame, backtest: dict):
             in_trade_list.append(in_trade)
             fee_list.append(fee)
             adj_account_value_list.append(adj_account_value)
+            if progress_callback and (
+                idx % update_every == 0 or idx == total_rows - 1
+            ):
+                progress_callback({"percent": int((idx + 1) / total_rows * 100)})
 
         if backtest.get("exit_on_end") and in_trade:
             # this means we should exit the trade

@@ -43,7 +43,7 @@ pip install fast-trade
 
 ## Usage
 
-[strategy.json](./strategy.json) for an example strategy. The basic idea is you describe the "datapoints" then compare them in the "logics". The "datapoints" describe the technical analysis functions to run, and the "logics" describe the logic to use to determine when to enter and exit trades.
+[strategy.yml](./strategy.yml) for an example strategy. The basic idea is you describe the "datapoints" then compare them in the "logics". The "datapoints" describe the technical analysis functions to run, and the "logics" describe the logic to use to determine when to enter and exit trades.
 
 Example backtest script
 
@@ -96,7 +96,7 @@ backtest = {
     "exit_on_end": False, # at then end of the backtest, if true, the trade will exit
 }
 # backtests can also come from urls
-# backtest = "https://raw.githubusercontent.com/jrmeier/fast-trade/master/sma_strategy.json"
+# backtest = "https://raw.githubusercontent.com/jrmeier/fast-trade/master/sma_strategy.yml"
 
 # returns a mirror of the object, with errors if any
 print(validate_backtest(backtest))
@@ -128,24 +128,24 @@ This will download the last month of data for BTCUSD from binance.us and store i
 
 This will backtest a file with a strategy. By default, it will only show a summary of the backtest. However, if you want to save the results, add the `--save` flag and it will go the `saved_backtests/` directory.
 
-`ft backtest ./strategy.json`
+`ft backtest ./strategy.yml`
 
 You can validate a backtest before you run it. This doesn't help with the data, but does help with the logic.
-`ft validate stategy.json`
+`ft validate stategy.yml`
 
 ### Backteset Modifiers
 
 Modifying the `freq`
 
-`ft backtest ./strategy.json --mods freq 1H`
+`ft backtest ./strategy.yml --mods freq 1H`
 
 Modifying the `freq` and the `trailing_stop_loss`
 
-`ft backtest ./strategy.json --mods freq 1H trailing_stop_loss .05`
+`ft backtest ./strategy.yml --mods freq 1H trailing_stop_loss .05`
 
 Saving a test result
 This generates creates the `saved_backtest` directory (if it doesn't exist), then inside of there, is another directory with a timestamp, with a chart, the backtest file, the summary, and the raw dataframe as a csv.
-`ft backtest ./strategy.json --save`
+`ft backtest ./strategy.yml --save`
 
 ### Archive
 You can download data directly from the CoinbaseAPI and BinanceAPI without registering for an API key.

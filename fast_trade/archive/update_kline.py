@@ -15,6 +15,7 @@ def update_kline(
     exchange,
     start_date: typing.Optional[datetime.datetime] = None,
     end_date: typing.Optional[datetime.datetime] = None,
+    progress_callback: typing.Optional[typing.Callable[[dict], None]] = None,
 ):
     if exchange not in supported_exchanges:
         raise ValueError(f"Exchange {exchange} not supported")
@@ -39,19 +40,8 @@ def update_kline(
     curr_date = start_date
 
     def status_update(status_obj):
-        # os.system("clear")
-        # print(status_obj)
-        in_seconds = status_obj["est_time_remaining"]
-        in_minutes = in_seconds / 60
-        msg = f"Downloading {symbol} from {exchange}."
-        if in_seconds > 100:
-            msg += f" Remaining (in minutes): {in_minutes:.2f}"
-        else:
-            msg += f" Remaining (in seconds): {in_seconds:.2f}"
-
-        msg += f" {status_obj['perc_complete']}% complete"
-        # update the db
-        print(msg)
+        if progress_callback:
+            progress_callback(status_obj)
 
     if exchange == "binanceus":
         klines, status_obj = get_binance_klines(
@@ -90,5 +80,4 @@ if __name__ == "__main__":
     exchange = "coinbase"
     start_date = datetime.datetime(2024, 1, 1)
     end_date = datetime.datetime(2024, 1, 14)
-    res = update_kline(symbol, exchange, start_date, end_date)
-    print(res)
+    update_kline(symbol, exchange, start_date, end_date)

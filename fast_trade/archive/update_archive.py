@@ -1,38 +1,54 @@
 import datetime
 import os
 import time
+from typing import Callable, List, Tuple
 
-from .db_helpers import connect_to_db
+from rich.console import Console
+from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn, TimeElapsedColumn
+
+import pandas as pd
+
 from .update_kline import update_kline
 
 ARCHIVE_PATH = os.getenv("ARCHIVE_PATH", os.path.join(os.getcwd(), "ft_archive"))
+console = Console()
 
 
-def update_single_archive(symbol: str, exchange: str):
+def update_single_archive(
+    symbol: str,
+    exchange: str,
+    progress_callback: Callable[[dict], None] = None,
+):
     # check the oldest date in the existing archive
-    if not symbol.endswith(".sqlite"):
-        symbol = symbol + ".sqlite"
+    if not symbol.endswith(".parquet"):
+        symbol = symbol + ".parquet"
     path = os.path.join(ARCHIVE_PATH, exchange, symbol)
-    db = connect_to_db(path)
 
     now = datetime.datetime.now(datetime.timezone.utc)
     now = now.replace(second=0, microsecond=0)
 
-    start_date = db.execute("SELECT max(date) FROM klines").fetchone()[0]
+    if os.path.exists(path):
+        try:
+            df = pd.read_parquet(path)
+            if "date" in df.columns:
+                df = df.set_index("date")
+            df.index = pd.to_datetime(df.index)
+            start_date = df.index.max()
+        except Exception:
+            start_date = None
+    else:
+        start_date = None
 
     if start_date is None:
         start_date = now - datetime.timedelta(days=7)
-    else:
-        start_date = datetime.datetime.fromisoformat(start_date)
 
-    actual_symbol = symbol.replace(".sqlite", "")
-    print(f"Updating {actual_symbol} from {exchange} from {start_date} to {now}")
-
+    actual_symbol = symbol.replace(".parquet", "")
     update_kline(
         symbol=actual_symbol,
         exchange=exchange,
         start_date=start_date,
         end_date=now,
+        progress_callback=progress_callback,
     )
 
 
@@ -41,24 +57,52 @@ def update_archive():
     count = 0
     start_time = time.time()
 
+    work_items: List[Tuple[str, str]] = []
     for exchange in os.listdir(ARCHIVE_PATH):
-        # is it a dir
         if not os.path.isdir(os.path.join(ARCHIVE_PATH, exchange)):
-            print("skipping: ", exchange)
             continue
         for symbol in os.listdir(os.path.join(ARCHIVE_PATH, exchange)):
-            if symbol.startswith("_") or not symbol.endswith(".sqlite"):
-                # ignore files that start with an underscore
+            if symbol.startswith("_") or not symbol.endswith(".parquet"):
                 continue
+            work_items.append((exchange, symbol))
+
+    progress = Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeElapsedColumn(),
+        console=console,
+        transient=True,
+    )
+
+    with progress:
+        overall_task = progress.add_task("Updating symbols", total=len(work_items))
+
+        for exchange, symbol in work_items:
+            actual_symbol = symbol.replace(".parquet", "")
+            symbol_task = progress.add_task(f"{exchange}:{actual_symbol}", total=100)
+
+            def progress_callback(status_obj):
+                perc = status_obj.get("perc_complete", 0)
+                try:
+                    completed = float(perc)
+                except (TypeError, ValueError):
+                    completed = 0
+                progress.update(symbol_task, completed=completed)
+
             try:
-                update_single_archive(symbol, exchange)
+                update_single_archive(symbol, exchange, progress_callback=progress_callback)
+                progress.update(symbol_task, completed=100)
+                progress.update(overall_task, advance=1)
                 count += 1
             except Exception as e:
-                print(f"Error updating {symbol} from {exchange}: {e}")
+                progress.update(symbol_task, completed=100)
+                progress.update(overall_task, advance=1)
                 raise e
 
     updated_time = round(time.time() - start_time, 2)
-    print(f"\n\nUpdated {count} symbols in {updated_time} seconds ✅")
+    console.print(f"[green]Updated {count} symbols in {updated_time} seconds[/green]")
 
 
 if __name__ == "__main__":

@@ -6,8 +6,10 @@ import time
 
 import pandas as pd
 import requests
+from rich.console import Console
 
 API_DELAY = float(os.getenv("API_DELAY", 0.3))
+console = Console()
 
 BINANCE_KLINE_REST_HEADER_MATCH = [
     "date",  # Open time
@@ -77,7 +79,7 @@ def get_oldest_date_available(symbol, tld="us"):
         oldest_date = datetime.datetime.fromtimestamp(data[0][0] / 1000)
         return oldest_date
     except Exception:
-        print(f"error with {symbol}")
+        console.print(f"[red]Error fetching oldest date for {symbol}[/red]")
         return datetime.datetime.utcnow() - datetime.timedelta(days=1)
 
 
@@ -112,8 +114,6 @@ def get_binance_klines(
         startTime = int(curr_date.timestamp()) * 1000
         endTime = int(next_end_date.timestamp()) * 1000
 
-        print(f"Getting {symbol} from {curr_date} to {next_end_date}")
-
         url = (
             f"https://api.binance.{tld}/api/v3/klines"
             f"?symbol={symbol}&interval=1m"
@@ -127,9 +127,7 @@ def get_binance_klines(
             curr_date = next_end_date
             klines.extend(req.json())
         else:
-            # print(req)
-            # raise Exception(f"Error with {symbol}")
-            print(f"Error: {symbol} {req.text}")
+            console.print(f"[red]Binance error {symbol}: {req.text}[/red]")
             error_count += 1
             if error_count > 3:
                 raise Exception(

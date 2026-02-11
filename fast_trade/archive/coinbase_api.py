@@ -4,13 +4,14 @@ import os
 import random
 import time
 import typing
-from pprint import pprint
 
 import pandas as pd
 import requests
+from rich.console import Console
 
 API_DELAY = os.getenv("API_DELAY", 0.3)
 BASE_URL = "https://api.exchange.coinbase.com"
+console = Console()
 CB_REST_HEADER_MATCH = [
     "date",
     "low",
@@ -26,12 +27,11 @@ def get_products() -> typing.List[dict]:
     try:
         res = requests.get(f"{BASE_URL}/products")
         if res.status_code > 399:
-            print("unauthorized")
+            console.print("[red]Unauthorized Coinbase response[/red]")
             return []
         return res.json()
     except Exception as e:
-        print(e.status_code)
-        print("Error fetching products: e")
+        console.print(f"[red]Error fetching Coinbase products: {e}[/red]")
         return []
 
 
@@ -97,7 +97,7 @@ def get_product_candles(
 
         df = get_single_candle(product_id, params, df)
         if df.empty:
-            print(f"Error Downloading {product_id}")
+            console.print(f"[red]Error downloading {product_id}[/red]")
             bad_errors += 1
             if bad_errors > 4:
                 raise Exception(
@@ -137,8 +137,7 @@ def get_single_candle(product_id: str, params: dict = {}, df=pd.DataFrame()):
         bad_errors = 0
         if res.status_code > 399:
             bad_errors += 1
-            # skip this call
-            print("Error ", res.status_code, res.text)
+            console.print(f"[red]Coinbase error {res.status_code}: {res.text}[/red]")
             # bad_errors += 1
             if bad_errors > 1:
                 time.sleep(bad_errors * bad_errors * bad_errors)
@@ -160,7 +159,7 @@ def get_single_candle(product_id: str, params: dict = {}, df=pd.DataFrame()):
         df.drop_duplicates(inplace=True)
         return df
     except Exception as e:
-        print("error", e)
+        console.print(f"[red]Coinbase candle error: {e}[/red]")
         return pd.DataFrame()
 
 
@@ -206,16 +205,12 @@ def get_oldest_day(
             # No data, search in later half
             start_date = middle_date + datetime.timedelta(days=1)
 
-    print(f"API calls: {call_count}")
     return end_date
 
 
 if __name__ == "__main__":
     start = datetime.datetime(2024, 2, 7)
-    res = get_product_candles("BTC-USD", start=start)
-    # res = find_oldest_date("DOGE-USD")
-    # res = get_products()
-    pprint(res)
+    get_product_candles("BTC-USD", start=start)
 
     # res.to_csv("btc.csv")
     # print(res)

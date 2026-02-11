@@ -1,5 +1,4 @@
 import datetime
-import pprint
 import typing
 
 from fast_trade.archive import binance_api, coinbase_api
@@ -23,11 +22,7 @@ def get_assets(exchange: str = "local") -> typing.List[str]:
             raise ValueError(f"Exchange {exchange} not supported")
         assets.sort()
     except Exception as e:
-        print(f"Error getting assets for {exchange}: {e}")
         raise e
-
-    pprint.pprint(assets)
-    print(f"Found {len(assets)} assets for {exchange}")
     return assets
 
 
@@ -37,6 +32,7 @@ def download_asset(
     start: typing.Union[str, datetime.datetime] = datetime.datetime.now()
     - datetime.timedelta(days=30),
     end: typing.Union[str, datetime.datetime] = datetime.datetime.now(),
+    progress_callback: typing.Optional[typing.Callable[[dict], None]] = None,
 ):
     """
     Download a single asset from the given exchange
@@ -64,17 +60,16 @@ def download_asset(
         # make sure the symbol exists
         if symbol not in binance_api.get_available_symbols():
             raise ValueError(f"Symbol {symbol} not found on Binance US")
-        db_path = update_kline(symbol, exchange, start, end)
+        db_path = update_kline(symbol, exchange, start, end, progress_callback=progress_callback)
     elif exchange == "binancecom":
         if symbol not in binance_api.get_available_symbols(tld="com"):
             raise ValueError(f"Symbol {symbol} not found on Binance COM")
-        db_path = update_kline(symbol, exchange, start, end)
+        db_path = update_kline(symbol, exchange, start, end, progress_callback=progress_callback)
     elif exchange == "coinbase":
         if symbol not in coinbase_api.get_asset_ids():
             raise ValueError(f"Symbol {symbol} not found on Coinbase")
-        db_path = update_kline(symbol, exchange, start, end)
+        db_path = update_kline(symbol, exchange, start, end, progress_callback=progress_callback)
     else:
         raise ValueError(f"Exchange {exchange} not supported")
 
-    print(f"Downloaded {symbol} from {exchange} to {db_path}")
     return db_path

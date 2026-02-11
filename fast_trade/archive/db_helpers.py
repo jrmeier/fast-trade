@@ -21,10 +21,12 @@ def get_local_assets() -> typing.List[typing.Tuple[str, str]]:
 
     for exchange in os.listdir(ARCHIVE_PATH):
         for symbol in os.listdir(os.path.join(ARCHIVE_PATH, exchange)):
-            if symbol.startswith("_") or not symbol.endswith(".sqlite"):
-                # ignore files that start with an underscore
+            if symbol.startswith("_"):
                 continue
-            all_assets.append((exchange, symbol.replace(".sqlite", "")))
+            if symbol.endswith(".parquet"):
+                all_assets.append((exchange, symbol.replace(".parquet", "")))
+            elif symbol.endswith(".sqlite"):
+                all_assets.append((exchange, symbol.replace(".sqlite", "")))
 
     return all_assets
 
@@ -49,10 +51,21 @@ def update_klines_to_db(df, symbol, exchange) -> str:
     if not os.path.exists(exchange_path):
         os.makedirs(exchange_path)
     # create the symbol path if it doesn't exist
-    symbol_path = f"{exchange_path}/{symbol}.sqlite"
-    engine = connect_to_db(symbol_path, create=True)
+    symbol_path = f"{exchange_path}/{symbol}.parquet"
     df = standardize_df(df)
-    df.to_sql("klines", con=engine, if_exists="append", index=True, index_label="date")
+    df.index.name = "date"
+
+    if os.path.exists(symbol_path):
+        existing = pd.read_parquet(symbol_path)
+        if "date" in existing.columns:
+            existing = existing.set_index("date")
+        existing.index = pd.to_datetime(existing.index)
+        combined = pd.concat([existing, df])
+        combined = combined[~combined.index.duplicated(keep="last")]
+        combined = combined.sort_index()
+        combined.to_parquet(symbol_path, index=True)
+    else:
+        df.to_parquet(symbol_path, index=True)
 
     return symbol_path
 
@@ -76,6 +89,15 @@ def connect_to_db(db_path: str, create: bool = False) -> sqlite3.Connection:
     # if db_name == "ftc":
     conn.execute("pragma journal_mode=WAL")
     return conn
+
+
+def migrate_sqlite_to_parquet(sqlite_path: str, parquet_path: str) -> None:
+    conn = connect_to_db(sqlite_path)
+    df = pd.read_sql_query("SELECT * FROM klines", conn)
+    if "date" in df.columns:
+        df["date"] = pd.to_datetime(df["date"])
+        df = df.set_index("date")
+    df.to_parquet(parquet_path, index=True)
 
 
 def standardize_df(df):
@@ -113,9 +135,10 @@ def get_kline(
     """
     Get the klines from the db
     """
-    db_path = f"{ARCHIVE_PATH}/{exchange}/{symbol}.sqlite"
+    parquet_path = f"{ARCHIVE_PATH}/{exchange}/{symbol}.parquet"
+    sqlite_path = f"{ARCHIVE_PATH}/{exchange}/{symbol}.sqlite"
     # if the db exists, if not try and downlaod it
-    if not os.path.exists(db_path):
+    if not os.path.exists(parquet_path) and not os.path.exists(sqlite_path):
         import fast_trade.archive.update_kline as update_kline
 
         update_kline.update_kline(
@@ -130,17 +153,24 @@ def get_kline(
         if isinstance(end_date, str):
             end_date = datetime.datetime.fromisoformat(end_date)
 
-    conn = connect_to_db(db_path)
-    query = "SELECT * FROM klines"
-    if start_date:
-        query += f" WHERE date >= '{start_date.isoformat()}'"
+    if os.path.exists(parquet_path):
+        df = pd.read_parquet(parquet_path)
+        if "date" in df.columns:
+            df = df.set_index("date")
+        df.index = pd.to_datetime(df.index)
+    else:
+        conn = connect_to_db(sqlite_path)
+        query = "SELECT * FROM klines"
+        if start_date:
+            query += f" WHERE date >= '{start_date.isoformat()}'"
 
-    if end_date:
-        query += f" AND date <= '{end_date.isoformat()}'"
+        if end_date:
+            query += f" AND date <= '{end_date.isoformat()}'"
 
-    df = pd.read_sql_query(query, conn)
-    df.date = pd.to_datetime(df.date)
-    df = df.set_index("date")
+        df = pd.read_sql_query(query, conn)
+        df.date = pd.to_datetime(df.date)
+        df = df.set_index("date")
+        df.to_parquet(parquet_path, index=True)
     # set the freq of the dataframe
     df = df.resample(freq).agg(
         {
@@ -161,4 +191,3 @@ if __name__ == "__main__":
     start_date = datetime.datetime(2024, 12, 12)
     end_date = datetime.datetime(2024, 12, 31)
     df = get_kline(symbol, exchange, start_date, end_date)
-    print(df)

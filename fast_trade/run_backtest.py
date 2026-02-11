@@ -64,7 +64,12 @@ class BacktestKeyError(Exception):
         super().__init__(f"Backtest Error(s):\n{self.error_msgs}")
 
 
-def run_backtest(backtest: dict, df: pd.DataFrame = pd.DataFrame(), summary=True):
+def run_backtest(
+    backtest: dict,
+    df: pd.DataFrame = pd.DataFrame(),
+    summary=True,
+    progress_callback=None,
+):
     """
     Run a backtest on a given dataframe
     Parameters
@@ -94,6 +99,8 @@ def run_backtest(backtest: dict, df: pd.DataFrame = pd.DataFrame(), summary=True
                 raise BacktestKeyError(error_msgs)
 
     if df.empty:
+        if progress_callback:
+            progress_callback({"phase": "data", "percent": 0})
         # check the local archive for the data
         # calculate the start and end dates based on the max number of periods in any dp args
         def get_max_periods(datapoint):
@@ -126,6 +133,8 @@ def run_backtest(backtest: dict, df: pd.DataFrame = pd.DataFrame(), summary=True
             backtest.get("end_date"),
             freq=backtest.get("freq") or backtest.get("chart_period"),
         )
+        if progress_callback:
+            progress_callback({"phase": "data", "percent": 100})
 
     if df.empty:
         raise MissingData(
@@ -134,7 +143,11 @@ def run_backtest(backtest: dict, df: pd.DataFrame = pd.DataFrame(), summary=True
 
     df = prepare_df(df, new_backtest)
 
-    df = apply_backtest_to_df(df, new_backtest)
+    df = apply_backtest_to_df(
+        df,
+        new_backtest,
+        progress_callback=progress_callback,
+    )
     # throw an error if the backtest is not valid
     validate_backtest_with_df(new_backtest, df)
 
@@ -201,7 +214,7 @@ def prepare_new_backtest(backtest):
     return new_backtest
 
 
-def apply_backtest_to_df(df: pd.DataFrame, backtest: dict):
+def apply_backtest_to_df(df: pd.DataFrame, backtest: dict, progress_callback=None):
     """Processes the frame and adds the resultent rows
     Parameters
     ----------
@@ -213,9 +226,29 @@ def apply_backtest_to_df(df: pd.DataFrame, backtest: dict):
         df, dataframe with with all the actions and backtest processed
     """
 
-    df = process_logic_and_generate_actions(df, backtest)
+    df = process_logic_and_generate_actions(
+        df,
+        backtest,
+        progress_callback=(
+            lambda payload: progress_callback(
+                {**payload, "phase": "actions"}
+            )
+            if progress_callback
+            else None
+        ),
+    )
 
-    df = apply_logic_to_df(df, backtest)
+    df = apply_logic_to_df(
+        df,
+        backtest,
+        progress_callback=(
+            lambda payload: progress_callback(
+                {**payload, "phase": "simulation"}
+            )
+            if progress_callback
+            else None
+        ),
+    )
 
     df["adj_account_value_change_perc"] = df["adj_account_value"].pct_change()
     df["adj_account_value_change"] = df["adj_account_value"].diff()
@@ -226,7 +259,9 @@ def apply_backtest_to_df(df: pd.DataFrame, backtest: dict):
     return df
 
 
-def process_logic_and_generate_actions(df: pd.DataFrame, backtest: object):
+def process_logic_and_generate_actions(
+    df: pd.DataFrame, backtest: object, progress_callback=None
+):
     """
     Parameters
     ----------
@@ -264,12 +299,16 @@ def process_logic_and_generate_actions(df: pd.DataFrame, backtest: object):
     if max_last_frames:
         actions = []
         last_frames = []
-        for frame in df.itertuples():
+        total_rows = len(df)
+        update_every = max(1, total_rows // 200)
+        for idx, frame in enumerate(df.itertuples()):
             last_frames.insert(0, frame)
             if len(last_frames) >= max_last_frames + 1:
                 last_frames.pop()
             wtf = determine_action(frame, backtest, last_frames)
             actions.append(wtf)
+            if progress_callback and (idx % update_every == 0 or idx == total_rows - 1):
+                progress_callback({"percent": int((idx + 1) / total_rows * 100)})
         df["action"] = actions
     else:
         # Try to vectorize simple conditions where possible
@@ -302,149 +341,61 @@ def process_logic_and_generate_actions(df: pd.DataFrame, backtest: object):
                 # Initialize with hold action
                 df["action"] = "h"
 
+                def build_mask(logic_list, combine_any):
+                    if not logic_list:
+                        return pd.Series(False, index=df.index)
+                    mask = pd.Series(True, index=df.index) if not combine_any else pd.Series(False, index=df.index)
+                    for logic in logic_list:
+                        if isinstance(logic[2], (int, float)):
+                            if logic[1] == ">":
+                                condition = df[logic[0]] > logic[2]
+                            elif logic[1] == "<":
+                                condition = df[logic[0]] < logic[2]
+                            elif logic[1] == "=":
+                                condition = df[logic[0]] == logic[2]
+                            elif logic[1] == "!=":
+                                condition = df[logic[0]] != logic[2]
+                            elif logic[1] == ">=":
+                                condition = df[logic[0]] >= logic[2]
+                            elif logic[1] == "<=":
+                                condition = df[logic[0]] <= logic[2]
+                            else:
+                                condition = pd.Series(False, index=df.index)
+                        elif logic[2] in df.columns:
+                            if logic[1] == ">":
+                                condition = df[logic[0]] > df[logic[2]]
+                            elif logic[1] == "<":
+                                condition = df[logic[0]] < df[logic[2]]
+                            elif logic[1] == "=":
+                                condition = df[logic[0]] == df[logic[2]]
+                            elif logic[1] == "!=":
+                                condition = df[logic[0]] != df[logic[2]]
+                            elif logic[1] == ">=":
+                                condition = df[logic[0]] >= df[logic[2]]
+                            elif logic[1] == "<=":
+                                condition = df[logic[0]] <= df[logic[2]]
+                            else:
+                                condition = pd.Series(False, index=df.index)
+                        else:
+                            condition = pd.Series(False, index=df.index)
+
+                        if combine_any:
+                            mask = mask | condition
+                        else:
+                            mask = mask & condition
+                    return mask
+
                 # Apply exit conditions (highest priority)
-                exit_mask = pd.Series(False, index=df.index)
-                for logic in backtest.get("exit", []):
-                    if isinstance(logic[2], (int, float)):
-                        if logic[1] == ">":
-                            exit_mask = exit_mask | (df[logic[0]] > logic[2])
-                        elif logic[1] == "<":
-                            exit_mask = exit_mask | (df[logic[0]] < logic[2])
-                        elif logic[1] == "=":
-                            exit_mask = exit_mask | (df[logic[0]] == logic[2])
-                        elif logic[1] == "!=":
-                            exit_mask = exit_mask | (df[logic[0]] != logic[2])
-                        elif logic[1] == ">=":
-                            exit_mask = exit_mask | (df[logic[0]] >= logic[2])
-                        elif logic[1] == "<=":
-                            exit_mask = exit_mask | (df[logic[0]] <= logic[2])
-                    elif logic[2] in df.columns:
-                        if logic[1] == ">":
-                            exit_mask = exit_mask | (df[logic[0]] > df[logic[2]])
-                        elif logic[1] == "<":
-                            exit_mask = exit_mask | (df[logic[0]] < df[logic[2]])
-                        elif logic[1] == "=":
-                            exit_mask = exit_mask | (df[logic[0]] == df[logic[2]])
-                        elif logic[1] == "!=":
-                            exit_mask = exit_mask | (df[logic[0]] != df[logic[2]])
-                        elif logic[1] == ">=":
-                            exit_mask = exit_mask | (df[logic[0]] >= df[logic[2]])
-                        elif logic[1] == "<=":
-                            exit_mask = exit_mask | (df[logic[0]] <= df[logic[2]])
+                exit_mask = build_mask(backtest.get("exit", []), combine_any=False)
 
                 # Apply any_exit conditions
-                any_exit_mask = pd.Series(False, index=df.index)
-                for logic in backtest.get("any_exit", []):
-                    if isinstance(logic[2], (int, float)):
-                        if logic[1] == ">":
-                            any_exit_mask = any_exit_mask | (df[logic[0]] > logic[2])
-                        elif logic[1] == "<":
-                            any_exit_mask = any_exit_mask | (df[logic[0]] < logic[2])
-                        elif logic[1] == "=":
-                            any_exit_mask = any_exit_mask | (df[logic[0]] == logic[2])
-                        elif logic[1] == "!=":
-                            any_exit_mask = any_exit_mask | (df[logic[0]] != logic[2])
-                        elif logic[1] == ">=":
-                            any_exit_mask = any_exit_mask | (df[logic[0]] >= logic[2])
-                        elif logic[1] == "<=":
-                            any_exit_mask = any_exit_mask | (df[logic[0]] <= logic[2])
-                    elif logic[2] in df.columns:
-                        if logic[1] == ">":
-                            any_exit_mask = any_exit_mask | (
-                                df[logic[0]] > df[logic[2]]
-                            )
-                        elif logic[1] == "<":
-                            any_exit_mask = any_exit_mask | (
-                                df[logic[0]] < df[logic[2]]
-                            )
-                        elif logic[1] == "=":
-                            any_exit_mask = any_exit_mask | (
-                                df[logic[0]] == df[logic[2]]
-                            )
-                        elif logic[1] == "!=":
-                            any_exit_mask = any_exit_mask | (
-                                df[logic[0]] != df[logic[2]]
-                            )
-                        elif logic[1] == ">=":
-                            any_exit_mask = any_exit_mask | (
-                                df[logic[0]] >= df[logic[2]]
-                            )
-                        elif logic[1] == "<=":
-                            any_exit_mask = any_exit_mask | (
-                                df[logic[0]] <= df[logic[2]]
-                            )
+                any_exit_mask = build_mask(backtest.get("any_exit", []), combine_any=True)
 
                 # Apply enter conditions
-                enter_mask = pd.Series(False, index=df.index)
-                for logic in backtest.get("enter", []):
-                    if isinstance(logic[2], (int, float)):
-                        if logic[1] == ">":
-                            enter_mask = enter_mask | (df[logic[0]] > logic[2])
-                        elif logic[1] == "<":
-                            enter_mask = enter_mask | (df[logic[0]] < logic[2])
-                        elif logic[1] == "=":
-                            enter_mask = enter_mask | (df[logic[0]] == logic[2])
-                        elif logic[1] == "!=":
-                            enter_mask = enter_mask | (df[logic[0]] != logic[2])
-                        elif logic[1] == ">=":
-                            enter_mask = enter_mask | (df[logic[0]] >= logic[2])
-                        elif logic[1] == "<=":
-                            enter_mask = enter_mask | (df[logic[0]] <= logic[2])
-                    elif logic[2] in df.columns:
-                        if logic[1] == ">":
-                            enter_mask = enter_mask | (df[logic[0]] > df[logic[2]])
-                        elif logic[1] == "<":
-                            enter_mask = enter_mask | (df[logic[0]] < df[logic[2]])
-                        elif logic[1] == "=":
-                            enter_mask = enter_mask | (df[logic[0]] == df[logic[2]])
-                        elif logic[1] == "!=":
-                            enter_mask = enter_mask | (df[logic[0]] != df[logic[2]])
-                        elif logic[1] == ">=":
-                            enter_mask = enter_mask | (df[logic[0]] >= df[logic[2]])
-                        elif logic[1] == "<=":
-                            enter_mask = enter_mask | (df[logic[0]] <= df[logic[2]])
+                enter_mask = build_mask(backtest.get("enter", []), combine_any=False)
 
                 # Apply any_enter conditions
-                any_enter_mask = pd.Series(False, index=df.index)
-                for logic in backtest.get("any_enter", []):
-                    if isinstance(logic[2], (int, float)):
-                        if logic[1] == ">":
-                            any_enter_mask = any_enter_mask | (df[logic[0]] > logic[2])
-                        elif logic[1] == "<":
-                            any_enter_mask = any_enter_mask | (df[logic[0]] < logic[2])
-                        elif logic[1] == "=":
-                            any_enter_mask = any_enter_mask | (df[logic[0]] == logic[2])
-                        elif logic[1] == "!=":
-                            any_enter_mask = any_enter_mask | (df[logic[0]] != logic[2])
-                        elif logic[1] == ">=":
-                            any_enter_mask = any_enter_mask | (df[logic[0]] >= logic[2])
-                        elif logic[1] == "<=":
-                            any_enter_mask = any_enter_mask | (df[logic[0]] <= logic[2])
-                    elif logic[2] in df.columns:
-                        if logic[1] == ">":
-                            any_enter_mask = any_enter_mask | (
-                                df[logic[0]] > df[logic[2]]
-                            )
-                        elif logic[1] == "<":
-                            any_enter_mask = any_enter_mask | (
-                                df[logic[0]] < df[logic[2]]
-                            )
-                        elif logic[1] == "=":
-                            any_enter_mask = any_enter_mask | (
-                                df[logic[0]] == df[logic[2]]
-                            )
-                        elif logic[1] == "!=":
-                            any_enter_mask = any_enter_mask | (
-                                df[logic[0]] != df[logic[2]]
-                            )
-                        elif logic[1] == ">=":
-                            any_enter_mask = any_enter_mask | (
-                                df[logic[0]] >= df[logic[2]]
-                            )
-                        elif logic[1] == "<=":
-                            any_enter_mask = any_enter_mask | (
-                                df[logic[0]] <= df[logic[2]]
-                            )
+                any_enter_mask = build_mask(backtest.get("any_enter", []), combine_any=True)
 
                 # Apply trailing stop loss if configured
                 tsl_mask = pd.Series(False, index=df.index)
@@ -466,16 +417,32 @@ def process_logic_and_generate_actions(df: pd.DataFrame, backtest: object):
                     & any_enter_mask,
                     "action",
                 ] = "ae"
+                if progress_callback:
+                    progress_callback({"percent": 100})
             else:
                 # Fall back to row-by-row processing if we can't vectorize
-                df["action"] = [
-                    determine_action(frame, backtest) for frame in df.itertuples()
-                ]
+                actions = []
+                total_rows = len(df)
+                update_every = max(1, total_rows // 200)
+                for idx, frame in enumerate(df.itertuples()):
+                    actions.append(determine_action(frame, backtest))
+                    if progress_callback and (
+                        idx % update_every == 0 or idx == total_rows - 1
+                    ):
+                        progress_callback({"percent": int((idx + 1) / total_rows * 100)})
+                df["action"] = actions
         except Exception:
             # If vectorization fails for any reason, fall back to row-by-row processing
-            df["action"] = [
-                determine_action(frame, backtest) for frame in df.itertuples()
-            ]
+            actions = []
+            total_rows = len(df)
+            update_every = max(1, total_rows // 200)
+            for idx, frame in enumerate(df.itertuples()):
+                actions.append(determine_action(frame, backtest))
+                if progress_callback and (
+                    idx % update_every == 0 or idx == total_rows - 1
+                ):
+                    progress_callback({"percent": int((idx + 1) / total_rows * 100)})
+            df["action"] = actions
 
     return df
 
