@@ -1,27 +1,16 @@
-from fast_trade.archive.db_helpers import get_kline
-from fast_trade import prepare_df
 import pandas as pd
 import numpy as np
 from hmmlearn import hmm
 
 
-def create_hmm(strategy):
+def create_hmm(kline_df: pd.DataFrame):
     """Create a Hidden Markov Model (HMM) from a strategy
 
     Args:
         strategy (dict): A dictionary containing the strategy parameters
     """
-    # Get the klines
-    kline_df = get_kline(
-        symbol=strategy["symbol"],
-        exchange=strategy["exchange"],
-        freq=strategy["freq"],
-        start_date=strategy["start_date"],
-        end_date=strategy["end_date"]
-    )
-    kline_df = prepare_df(kline_df, backtest=strategy)
-    print(kline_df)
-
+    # Get the historical data
+    
     # Calculate percentage change as observations
     kline_df['pct_change'] = kline_df['close'].pct_change().fillna(0) * 100
     observations = kline_df['pct_change'].values.reshape(-1, 1)
@@ -34,13 +23,47 @@ def create_hmm(strategy):
 
     # Predict hidden states
     hidden_states = model.predict(observations)
-    print("Hidden States:\n", hidden_states)
+    kline_df['hidden_state'] = hidden_states
+    # print("Hidden States:\n", hidden_states)
 
     # Predict future states
-    future_states = model.sample(24)[0]
-    print("Predicted Future States:\n", future_states)
+    future_states_seq, _ = model.sample(24)
+    # print("Predicted Future States:\n", future_states)
+    
+    # Create a separate DataFrame for future predictions
+    last_date = kline_df.index[-1]
+    future_dates = pd.date_range(start=last_date, periods=25)[1:]  # Exclude the last known date
+    
+    future_df = pd.DataFrame({
+        'future_state': future_states_seq.flatten(),
+        'date': future_dates
+    })
+    future_df.set_index('date', inplace=True)
+    
+    # Create future price predictions based on the last closing price
+    last_price = kline_df['close'].iloc[-1]
+    means = model.means_.flatten()
+    
+    # Convert states to integers and use them as indices
+    future_states_int = future_states_seq.flatten().astype(int)
+    future_df['predicted_pct_change'] = [means[state] for state in future_states_int]
+    
+    # Calculate predicted prices
+    future_df['predicted_price'] = last_price
+    for i in range(len(future_df)):
+        if i == 0:
+            # Calculate first predicted price based on last known price
+            pct_change = future_df['predicted_pct_change'].iloc[i]
+            future_df.loc[future_df.index[i], 'predicted_price'] = last_price * (1 + pct_change/100)
+        else:
+            # Calculate subsequent prices based on previous prediction
+            pct_change = future_df['predicted_pct_change'].iloc[i]
+            prev_price = future_df['predicted_price'].iloc[i-1]
+            future_df.loc[future_df.index[i], 'predicted_price'] = prev_price * (1 + pct_change/100)
 
-    return hidden_states, future_states
+    # add the future_df to the kline_df
+    kline_df = pd.concat([kline_df, future_df], axis=1)
+    return kline_df
 
 
 def define_granular_states(kline_df):
@@ -114,11 +137,15 @@ def convert_states_to_prices(states, last_price):
 
 
 if __name__ == "__main__":
-    strat = {
-        "symbol": "ETHUSDT",
-        "exchange": "binanceus",
-        "freq": "1Min",
-        "start_date": "2024-01-01",
+    # Create test data for the HMM
+    from fast_trade.archive.db_helpers import get_kline
+    from fast_trade import prepare_df
+    import time
+    strat_config = {
+        "symbol": "BTC-USDT",
+        "exchange": "coinbase",
+        "freq": "1h",
+        "start_date": "2024-02-01",
         "end_date": "2025-03-01",
         "datapoints": [
             {
@@ -138,6 +165,22 @@ if __name__ == "__main__":
             }
         ]
     }
-    hidden_states, future_states = create_hmm(strat)
+    
+    # Get the data
+    start = time.time()
+    kline_data = get_kline(
+        symbol=strat_config["symbol"],
+        exchange=strat_config["exchange"],
+        freq=strat_config["freq"],
+        start_date=strat_config["start_date"],
+        end_date=strat_config["end_date"]
+    )
+    kline_data = prepare_df(kline_data, backtest=strat_config)
+    print(kline_data)
+    # # Create a simple Strategy object with a data attribute
+    # kline_df = create_hmm(kline_data)
+    # end = time.time()
+    # print(f"Time taken: {end - start} seconds")
 
-    print("Future States:\n", future_states)
+    # # print("Future States:\n", kline_df['future_state'])
+    # print(kline_df)

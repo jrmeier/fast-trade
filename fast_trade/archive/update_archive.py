@@ -42,6 +42,10 @@ def update_archive():
     start_time = time.time()
 
     for exchange in os.listdir(ARCHIVE_PATH):
+        # is it a dir
+        if not os.path.isdir(os.path.join(ARCHIVE_PATH, exchange)):
+            print("skipping: ", exchange)
+            continue
         for symbol in os.listdir(os.path.join(ARCHIVE_PATH, exchange)):
             if symbol.startswith("_") or not symbol.endswith(".sqlite"):
                 # ignore files that start with an underscore

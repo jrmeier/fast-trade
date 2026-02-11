@@ -5,30 +5,60 @@ import random
 import string
 import json
 import os
+from fast_trade.transformers_map import transformers_map
+
 frequency_map = ["1Min", "5Min", "15Min", "30Min", "1h", "4h", "8h", "12h"]
 columns = ["close", "open", "low", "high"]
 
 
-def modify_strategy(strategy, genes):
+def modify_strategy(strategy, genes, with_columns=False):
     """
     Modifies a trading strategy by replacing placeholder values with actual values from genes.
-    
+
     This function supports using lambda functions as gene values, which will be executed
     at runtime to generate the actual values.
-    
+
     Args:
         strategy: The strategy dictionary to modify
         genes: List of tuples (name, value) where value can be static or a callable function
-        
+        with_columns: If True, handle column mapping for column-related genes
+
     Returns:
         The modified strategy dictionary
     """
     # First, make a deep copy of the strategy to avoid modifying the original
     strategy = json.loads(json.dumps(strategy))
-    
+
+    # If with_columns is True, we need to preprocess the genes to handle column mappings
+    if with_columns:
+        mapped_genes = []
+        for gene in genes:
+            gene_name = gene[0]
+            gene_value = gene[1]
+
+            if callable(gene_value):
+                # Call the function to get the actual value
+                actual_value = gene_value()
+
+                # Handle column type genes
+                if "column" in gene_name:
+                    column_idx = int(actual_value) % len(columns)
+                    mapped_genes.append((gene_name, columns[column_idx]))
+                else:
+                    mapped_genes.append((gene_name, actual_value))
+            else:
+                # Use the static value directly
+                if "column" in gene_name and isinstance(gene_value, (int, float)):
+                    column_idx = int(gene_value) % len(columns)
+                    mapped_genes.append((gene_name, columns[column_idx]))
+                else:
+                    mapped_genes.append((gene_name, gene_value))
+        # Use the mapped genes instead of the original genes
+        genes = mapped_genes
+
     # Build a lookup dictionary for faster gene retrieval
     gene_dict = {gene[0]: gene[1] for gene in genes}
-    
+
     # Helper function to process any value that might contain placeholders
     def process_value(value):
         if isinstance(value, str) and value.startswith("#"):
@@ -48,7 +78,7 @@ def modify_strategy(strategy, genes):
             # Process each value in the dictionary
             return {k: process_value(v) for k, v in value.items()}
         return value
-    
+
     # Special handling for frequency
     if "freq" in gene_dict:
         freq_value = gene_dict["freq"]
@@ -62,29 +92,44 @@ def modify_strategy(strategy, genes):
             freq_idx = int(freq_value)
             freq_idx = max(0, min(freq_idx, len(frequency_map) - 1))
             strategy["freq"] = frequency_map[freq_idx]
-    
+
     # Process all datapoints
     if "datapoints" in strategy:
         for datapoint in strategy["datapoints"]:
             # Process arguments
             if "args" in datapoint:
                 datapoint["args"] = process_value(datapoint["args"])
-            
+
+            # if key trnsfomer starts with #, make sure it's a valid transformer
+            if "transformer" in datapoint and datapoint["transformer"].startswith("#"):
+                # select the transformer from the transformers_map
+                transformer_name = datapoint["transformer"].replace("#", "")
+                # find the gene name that starts with the transformer name
+                gene_name = next(
+                    (gene[0] for gene in genes if gene[0].startswith(transformer_name)),
+                    None,
+                )
+                if gene_name:
+                    datapoint["transformer"] = gene_name
+                else:
+                    raise ValueError(f"Invalid transformer: {transformer_name}")
+
             # Process any other fields that might contain placeholders
             for key in datapoint:
                 if key != "args":  # Already processed args
                     datapoint[key] = process_value(datapoint[key])
-    
+                # if the key is transformer, make sure it's a valid transformer
+
     # Process logic arrays
     for logic_key in ["enter", "exit", "any_enter", "any_exit"]:
         if logic_key in strategy:
             strategy[logic_key] = process_value(strategy[logic_key])
-    
+
     # Process any other top-level keys that might contain placeholders
     for key in strategy:
         if key not in ["datapoints", "enter", "exit", "any_enter", "any_exit", "freq"]:
             strategy[key] = process_value(strategy[key])
-    
+
     return strategy
 
 
@@ -103,30 +148,11 @@ def fitness_func(solution, solution_idx, strategy, genes: list):
     """
     # Map the numeric gene values to actual values
     mapped_genes = []
-    
+
     if solution is None:
         # If solution is None, we're using callable functions directly
-        for gene in genes:
-            gene_name = gene[0]
-            gene_value = gene[1]
-            
-            if callable(gene_value):
-                # Call the function to get the actual value
-                actual_value = gene_value()
-                
-                # Handle column type genes
-                if "column" in gene_name:
-                    column_idx = int(actual_value) % len(columns)
-                    mapped_genes.append((gene_name, columns[column_idx]))
-                else:
-                    mapped_genes.append((gene_name, actual_value))
-            else:
-                # Use the static value directly
-                if "column" in gene_name and isinstance(gene_value, (int, float)):
-                    column_idx = int(gene_value) % len(columns)
-                    mapped_genes.append((gene_name, columns[column_idx]))
-                else:
-                    mapped_genes.append((gene_name, gene_value))
+        # Use modify_strategy with with_columns=True to handle column mappings
+        strategy_copy = modify_strategy(strategy.copy(), genes, with_columns=True)
     else:
         # Standard GA approach with numeric solution
         for i, gene in enumerate(genes):
@@ -138,12 +164,10 @@ def fitness_func(solution, solution_idx, strategy, genes: list):
             else:
                 # Use the numeric value directly
                 mapped_genes.append((gene_name, solution[i]))
-    
-    # Modify the strategy based on the mapped genes
-    strategy_copy = strategy.copy()
-    strategy_copy = modify_strategy(strategy_copy, mapped_genes)
-    # print(strategy_copy)
-    
+
+        # Modify the strategy based on the mapped genes
+        strategy_copy = modify_strategy(strategy.copy(), mapped_genes)
+
     # Run the backtest
     result = run_backtest(strategy_copy)
 
@@ -156,11 +180,11 @@ def fitness_func(solution, solution_idx, strategy, genes: list):
 
     # create a weighted fitness function
     fitness = (
-        market_adjusted_return * 0.4 +
-        total_return * 0.3 +
-        sharpe_ratio * 0.1 +
-        max_drawdown * 0.1 +
-        total_trades * 0.1
+        market_adjusted_return * 0.4
+        + total_return * 0.3
+        + sharpe_ratio * 0.1
+        + max_drawdown * 0.1
+        + total_trades * 0.1
     )
 
     return fitness
@@ -172,7 +196,7 @@ def fitness_wrapper(ga_instance, solution, solution_idx, base_strategy, genes):
 
 def save_json(strategy, filename):
     if not filename:
-        rnd_str = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
+        rnd_str = "".join(random.choices(string.ascii_letters + string.digits, k=10))
         date_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"{date_str}_{rnd_str}.json"
     # append the archive path to the filename
@@ -180,14 +204,18 @@ def save_json(strategy, filename):
     archive_path = os.getenv("ARCHIVE_PATH")
     if not archive_path:
         archive_path = "./ft_archive"
-    
+
     # check the archive path
     if not os.path.exists(archive_path):
         os.makedirs(archive_path)
+    # make sure this archive path is a directory and ends with ml
+    if not archive_path.endswith("ml"):
+        archive_path = os.path.join(archive_path, "ml")
+
     filename = os.path.join(archive_path, filename)
     with open(filename, "w") as f:
         json.dump(strategy, f, indent=4)
-        
+
 
 def optimize_strategy(
     base_strategy: dict,
@@ -209,7 +237,7 @@ def optimize_strategy(
 
     Args:
         base_strategy: A dictionary representing the base trading strategy.
-        genes: A list of tuples containing (gene_name, gene_value). 
+        genes: A list of tuples containing (gene_name, gene_value).
                gene_value can be a static value, a lambda function, or a callable function.
         gene_space_provider: A function that takes a gene_type and returns its space configuration.
             If None, default ranges will be used based on gene name.
@@ -225,24 +253,29 @@ def optimize_strategy(
         # print("Using callable gene functions directly for values")
         # Run a specified number of iterations with the callable genes
         best_solution = None
-        best_fitness = float('-inf')
+        best_fitness = float("-inf")
         best_modified_strategy = None
-        
+
         for i in range(num_generations):
             # Each iteration calls the function to get new values
             fitness = fitness_func(None, i, base_strategy, genes)
             print(f"Generation {i+1}/{num_generations}, Fitness: {fitness}")
-            
+
             if fitness > best_fitness:
                 best_fitness = fitness
                 # Capture the current gene values (call the functions to get current values)
-                best_solution = [(gene[0], gene[1]() if callable(gene[1]) else gene[1]) for gene in genes]
+                best_solution = [
+                    (gene[0], gene[1]() if callable(gene[1]) else gene[1])
+                    for gene in genes
+                ]
                 # Save the best modified strategy
-                best_modified_strategy = modify_strategy(base_strategy.copy(), best_solution)
-                
+                best_modified_strategy = modify_strategy(
+                    base_strategy.copy(), best_solution
+                )
+
         # print(f"Best solution: {best_solution}")
         # print(f"Best fitness: {best_fitness}")
-        
+
         # Save the best strategy
         date_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         fname = f"{date_str}.json"
@@ -253,29 +286,38 @@ def optimize_strategy(
         }
         # Save the best strategy to disk
         save_json(payload_to_save, fname)
-        
+
     # If we don't have callable genes, proceed with the normal GA optimization
     # Define the GA parameters
     # Create gene spaces - each gene needs its own range of possible values
     gene_space = []
-    
+
     # Default gene space provider if none was provided
     if gene_space_provider is None:
+
         def default_gene_space_provider(gene_name):
             if "period" in gene_name.lower():
                 return {"low": 2, "high": 200}
             elif "rsi" in gene_name.lower():
                 return {"low": 1, "high": 100}
-            elif "ma" in gene_name.lower() or "ema" in gene_name.lower() or "sma" in gene_name.lower():
+            elif (
+                "ma" in gene_name.lower()
+                or "ema" in gene_name.lower()
+                or "sma" in gene_name.lower()
+            ):
                 return {"low": 2, "high": 200}
             else:
                 return {"low": 0, "high": 100}
+
         gene_space_provider = default_gene_space_provider
-    
+
     for gene in genes:
         gene_name = gene[0]
-        gene_space.append(gene_space_provider(gene_name))
-    
+        if callable(gene[1]):
+            gene_space.append(gene[1]())
+        else:
+            gene_space.append(gene[1])
+
     # Create an initial population with random values within the gene space
     initial_population = []
     for _ in range(sol_per_pop):
@@ -291,13 +333,17 @@ def optimize_strategy(
                 # Default
                 solution.append(random.randint(1, 100))
         initial_population.append(solution)
-    
+
     ga_instance = pygad.GA(
         num_generations=num_generations,
         num_parents_mating=num_parents_mating,
-        fitness_func=lambda ga, sol, idx: fitness_wrapper(ga, sol, idx, base_strategy, genes),
+        fitness_func=lambda ga, sol, idx: fitness_wrapper(
+            ga, sol, idx, base_strategy, genes
+        ),
         sol_per_pop=sol_per_pop,
-        num_genes=len(genes),  # Set number of genes based on the actual gene list length
+        num_genes=len(
+            genes
+        ),  # Set number of genes based on the actual gene list length
         gene_space=gene_space,
         initial_population=initial_population,
         parent_selection_type=parent_selection_type,
@@ -308,21 +354,21 @@ def optimize_strategy(
         random_mutation_min_val=-1.0,
         random_mutation_max_val=1.0,
         save_best_solutions=True,
-        K_tournament=K_tournament
+        K_tournament=K_tournament,
     )
     # Run the GA
     ga_instance.run()
 
     # Get the best solution
     solution, solution_fitness, solution_idx = ga_instance.best_solution()
-    
+
     # save the best solution
     # best_solution_file = f"./ft_archive/{date_str}_best_solution.json"
     # print(f"Saving best solution to {best_solution_file}")
-    
+
     # Ensure the directory exists
     os.makedirs("./ft_archive", exist_ok=True)
-    
+
     # Save the solution to the file
     # convert the solution to the strategy format
     strategy_solution = []
@@ -335,7 +381,7 @@ def optimize_strategy(
     # save the strategy solution to the file
     # with open(best_solution_file, "w") as f:
     #     json.dump(strategy_solution, f, indent=4)
-    
+
     # # Map numeric values to actual strategy values
     mapped_genes = []
     for i, gene in enumerate(genes):
@@ -362,7 +408,7 @@ def optimize_strategy(
         "duration_hours": (datetime.datetime.now() - started_at).total_seconds() / 3600,
     }
     save_json(payload_to_save, f"{date_str}_winner.json")
-    
+
     return mapped_genes, solution_fitness
 
 
@@ -382,8 +428,16 @@ if __name__ == "__main__":
         "datapoints": [
             {"name": "rsi_upper", "transformer": "rsi", "args": ["#rsi_upper_period"]},
             {"name": "rsi_lower", "transformer": "rsi", "args": ["#rsi_lower_period"]},
-            {"name": "zlema_short", "transformer": "zlema", "args": ["#zlema_short"]},
-            {"name": "zlema_long", "transformer": "zlema", "args": ["#zlema_long"]},
+            {
+                "name": "zlema_short",
+                "transformer": "#long_transformer",
+                "args": ["#zlema_short"],
+            },
+            {
+                "name": "zlema_long",
+                "transformer": "#short_transformer",
+                "args": ["#zlema_long"],
+            },
         ],
         "base_balance": 1000.0,
         "exit_on_end": False,
@@ -391,7 +445,7 @@ if __name__ == "__main__":
         "trailing_stop_loss": 0.0,
         "lot_size_perc": 1.0,
         "max_lot_size": 0.0,
-        "start_date": datetime.datetime(2025, 1, 1, 0, 0).isoformat(),
+        "start_date": datetime.datetime(2024, 1, 1, 0, 0).isoformat(),
         "end_date": datetime.datetime(2025, 3, 4, 0, 0).isoformat(),
         "rules": None,
         "symbol": "BTCUSDT",
@@ -400,30 +454,38 @@ if __name__ == "__main__":
     }
 
     lambda_genes = [
-        ("zlema_short", lambda: random.randint(5, 50)),      # Using a lambda function
+        ("zlema_short", lambda: random.randint(5, 50)),  # Using a lambda function
         ("zlema_short_column", lambda: random.randint(0, len(columns) - 1)),
-        ("zlema_long", lambda: random.randint(50, 300)),                   # Using a regular function
+        ("zlema_long", lambda: random.randint(50, 300)),  # Using a regular function
         ("zlema_long_column", lambda: random.randint(0, len(columns) - 1)),
-        ("freq", lambda: random.randint(0, len(frequency_map) - 1)),  # Using a lambda for frequency
-        ("rsi_lower", lambda: random.randint(10, 40)),       # Dynamic RSI lower threshold
-        ("rsi_upper", lambda: random.randint(60, 90)),       # Dynamic RSI upper threshold
+        (
+            "freq",
+            lambda: random.randint(0, len(frequency_map) - 1),
+        ),  # Using a lambda for frequency
+        ("rsi_lower", lambda: random.randint(10, 40)),  # Dynamic RSI lower threshold
+        ("rsi_upper", lambda: random.randint(60, 90)),  # Dynamic RSI upper threshold
         ("rsi_lower_period", lambda: random.randint(1, 100)),
         ("rsi_upper_period", lambda: random.randint(1, 100)),
+        ("long_transformer", lambda: random.choice(["zlema", "sma", "ema"])),
+        ("short_transformer", lambda: random.choice(["zlema", "sma", "ema"])),
     ]
-    
+
     # Call optimize_strategy with lambda genes
-    # res = modify_strategy(test_base_strategy, lambda_genes)
+    # res = modify_strategy(test_base_strategy, lambda_genes, with_columns=True)
     # print(res)
-    optimize_strategy(
+    res = optimize_strategy(
         base_strategy=test_base_strategy,
         genes=lambda_genes,
-        num_generations=1000,
+        num_generations=1,
         parallel_processing=["thread", 6],
-        sol_per_pop=100,
-        num_parents_mating=10,
-        mutation_percent_genes=[50, 10],  # 30% mutation for poor strategies, 10% for good ones
+        sol_per_pop=3,
+        num_parents_mating=2,
+        mutation_percent_genes=[
+            50,
+            10,
+        ],  # 30% mutation for poor strategies, 10% for good ones
         crossover_type="uniform",
         mutation_type="adaptive",
         parent_selection_type="tournament",
-        K_tournament=4
+        K_tournament=4,
     )

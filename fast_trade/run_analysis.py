@@ -1,5 +1,5 @@
 from datetime import timedelta
-
+import numpy as np
 import pandas as pd
 
 
@@ -30,79 +30,195 @@ def apply_logic_to_df(df: pd.DataFrame, backtest: dict):
     What is left is to apply the strategy to our dataframe so we can analyze the perfomance of our strategy. To do this,
     we need to keep track of our account balance and transactions.
 
-
-
+    This optimized version uses vectorized operations where possible for better performance.
     """
-    in_trade = False
-    account_value = float(backtest.get("base_balance"))  #
-    comission = float(backtest.get("comission"))
-    lot_size = backtest.get("lot_size_perc")
-    max_lot_size = backtest.get("max_lot_size")
+    # Try to use vectorized operations for better performance
+    try:
+        # Initialize parameters
+        account_value = float(backtest.get("base_balance"))
+        comission = float(backtest.get("comission"))
+        lot_size = backtest.get("lot_size_perc")
+        max_lot_size = backtest.get("max_lot_size")
 
-    new_account_value = account_value
+        # Create arrays to store results
+        n = len(df)
+        in_trade_array = np.zeros(n, dtype=bool)
+        account_value_array = np.zeros(n, dtype=float)
+        aux_array = np.zeros(n, dtype=float)
+        fee_array = np.zeros(n, dtype=float)
+        adj_account_value_array = np.zeros(n, dtype=float)
 
-    aux = 0.0  #
-    aux_list = []
-    account_value_list = []
-    in_trade_list = []
-    fee_list = []
-    adj_account_value_list = []
+        # Get action and close price arrays
+        actions = df["action"].values
+        close_prices = df["close"].values
 
-    for row in df.itertuples():
-        close = row.close
-        curr_action = row.action
-        fee = 0.0
+        # Process each row sequentially (still need to do this due to state dependencies)
+        for i in range(n):
+            curr_action = actions[i]
+            close = close_prices[i]
+            fee = 0.0
 
-        if curr_action in ["e", "ae"] and not in_trade:
-            # this means we should enter the trade
-            [in_trade, aux, new_account_value, fee] = enter_position(
-                account_value_list,
-                lot_size,
-                account_value,
-                max_lot_size,
-                close,
-                comission,
+            # Get previous values (or initial values if first row)
+            prev_in_trade = in_trade_array[i - 1] if i > 0 else False
+            prev_account_value = account_value_array[i - 1] if i > 0 else account_value
+            prev_aux = aux_array[i - 1] if i > 0 else 0.0
+
+            # Process enter actions
+            if curr_action in ["e", "ae"] and not prev_in_trade:
+                # Calculate transaction amount
+                base_transaction_amount = prev_account_value * lot_size
+
+                # Limit transaction amount if max_lot_size is set
+                if max_lot_size and base_transaction_amount > max_lot_size:
+                    base_transaction_amount = max_lot_size
+
+                # Convert base to aux
+                new_aux = convert_base_to_aux(base_transaction_amount, close)
+                fee = calculate_fee(new_aux, comission)
+                new_aux = new_aux - fee
+
+                # Update account value
+                new_account_value = prev_account_value - base_transaction_amount
+
+                # Set current state
+                in_trade_array[i] = True
+                aux_array[i] = new_aux
+                account_value_array[i] = new_account_value
+                fee_array[i] = fee
+
+            # Process exit actions
+            elif curr_action in ["x", "ax", "tsl"] and prev_in_trade:
+                # Convert aux to base
+                new_base = convert_aux_to_base(prev_aux, close)
+                fee = calculate_fee(new_base, comission)
+                new_base = new_base - fee
+
+                # Update account value
+                new_account_value = prev_account_value + new_base
+
+                # Set current state
+                in_trade_array[i] = False
+                aux_array[i] = 0.0
+                account_value_array[i] = new_account_value
+                fee_array[i] = fee
+
+            # Hold position
+            else:
+                in_trade_array[i] = prev_in_trade
+                aux_array[i] = prev_aux
+                account_value_array[i] = prev_account_value
+                fee_array[i] = 0.0
+
+            # Calculate adjusted account value
+            adj_account_value_array[i] = account_value_array[i] + convert_aux_to_base(
+                aux_array[i], close
             )
 
-        if curr_action in ["x", "ax", "tsl"] and in_trade:
-            # this means we should exit the trade
+        # Handle exit_on_end if needed
+        if backtest.get("exit_on_end") and in_trade_array[-1]:
+            # Create a new row for the exit
+            new_date = df.index[-1] + timedelta(seconds=1)
+            new_row = pd.DataFrame(data=[df.iloc[-1]], index=[new_date])
 
+            # Process the exit
+            close = close_prices[-1]
+            new_base = convert_aux_to_base(aux_array[-1], close)
+            fee = calculate_fee(new_base, comission)
+            new_base = new_base - fee
+            new_account_value = account_value_array[-1] + new_base
+
+            # Add the new row to the dataframe
+            df = pd.concat([df, pd.DataFrame(data=new_row)])
+
+            # Append values to arrays
+            in_trade_array = np.append(in_trade_array, False)
+            aux_array = np.append(aux_array, 0.0)
+            account_value_array = np.append(account_value_array, new_account_value)
+            fee_array = np.append(fee_array, fee)
+            adj_account_value = new_account_value + convert_aux_to_base(0.0, close)
+            adj_account_value_array = np.append(
+                adj_account_value_array, adj_account_value
+            )
+
+        # Add columns to dataframe
+        df["aux"] = aux_array
+        df["account_value"] = account_value_array
+        df["adj_account_value"] = adj_account_value_array
+        df["in_trade"] = in_trade_array
+        df["fee"] = fee_array
+
+    except Exception:
+        # Fall back to original implementation if vectorized approach fails
+        in_trade = False
+        account_value = float(backtest.get("base_balance"))
+        comission = float(backtest.get("comission"))
+        lot_size = backtest.get("lot_size_perc")
+        max_lot_size = backtest.get("max_lot_size")
+
+        new_account_value = account_value
+
+        aux = 0.0
+        aux_list = []
+        account_value_list = []
+        in_trade_list = []
+        fee_list = []
+        adj_account_value_list = []
+
+        for row in df.itertuples():
+            close = row.close
+            curr_action = row.action
+            fee = 0.0
+
+            if curr_action in ["e", "ae"] and not in_trade:
+                # this means we should enter the trade
+                [in_trade, aux, new_account_value, fee] = enter_position(
+                    account_value_list,
+                    lot_size,
+                    account_value,
+                    max_lot_size,
+                    close,
+                    comission,
+                )
+
+            if curr_action in ["x", "ax", "tsl"] and in_trade:
+                # this means we should exit the trade
+
+                [in_trade, aux, new_account_value, fee] = exit_position(
+                    account_value_list, close, aux, comission
+                )
+
+            adj_account_value = new_account_value + convert_aux_to_base(aux, close)
+
+            aux_list.append(aux)
+            account_value_list.append(new_account_value)
+            in_trade_list.append(in_trade)
+            fee_list.append(fee)
+            adj_account_value_list.append(adj_account_value)
+
+        if backtest.get("exit_on_end") and in_trade:
+            # this means we should exit the trade
             [in_trade, aux, new_account_value, fee] = exit_position(
                 account_value_list, close, aux, comission
             )
+            new_date = df.index[-1] + timedelta(seconds=1)
 
-        adj_account_value = new_account_value + convert_aux_to_base(aux, close)
+            new_row = pd.DataFrame(data=[df.iloc[-1]], index=[new_date])
 
-        aux_list.append(aux)
-        account_value_list.append(new_account_value)
-        in_trade_list.append(in_trade)
-        fee_list.append(fee)
-        adj_account_value_list.append(adj_account_value)
+            df = pd.concat([df, pd.DataFrame(data=new_row)])
+            aux_list.append(fee)
 
-    if backtest.get("exit_on_end") and in_trade:
-        # this means we should exit the trade
-        [in_trade, aux, new_account_value, fee] = exit_position(
-            account_value_list, close, aux, comission
-        )
-        new_date = df.index[-1] + timedelta(seconds=1)
+            account_value_list.append(new_account_value)
+            in_trade_list.append(in_trade)
+            fee_list.append(fee)
+            adj_account_value = new_account_value + convert_aux_to_base(aux, close)
 
-        new_row = pd.DataFrame(data=[df.iloc[-1]], index=[new_date])
+            adj_account_value_list.append(adj_account_value)
 
-        df = pd.concat([df, pd.DataFrame(data=new_row)])
-        aux_list.append(fee)
-
-        account_value_list.append(new_account_value)
-        in_trade_list.append(in_trade)
-        fee_list.append(fee)
-        adj_account_value = new_account_value + convert_aux_to_base(aux, close)
-
-        adj_account_value_list.append(adj_account_value)
-
-    df["aux"] = aux_list
-    df["account_value"] = account_value_list
-    df["adj_account_value"] = adj_account_value_list
-    df["in_trade"] = in_trade_list
-    df["fee"] = fee_list
+        df["aux"] = aux_list
+        df["account_value"] = account_value_list
+        df["adj_account_value"] = adj_account_value_list
+        df["in_trade"] = in_trade_list
+        df["fee"] = fee_list
 
     return df
 
