@@ -10,7 +10,7 @@ strategy = {
     "any_exit": [],
     "enter": [
         ["rsi", "<", 30],
-        ["bbands_bbands_bb_lower", ">", "close"],
+        ["bbands_bbands_bb_middle", ">", "close"],
     ],
     "exit": [
         ["rsi", ">", 70],
@@ -29,8 +29,8 @@ strategy = {
     "trailing_stop_loss": 0.0,
     "lot_size_perc": 1.0,
     "max_lot_size": 0.0,
-    "start_date": datetime.datetime(2024, 10, 1, 0, 0),
-    "end_date": datetime.datetime(2025, 2, 26, 0, 0),
+    "start_date": datetime.datetime(2025, 1, 1, 0, 0),
+    "end_date": datetime.datetime(2026, 1, 1, 0, 0),
     "rules": None,
     "symbol": "BTC-USDT",
     "exchange": "coinbase",
@@ -40,7 +40,7 @@ if __name__ == "__main__":
     # get the dataframe
     # print(res)
     df = get_kline(
-        "BTCUSDT", "binanceus", start_date="2025-01-01", end_date="2025-01-31"
+        "BTCUSDT", "binanceus", start_date="2025-01-01", end_date="2026-01-01"
     )
     prepped = prepare_df(df, strategy)
     # res = validate_backtest(strategy)

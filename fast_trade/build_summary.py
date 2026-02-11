@@ -106,17 +106,32 @@ def calculate_market_exposure(df):
 
 
 def calculate_effective_trades(df, trade_log_df):
-    """Calculate trade metrics accounting for commission"""
+    """Calculate trade metrics accounting for commission
+
+    Notes
+    -----
+    Compare absolute trade P&L (adj_account_value_change) to absolute fees.
+    Comparing percentages to currency fees is incorrect.
+    """
     # Get the fee values for the trade log indices
     trade_fees = df.loc[trade_log_df.index, "fee"]
 
-    profitable_trades = trade_log_df[
-        trade_log_df.adj_account_value_change_perc > trade_fees
-    ]
-    unprofitable_trades = trade_log_df[
-        trade_log_df.adj_account_value_change_perc <= trade_fees
-    ]
-    commission_impact = df.fee.sum() / df.iloc[-1].adj_account_value * 100
+    # Use absolute change for profit-after-fee comparison
+    pnl = trade_log_df.get("adj_account_value_change")
+    if pnl is None:
+        # Fallback: derive from percentage if absolute not present
+        pnl = (
+            trade_log_df.get("adj_account_value_change_perc", 0)
+            * df.loc[trade_log_df.index, "adj_account_value"].shift(fill_value=0)
+        )
+
+    profitable_trades = trade_log_df[pnl > trade_fees]
+    unprofitable_trades = trade_log_df[pnl <= trade_fees]
+
+    try:
+        commission_impact = df.fee.sum() / df.iloc[-1].adj_account_value * 100
+    except Exception:
+        commission_impact = 0.0
 
     return {
         "num_profitable_after_commission": int(len(profitable_trades)),
@@ -214,10 +229,11 @@ def calculate_trade_streaks(trade_log_df):
         win_streak_counts = win_streaks.value_counts()
         loss_streak_counts = loss_streaks.value_counts()
 
+        # compute contiguous current streak length (win or loss)
+        last_group = streaks.iloc[-1] if not trades.empty else None
+        current_len = int((streaks == last_group).sum()) if last_group is not None else 0
         return {
-            "current_streak": (
-                int(sum(trades == trades.iloc[-1])) if not trades.empty else 0
-            ),
+            "current_streak": current_len,
             "max_win_streak": int(
                 win_streak_counts.max() if not win_streak_counts.empty else 0
             ),
