@@ -38,15 +38,17 @@ def test_fitness_uses_summary_keys(monkeypatch):
         solution=[1], solution_idx=0, strategy={"datapoints": [], "enter": [], "exit": []}, genes=[("x", 1)]
     )
 
-    # 10*0.4 + 20*0.3 + 1.5*0.1 - 5*0.1 + 30*0.1 = 4 + 6 + 0.15 - 0.5 + 3 = 12.65
-    assert pytest.approx(fitness, rel=1e-6) == 12.65
+    # aggressive preset:
+    # return_perc 20*0.5 + market_adjusted_return 10*0.3 + sharpe_ratio 1.5*0.1
+    # drawdown 5* -0.2 + num_trades 30*0.1 = 10 + 3 + 0.15 - 1 + 3 = 15.15
+    assert pytest.approx(fitness, rel=1e-6) == 15.15
 
 
-def test_save_json_creates_ml_dir(tmp_path, monkeypatch):
+def test_save_yaml_creates_ml_dir(tmp_path, monkeypatch):
     monkeypatch.setenv("ARCHIVE_PATH", str(tmp_path))
-    filename = "sample.json"
+    filename = "sample.yml"
 
-    evolver.save_json({"strategy": {"foo": "bar"}}, filename)
+    evolver.save_yaml({"strategy": {"foo": "bar"}}, filename)
 
     expected_path = tmp_path / "ml" / filename
     assert expected_path.exists()

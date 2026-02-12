@@ -2,7 +2,7 @@
 
 [![License: LGPL v3](https://img.shields.io/github/license/jrmeier/fast-trade)](LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/fast-trade.svg?style=flat-square)](https://pypi.org/project/fast-trade/)
-[![Python 3.7+](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/download/releases/3.7.0/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/download/releases/3.11.0/)
 [![Python application](https://github.com/jrmeier/fast-trade/workflows/Python%20application/badge.svg)](https://github.com/jrmeier/fast-trade/actions)
 
 A library built with backtest portability and performance in mind for backtest trading strategies. There is also an [Archive](#Archive), which can be used to download compatible kline data from Binance (.com or .us) and Coinbase into sqlite databases..
