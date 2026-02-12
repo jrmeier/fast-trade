@@ -1,0 +1,27 @@
+freq: 5Min
+symbol: BTCUSDT
+exchange: binanceus
+start_date: "2024-11-01"
+end_date: "2025-01-01"
+any_enter:
+  - [rsi, "<", 30]
+any_exit:
+  - [rsi, ">", 70]
+datapoints:
+  - name: rsi
+    transformer: rsi
+    args: [14]
+  - name: bbands
+    transformer: bbands
+    args: [20, 2]
+enter:
+  - [bbands_bbands_bb_lower, ">", close]
+exit:
+  - [bbands_bbands_bb_upper, "<", close]
+base_balance: 1000.0
+exit_on_end: false
+comission: 0.0
+trailing_stop_loss: 0.0
+lot_size_perc: 1.0
+max_lot_size: 0.0
+rules: null

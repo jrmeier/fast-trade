@@ -484,11 +484,12 @@ def create_trade_log(df):
 
 
 def summarize_time_held(trade_log_df):
-    trade_time_held_series = trade_log_df.index.to_series().diff()
-    mean_trade_time_held = trade_time_held_series.mean()
-    max_trade_time_held = trade_time_held_series.max()
-    min_trade_time_held = trade_time_held_series.min()
-    median_time_held = trade_time_held_series.median()
+    trade_time_held_series = trade_log_df.index.to_series().diff().dropna()
+    secs = trade_time_held_series.dt.total_seconds()
+    mean_trade_time_held = pd.to_timedelta(secs.mean(), unit="s")
+    max_trade_time_held = pd.to_timedelta(secs.max(), unit="s")
+    min_trade_time_held = pd.to_timedelta(secs.min(), unit="s")
+    median_time_held = pd.to_timedelta(secs.median(), unit="s")
 
     return (
         mean_trade_time_held,

@@ -17,14 +17,110 @@ class MissingStrategyFile(Exception):
     pass
 
 
+def _parse_simple_yaml(text: str):
+    def split_bracket_list(s: str):
+        items = []
+        current = ""
+        in_quote = None
+        for ch in s:
+            if ch in ["\"", "'"]:
+                if in_quote is None:
+                    in_quote = ch
+                elif in_quote == ch:
+                    in_quote = None
+                current += ch
+            elif ch == "," and in_quote is None:
+                items.append(current.strip())
+                current = ""
+            else:
+                current += ch
+        if current.strip():
+            items.append(current.strip())
+        return items
+
+    def parse_scalar(val: str):
+        val = val.strip()
+        if val.startswith("[") and val.endswith("]"):
+            inner = val[1:-1].strip()
+            if inner == "":
+                return []
+            parts = split_bracket_list(inner)
+            return [parse_scalar(p) for p in parts]
+        if val.startswith("\"") and val.endswith("\""):
+            return val[1:-1]
+        if val.startswith("'") and val.endswith("'"):
+            return val[1:-1]
+        if val.lower() == "true":
+            return True
+        if val.lower() == "false":
+            return False
+        if val.lower() == "null":
+            return None
+        try:
+            if "." in val:
+                return float(val)
+            return int(val)
+        except ValueError:
+            return val
+
+    lines = [ln.rstrip("\n") for ln in text.splitlines() if ln.strip() and not ln.strip().startswith("#")]
+    root = {}
+    stack = [(root, -1)]
+    for line in lines:
+        indent = len(line) - len(line.lstrip(" "))
+        content = line.strip()
+        while stack and indent <= stack[-1][1]:
+            stack.pop()
+        parent, _ = stack[-1]
+        if content.startswith("- "):
+            item_val = content[2:].strip()
+            if "_list" not in parent:
+                parent["_list"] = []
+            if ":" in item_val:
+                key, val = item_val.split(":", 1)
+                item = {key.strip(): parse_scalar(val)}
+                parent["_list"].append(item)
+                stack.append((item, indent))
+            elif item_val == "":
+                item = {}
+                parent["_list"].append(item)
+                stack.append((item, indent))
+            else:
+                parent["_list"].append(parse_scalar(item_val))
+        elif ":" in content:
+            key, val = content.split(":", 1)
+            key = key.strip()
+            val = val.strip()
+            if val == "":
+                parent[key] = {}
+                stack.append((parent[key], indent))
+            else:
+                parent[key] = parse_scalar(val)
+    root = stack[0][0]
+    # unwrap lists stored under _list
+    def unwrap(obj):
+        if isinstance(obj, dict):
+            if "_list" in obj and len(obj) == 1:
+                return [unwrap(x) for x in obj["_list"]]
+            return {k: unwrap(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [unwrap(x) for x in obj]
+        return obj
+
+    return unwrap(root)
+
+
 def _load_json_or_yaml(fp: str):
     if fp.endswith((".yml", ".yaml")):
         try:
             import yaml
-        except Exception as exc:
-            raise MissingStrategyFile(f"PyYAML is required to load {fp}: {exc}")
+        except Exception:
+            yaml = None
         with open(fp, "r") as fh:
-            return yaml.safe_load(fh)
+            text = fh.read()
+            if yaml is not None:
+                return yaml.safe_load(text)
+            return _parse_simple_yaml(text)
     with open(fp, "r") as fh:
         return json.load(fh)
 

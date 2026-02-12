@@ -2,17 +2,17 @@ strategy:
   freq: "#freq"
   symbol: BTCUSDT
   exchange: binanceus
-  start_date: 2026-01-01
-  end_date: 2026-03-01
+  start_date: 2024-11-01
+  end_date: 2025-01-01
   any_enter:
     -
       - rsi
-      - <
+      - "<"
       - "#rsi_lower"
   any_exit:
     -
       - rsi
-      - >
+      - ">"
       - "#rsi_upper"
   datapoints:
     -
@@ -33,12 +33,12 @@ strategy:
   enter:
     -
       - sma_fast
-      - >
+      - ">"
       - sma_slow
   exit:
     -
       - sma_fast
-      - <
+      - "<"
       - sma_slow
   base_balance: 1000.0
   exit_on_end: false
@@ -57,41 +57,50 @@ genes:
     name: fast_period
     space:
       low: 2
-      high: 20
+      high: 40
   -
     name: slow_period
     space:
-      low: 20
-      high: 200
+      low: 30
+      high: 300
   -
     name: rsi_period
     space:
-      low: 4
-      high: 14
+      low: 2
+      high: 30
   -
     name: rsi_lower
     space:
       low: 5
-      high: 40
+      high: 45
   -
     name: rsi_upper
     space:
-      low: 60
+      low: 55
       high: 95
 settings:
-  num_generations: 50
-  num_parents_mating: 3
-  sol_per_pop: 100
-  mutation_type: random
-  mutation_percent_genes: 20
-  crossover_type: single_point
-  parent_selection_type: sss
-  K_tournament: 2
+  num_generations: 200
+  num_parents_mating: 12
+  sol_per_pop: 40
+  mutation_type: adaptive
+  mutation_percent_genes:
+    - 50
+    - 10
+  crossover_type: uniform
+  parent_selection_type: tournament
+  K_tournament: 6
   parallel_processing:
     - thread
-    - 2
+    - 6
 fitness:
-  preset: aggressive
+  weights:
+    return_perc: 0.7
+    market_adjusted_return: 0.2
+    sharpe_ratio: 0.05
+    drawdown_metrics.max_drawdown_pct: -0.05
+    num_trades: 0.1
+  min_trades: 10
+  low_trades_penalty: -10.0
 fitness_presets:
   aggressive:
     weights:

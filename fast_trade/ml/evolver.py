@@ -1,5 +1,6 @@
 import datetime
 import warnings
+import copy
 import json
 import os
 import random
@@ -12,6 +13,36 @@ from fast_trade.transformers_map import transformers_map
 
 frequency_map = ["1Min", "5Min", "15Min", "30Min", "1h", "4h", "8h", "12h"]
 columns = ["close", "open", "low", "high"]
+
+
+def _normalize_types(obj):
+    if isinstance(obj, datetime.datetime):
+        return obj.isoformat()
+    if isinstance(obj, datetime.date):
+        return obj.isoformat()
+    if isinstance(obj, dict):
+        return {k: _normalize_types(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_normalize_types(v) for v in obj]
+    if isinstance(obj, tuple):
+        return [_normalize_types(v) for v in obj]
+    try:
+        import numpy as np
+
+        if isinstance(obj, (np.ndarray,)):
+            return [_normalize_types(v) for v in obj.tolist()]
+    except Exception:
+        pass
+    try:
+        import numpy as np
+
+        if isinstance(obj, (np.integer,)):
+            return int(obj)
+        if isinstance(obj, (np.floating,)):
+            return float(obj)
+    except Exception:
+        pass
+    return obj
 
 
 def modify_strategy(strategy, genes, with_columns=False):
@@ -29,8 +60,8 @@ def modify_strategy(strategy, genes, with_columns=False):
     Returns:
         The modified strategy dictionary
     """
-    # First, make a deep copy of the strategy to avoid modifying the original
-    strategy = json.loads(json.dumps(strategy))
+    # First, make a deep copy and normalize datetimes to avoid modifying the original
+    strategy = _normalize_types(copy.deepcopy(strategy))
 
     # If with_columns is True, we need to preprocess the genes to handle column mappings
     if with_columns:
@@ -87,14 +118,15 @@ def modify_strategy(strategy, genes, with_columns=False):
         freq_value = gene_dict["freq"]
         if callable(freq_value):
             freq_idx = freq_value()
-            # Ensure the index is within bounds
             freq_idx = max(0, min(freq_idx, len(frequency_map) - 1))
             strategy["freq"] = frequency_map[freq_idx]
         else:
-            # Convert to int and ensure within bounds
-            freq_idx = int(freq_value)
-            freq_idx = max(0, min(freq_idx, len(frequency_map) - 1))
-            strategy["freq"] = frequency_map[freq_idx]
+            if isinstance(freq_value, str) and freq_value in frequency_map:
+                strategy["freq"] = freq_value
+            else:
+                freq_idx = int(freq_value)
+                freq_idx = max(0, min(freq_idx, len(frequency_map) - 1))
+                strategy["freq"] = frequency_map[freq_idx]
 
     # Process all datapoints
     if "datapoints" in strategy:
@@ -102,6 +134,14 @@ def modify_strategy(strategy, genes, with_columns=False):
             # Process arguments
             if "args" in datapoint:
                 datapoint["args"] = process_value(datapoint["args"])
+                # coerce numeric args that should be ints
+                coerced_args = []
+                for arg in datapoint["args"]:
+                    if isinstance(arg, float):
+                        coerced_args.append(int(round(arg)))
+                    else:
+                        coerced_args.append(arg)
+                datapoint["args"] = coerced_args
 
             # Process any other fields that might contain placeholders
             for key in datapoint:
@@ -139,7 +179,7 @@ def _get_metric(summary: dict, key: str, default=0.0):
     return current
 
 
-def fitness_func(solution, solution_idx, strategy, genes: list, fitness_config=None):
+def fitness_func(solution, solution_idx, strategy, genes: list, fitness_config=None, error_callback=None):
     """
     Evaluates the fitness of a solution by running a backtest with the given strategy and genes.
 
@@ -176,7 +216,9 @@ def fitness_func(solution, solution_idx, strategy, genes: list, fitness_config=N
 
     try:
         result = run_backtest(strategy_copy)
-    except Exception:
+    except Exception as exc:
+        if error_callback:
+            error_callback(exc)
         return -1e9
 
     # Use the result to calculate fitness (e.g., total return)
@@ -233,13 +275,14 @@ def fitness_func(solution, solution_idx, strategy, genes: list, fitness_config=N
     return fitness
 
 
-def fitness_wrapper(ga_instance, solution, solution_idx, base_strategy, genes, fitness_config):
+def fitness_wrapper(ga_instance, solution, solution_idx, base_strategy, genes, fitness_config, error_callback):
     return fitness_func(
         solution,
         solution_idx,
         strategy=base_strategy,
         genes=genes,
         fitness_config=fitness_config,
+        error_callback=error_callback,
     )
 
 
@@ -270,11 +313,15 @@ def save_yaml(strategy, filename):
         import yaml
     except Exception:
         yaml = None
+    payload = _normalize_types(strategy)
+    def _coerce_for_yaml(obj):
+        return _normalize_types(obj)
+
     with open(filename, "w") as f:
         if yaml is not None:
-            yaml.safe_dump(strategy, f, sort_keys=False)
+            yaml.safe_dump(_coerce_for_yaml(payload), f, sort_keys=False)
         else:
-            json.dump(strategy, f, indent=2)
+            json.dump(payload, f, indent=2)
 
 
 def optimize_strategy(
@@ -422,7 +469,7 @@ def optimize_strategy(
                 elif "column" in gene_name:
                     mapped.append((gene_name, columns[int(solution[i]) % len(columns)]))
                 else:
-                    mapped.append((gene_name, solution[i]))
+                    mapped.append((gene_name, _normalize_types(solution[i])))
             progress_callback(
                 {
                     "generation": ga.generations_completed,
@@ -432,29 +479,38 @@ def optimize_strategy(
                 }
             )
 
+    warnings.filterwarnings("ignore", category=UserWarning, module="pygad.pygad")
+
+    error_state = {"count": 0}
+
+    def error_callback(exc):
+        if error_state["count"] < 1:
+            error_state["count"] += 1
+            print(f"Fitness error: {exc}")
+
     ga_instance = pygad.GA(
         num_generations=num_generations,
         num_parents_mating=num_parents_mating,
         fitness_func=lambda ga, sol, idx: fitness_wrapper(
-            ga, sol, idx, base_strategy, genes, fitness_config
+            ga, sol, idx, base_strategy, genes, fitness_config, error_callback
         ),
-        sol_per_pop=sol_per_pop,
-        num_genes=len(
-            genes
-        ),  # Set number of genes based on the actual gene list length
-        gene_space=gene_space,
-        initial_population=initial_population,
-        parent_selection_type=parent_selection_type,
-        crossover_type=crossover_type,
-        mutation_type=mutation_type,
-        mutation_percent_genes=mutation_percent_genes,
-        parallel_processing=parallel_processing,
-        random_mutation_min_val=-1.0,
-        random_mutation_max_val=1.0,
-        save_best_solutions=True,
-        K_tournament=K_tournament,
-        on_generation=on_generation,
-    )
+            sol_per_pop=sol_per_pop,
+            num_genes=len(
+                genes
+            ),  # Set number of genes based on the actual gene list length
+            gene_space=gene_space,
+            initial_population=initial_population,
+            parent_selection_type=parent_selection_type,
+            crossover_type=crossover_type,
+            mutation_type=mutation_type,
+            mutation_percent_genes=mutation_percent_genes,
+            parallel_processing=parallel_processing,
+            random_mutation_min_val=-1.0,
+            random_mutation_max_val=1.0,
+            save_best_solutions=True,
+            K_tournament=K_tournament,
+            on_generation=on_generation,
+        )
     # Run the GA
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=UserWarning, module="pygad.pygad")

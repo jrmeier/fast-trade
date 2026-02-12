@@ -106,7 +106,7 @@ def apply_charting_to_df(df: pd.DataFrame, freq: str, start_time: str, stop_time
     Returns
         DataFrame, a sorted dataframe ready for consumption by run_backtest
     """
-    if df.index.dtype != "datetime64[ns]":
+    if not pd.api.types.is_datetime64_any_dtype(df.index):
         headers = df.columns.values.tolist()
         headers.extend([df.index.name])
         if "date" not in headers:
@@ -114,9 +114,15 @@ def apply_charting_to_df(df: pd.DataFrame, freq: str, start_time: str, stop_time
                 "Data does not have a date column. Headers must include date, open, high, low, close, volume."
             )
 
-        time_unit = detect_time_unit(df.date[1])
-        df.date = pd.to_datetime(df.date, unit=time_unit)
-        df.set_index("date", inplace=True)
+        if "date" in df.columns:
+            sample = df["date"].iloc[0]
+            time_unit = detect_time_unit(sample)
+            df["date"] = pd.to_datetime(df["date"], unit=time_unit)
+            df.set_index("date", inplace=True)
+        else:
+            sample = df.index.values[0]
+            time_unit = detect_time_unit(sample)
+            df.index = pd.to_datetime(df.index, unit=time_unit)
     if start_time:
         if isinstance(start_time, datetime) or type(start_time) is int:
             time_unit = detect_time_unit(start_time)
@@ -281,16 +287,17 @@ def standardize_df(df: pd.DataFrame):
         new_df = new_df.set_index("date")
 
     ts = str(new_df.index[0])
-
     time_unit = detect_time_unit(ts)
-
-    new_df.index = pd.to_datetime(new_df.index, unit=time_unit)
+    if time_unit:
+        new_df.index = pd.to_datetime(new_df.index, unit=time_unit)
+    else:
+        new_df.index = pd.to_datetime(new_df.index)
     new_df = new_df[~new_df.index.duplicated(keep="first")]
     new_df = new_df.sort_index()
 
     columns_to_drop = ["ignore", "date"]
 
-    new_df.drop(columns=columns_to_drop, errors="ignore")
+    new_df = new_df.drop(columns=columns_to_drop, errors="ignore")
 
     new_df.open = pd.to_numeric(new_df.open)
     new_df.close = pd.to_numeric(new_df.close)

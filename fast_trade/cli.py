@@ -33,6 +33,7 @@ from fast_trade.ml.evolver import optimize_strategy
 from fast_trade.validate_backtest import validate_backtest
 
 from .cli_helpers import (
+    _load_json_or_yaml,
     create_plot,
     open_strat_file,
     render_plot_preview_from_data,
@@ -1005,13 +1006,7 @@ def evolve_cmd(
     if config.endswith((".yml", ".yaml")):
         console.print("[yellow]YAML is supported but JSON is the default format[/yellow]")
     try:
-        with open(config, "r") as fh:
-            if config.endswith((".yml", ".yaml")):
-                import yaml
-
-                config_payload = yaml.safe_load(fh)
-            else:
-                config_payload = json.load(fh)
+        config_payload = _load_json_or_yaml(config)
     except Exception as exc:
         raise typer.BadParameter(f"Unable to read config file: {exc}")
 

@@ -1,0 +1,30 @@
+freq: 5Min
+symbol: BTCUSDT
+exchange: binanceus
+start_date: "2024-11-01"
+end_date: "2025-01-01"
+any_enter: []
+any_exit: []
+datapoints:
+  - name: ema_fast
+    transformer: ema
+    args: [9]
+  - name: ema_slow
+    transformer: ema
+    args: [26]
+  - name: rsi
+    transformer: rsi
+    args: [14]
+enter:
+  - [ema_fast, ">", ema_slow]
+  - [rsi, ">", 55]
+exit:
+  - [ema_fast, "<", ema_slow]
+  - [rsi, "<", 45]
+base_balance: 1000.0
+exit_on_end: false
+comission: 0.0
+trailing_stop_loss: 0.0
+lot_size_perc: 1.0
+max_lot_size: 0.0
+rules: null
