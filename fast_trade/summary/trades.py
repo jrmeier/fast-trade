@@ -75,14 +75,12 @@ def create_trade_log(df):
 
 
 def summarize_time_held(trade_log_df):
-    idx = pd.to_datetime(trade_log_df.index)
-    idx = pd.Index(idx).sort_values()
-    if len(idx) < 2:
+    idx_series = pd.to_datetime(trade_log_df.index.to_series(), errors="coerce")
+    deltas = idx_series.diff().dropna()
+    if deltas.empty:
         zero = pd.to_timedelta(0, unit="s")
         return zero, zero, zero, zero
-    ns = idx.view("int64")
-    deltas_ns = pd.Series(ns).diff().dropna().astype("int64")
-    seconds = deltas_ns / 1_000_000_000
+    seconds = deltas.dt.total_seconds()
     # Round to nearest 10 seconds for stability across platforms/data sources.
     seconds = (seconds / 10).round() * 10
     mean_trade_time_held = pd.to_timedelta(seconds.mean(), unit="s")
