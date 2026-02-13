@@ -7,7 +7,6 @@ import threading
 import shlex
 import subprocess
 import signal
-import signal
 from pprint import pprint
 from typing import Dict, List, Optional, Deque, Tuple
 from collections import deque
@@ -47,6 +46,17 @@ from fast_trade.ml.regime import apply_regime_model, load_regime_model, train_re
 from fast_trade.validate_backtest import validate_backtest
 from fast_trade.build_data_frame import prepare_df
 from fast_trade.run_backtest import determine_action
+from fast_trade.cli_render import format_value as _format_value
+from fast_trade.cli_render import render_kv_table as _render_kv_table
+from fast_trade.cli_render import render_summary as _render_summary
+from fast_trade.portfolio import (
+    append_log as _append_portfolio_log,
+    append_trades as _append_portfolio_trades,
+    apply_action as _apply_portfolio_action,
+    load_state as _load_portfolio_state,
+    portfolio_paths as _portfolio_paths,
+    save_state as _save_portfolio_state,
+)
 
 from .cli_helpers import (
     _load_json_or_yaml,
@@ -81,133 +91,6 @@ def _apply_mods(strategy: Dict, mods: Optional[List[str]]) -> Dict:
         i += 2
 
     return {**strategy, **overrides}
-
-
-def _format_value(value) -> str:
-    if isinstance(value, float):
-        return f"{value:.4f}"
-    return str(value)
-
-
-def _render_kv_table(title: str, rows: List[List[str]]) -> None:
-    table = Table(title=title, box=box.SIMPLE_HEAVY, show_lines=False)
-    table.add_column("Metric", style="cyan", no_wrap=True)
-    table.add_column("Value", style="white")
-    for key, value in rows:
-        table.add_row(key, value)
-    console.print(table)
-
-
-def _append_portfolio_trades(trades_path: str, rows: List[dict]) -> None:
-    if not rows:
-        return
-    from fast_trade.archive.db_helpers import _atomic_write_parquet, _safe_read_parquet
-
-    df = pd.DataFrame(rows)
-    if os.path.exists(trades_path):
-        existing = _safe_read_parquet(trades_path)
-        if existing is None:
-            merged = df
-        else:
-            merged = pd.concat([existing, df]).reset_index(drop=True)
-        _atomic_write_parquet(merged, trades_path, index=False)
-    else:
-        _atomic_write_parquet(df, trades_path, index=False)
-
-
-def _portfolio_paths(name: str) -> Dict[str, str]:
-    archive_path = os.getenv("ARCHIVE_PATH", "ft_archive")
-    base = os.path.join(archive_path, "portfolio", name)
-    os.makedirs(base, exist_ok=True)
-    return {
-        "base": base,
-        "state": os.path.join(base, "state.json"),
-        "trades": os.path.join(base, "trades.parquet"),
-        "log": os.path.join(base, "portfolio.log"),
-        "pid": os.path.join(base, "runner.pid"),
-    }
-
-
-def _load_portfolio_state(path: str, default_state: dict) -> dict:
-    if not os.path.exists(path):
-        return default_state
-    try:
-        with open(path, "r", encoding="utf-8") as fh:
-            return json.load(fh)
-    except Exception:
-        return default_state
-
-
-def _save_portfolio_state(path: str, state: dict) -> None:
-    try:
-        with open(path, "w", encoding="utf-8") as fh:
-            json.dump(state, fh, indent=2)
-    except Exception:
-        pass
-
-
-def _append_portfolio_log(path: str, line: str) -> None:
-    try:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "a", encoding="utf-8") as fh:
-            fh.write(line.rstrip("\n") + "\n")
-    except Exception:
-        pass
-
-
-
-def _render_summary(summary: Dict, details: bool = False, show_strategy: bool = False) -> None:
-    headline_keys = [
-        "return_perc",
-        "market_adjusted_return",
-        "sharpe_ratio",
-        "max_drawdown",
-        "num_trades",
-        "win_perc",
-        "loss_perc",
-        "total_fees",
-        "equity_final",
-        "equity_peak",
-        "test_duration",
-    ]
-    headline_rows = []
-    for key in headline_keys:
-        if key in summary:
-            headline_rows.append([key, _format_value(summary.get(key))])
-    if headline_rows:
-        _render_kv_table("Summary", headline_rows)
-
-    section_keys = [
-        "position_metrics",
-        "trade_quality",
-        "market_exposure",
-        "effective_trades",
-        "drawdown_metrics",
-        "risk_metrics",
-        "trade_streaks",
-        "time_analysis",
-        "rules",
-    ]
-    if show_strategy:
-        section_keys.append("strategy")
-
-    if details:
-        for section_key in section_keys:
-            section = summary.get(section_key)
-            if isinstance(section, dict) and section:
-                rows = [[k, _format_value(v)] for k, v in section.items()]
-                _render_kv_table(section_key.replace("_", " ").title(), rows)
-
-        # Render any remaining scalar fields
-        remaining = []
-        for key, value in summary.items():
-            if key in headline_keys:
-                continue
-            if isinstance(value, dict):
-                continue
-            remaining.append([key, _format_value(value)])
-        if remaining:
-            _render_kv_table("Other", remaining)
 
 
 @app.command()
@@ -2612,32 +2495,16 @@ def portfolio_start_cmd(
         state["last_price"] = last_price
         state["last_data_ts"] = str(last_ts)
 
+        state, executed, action = _apply_portfolio_action(
+            state,
+            action,
+            last_price,
+            lot_size_perc,
+            max_lot_size,
+        )
         cash_bal = float(state.get("cash", 0.0))
         position_qty = float(state.get("position_qty", 0.0))
-
-        executed = None
-        if action in ["e", "ae"] and position_qty <= 0.0:
-            notional = cash_bal * lot_size_perc
-            if max_lot_size > 0:
-                notional = min(notional, max_lot_size)
-            qty = notional / last_price if last_price else 0.0
-            if qty > 0:
-                cash_bal -= qty * last_price
-                position_qty = qty
-                state["avg_price"] = last_price
-                executed = {"side": "BUY", "qty": qty, "price": last_price, "notional": qty * last_price}
-        elif action in ["x", "ax", "tsl"] and position_qty > 0.0:
-            cash_bal += position_qty * last_price
-            executed = {"side": "SELL", "qty": position_qty, "price": last_price, "notional": position_qty * last_price}
-            position_qty = 0.0
-            state["avg_price"] = 0.0
-        else:
-            action = "h"
-
-        equity = cash_bal + position_qty * last_price
-        state["cash"] = round(cash_bal, 8)
-        state["position_qty"] = round(position_qty, 8)
-        state["equity"] = round(equity, 8)
+        equity = float(state.get("equity", 0.0))
         state["last_action"] = action
         state["updated_at"] = datetime.datetime.utcnow().isoformat()
 

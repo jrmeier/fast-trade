@@ -8,6 +8,7 @@
 - saved_backtests/: optional output when using `ft backtest --save`
 - example_backtest.yml, strategy.yml: reference strategies
 - pyproject.toml: packaging, deps, and console script
+- the virtual env is literally `venv/` use `source venv/bin/activate`
 
 ## Build, Test, and Development Commands
 - Setup (editable): `python -m venv .venv && source .venv/bin/activate && pip install -e .`

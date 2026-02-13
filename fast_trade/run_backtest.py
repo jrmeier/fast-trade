@@ -1,5 +1,4 @@
 import datetime
-import itertools
 import re
 import multiprocessing as mp
 from functools import partial
@@ -12,6 +11,7 @@ from .build_data_frame import prepare_df
 from .build_summary import build_summary
 from .evaluate import evaluate_rules
 from .run_analysis import apply_logic_to_df
+from .logic_utils import can_vectorize_logic, max_last_frames, vectorized_actions
 from .validate_backtest import validate_backtest, validate_backtest_with_df
 
 
@@ -281,29 +281,17 @@ def process_logic_and_generate_actions(
     """we need to search though all the logics and find the highest confirmation number
     so we know how many frames to pass in
     """
-    logics = [
-        backtest.get("enter", []),
-        backtest.get("exit", []),
-        backtest.get("any_exit", []),
-        backtest.get("any_enter", []),
-    ]
-
-    logics = list(itertools.chain(*logics))
-    max_last_frames = 0  # the we need to keep the
-    for logic in logics:
-        if len(logic) > 3:
-            if logic[3] > max_last_frames:
-                max_last_frames = logic[3]
+    max_last = max_last_frames(backtest)
 
     # If we need to look at previous frames, we can't fully vectorize
-    if max_last_frames:
+    if max_last:
         actions = []
         last_frames = []
         total_rows = len(df)
         update_every = max(1, total_rows // 200)
         for idx, frame in enumerate(df.itertuples()):
             last_frames.insert(0, frame)
-            if len(last_frames) >= max_last_frames + 1:
+            if len(last_frames) >= max_last + 1:
                 last_frames.pop()
             wtf = determine_action(frame, backtest, last_frames)
             actions.append(wtf)
@@ -311,124 +299,18 @@ def process_logic_and_generate_actions(
                 progress_callback({"percent": int((idx + 1) / total_rows * 100)})
         df["action"] = actions
     else:
-        # Try to vectorize simple conditions where possible
-        # For complex conditions, fall back to row-by-row processing
         try:
-            # Check if we can vectorize the logic
-            can_vectorize = True
-            for logic_group in [
-                backtest.get("enter", []),
-                backtest.get("exit", []),
-                backtest.get("any_enter", []),
-                backtest.get("any_exit", []),
-            ]:
-                for logic in logic_group:
-                    # Only simple column comparisons with constants can be vectorized
-                    if not (
-                        isinstance(logic[0], str)
-                        and logic[0] in df.columns
-                        and (
-                            isinstance(logic[2], (int, float))
-                            or (isinstance(logic[2], str) and logic[2] in df.columns)
-                        )
-                    ):
-                        can_vectorize = False
-                        break
-                if not can_vectorize:
-                    break
-
-            if can_vectorize:
-                # Initialize with hold action
-                df["action"] = "h"
-
-                def build_mask(logic_list, combine_any):
-                    if not logic_list:
-                        return pd.Series(False, index=df.index)
-                    mask = pd.Series(True, index=df.index) if not combine_any else pd.Series(False, index=df.index)
-                    for logic in logic_list:
-                        if isinstance(logic[2], (int, float)):
-                            if logic[1] == ">":
-                                condition = df[logic[0]] > logic[2]
-                            elif logic[1] == "<":
-                                condition = df[logic[0]] < logic[2]
-                            elif logic[1] == "=":
-                                condition = df[logic[0]] == logic[2]
-                            elif logic[1] == "!=":
-                                condition = df[logic[0]] != logic[2]
-                            elif logic[1] == ">=":
-                                condition = df[logic[0]] >= logic[2]
-                            elif logic[1] == "<=":
-                                condition = df[logic[0]] <= logic[2]
-                            else:
-                                condition = pd.Series(False, index=df.index)
-                        elif logic[2] in df.columns:
-                            if logic[1] == ">":
-                                condition = df[logic[0]] > df[logic[2]]
-                            elif logic[1] == "<":
-                                condition = df[logic[0]] < df[logic[2]]
-                            elif logic[1] == "=":
-                                condition = df[logic[0]] == df[logic[2]]
-                            elif logic[1] == "!=":
-                                condition = df[logic[0]] != df[logic[2]]
-                            elif logic[1] == ">=":
-                                condition = df[logic[0]] >= df[logic[2]]
-                            elif logic[1] == "<=":
-                                condition = df[logic[0]] <= df[logic[2]]
-                            else:
-                                condition = pd.Series(False, index=df.index)
-                        else:
-                            condition = pd.Series(False, index=df.index)
-
-                        if combine_any:
-                            mask = mask | condition
-                        else:
-                            mask = mask & condition
-                    return mask
-
-                # Apply exit conditions (highest priority)
-                exit_mask = build_mask(backtest.get("exit", []), combine_any=False)
-
-                # Apply any_exit conditions
-                any_exit_mask = build_mask(backtest.get("any_exit", []), combine_any=True)
-
-                # Apply enter conditions
-                enter_mask = build_mask(backtest.get("enter", []), combine_any=False)
-
-                # Apply any_enter conditions
-                any_enter_mask = build_mask(backtest.get("any_enter", []), combine_any=True)
-
-                # Apply trailing stop loss if configured
-                tsl_mask = pd.Series(False, index=df.index)
-                if backtest.get("trailing_stop_loss"):
-                    tsl_mask = df["close"] <= df["trailing_stop_loss"]
-
-                # Apply actions in order of priority
-                df.loc[tsl_mask, "action"] = "tsl"
-                df.loc[~tsl_mask & exit_mask, "action"] = "x"
-                df.loc[~tsl_mask & ~exit_mask & any_exit_mask, "action"] = "ax"
-                df.loc[
-                    ~tsl_mask & ~exit_mask & ~any_exit_mask & enter_mask, "action"
-                ] = "e"
-                df.loc[
-                    ~tsl_mask
-                    & ~exit_mask
-                    & ~any_exit_mask
-                    & ~enter_mask
-                    & any_enter_mask,
-                    "action",
-                ] = "ae"
+            if can_vectorize_logic(df, backtest):
+                df["action"] = vectorized_actions(df, backtest)
                 if progress_callback:
                     progress_callback({"percent": 100})
             else:
-                # Fall back to row-by-row processing if we can't vectorize
                 actions = []
                 total_rows = len(df)
                 update_every = max(1, total_rows // 200)
                 for idx, frame in enumerate(df.itertuples()):
                     actions.append(determine_action(frame, backtest))
-                    if progress_callback and (
-                        idx % update_every == 0 or idx == total_rows - 1
-                    ):
+                    if progress_callback and (idx % update_every == 0 or idx == total_rows - 1):
                         progress_callback({"percent": int((idx + 1) / total_rows * 100)})
                 df["action"] = actions
         except Exception:
