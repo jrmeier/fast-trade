@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fast-trade"
-version = "1.0.3"
+version = "2.0.0"
 description = "Low code backtesting library utilizing pandas and technical analysis indicators"
 readme = "README.md"
 authors = [
