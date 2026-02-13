@@ -2,8 +2,8 @@ strategy:
   freq: "#freq"
   symbol: BTCUSDT
   exchange: binanceus
-  start_date: 2024-11-01
-  end_date: 2025-01-01
+  start: 2024-11-01
+  stop: 2025-01-01
   any_enter:
     -
       - rsi

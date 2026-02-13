@@ -9,6 +9,7 @@ from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn
 import pandas as pd
 
 from .update_kline import update_kline
+from .db_helpers import _safe_read_parquet
 
 ARCHIVE_PATH = os.getenv("ARCHIVE_PATH", os.path.join(os.getcwd(), "ft_archive"))
 console = Console()
@@ -29,7 +30,9 @@ def update_single_archive(
 
     if os.path.exists(path):
         try:
-            df = pd.read_parquet(path)
+            df = _safe_read_parquet(path)
+            if df is None:
+                raise RuntimeError("archive parquet corrupted")
             if "date" in df.columns:
                 df = df.set_index("date")
             df.index = pd.to_datetime(df.index)

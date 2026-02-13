@@ -120,17 +120,17 @@ def run_backtest(
         # convert the frequency to a timedelta
         td_freq = pd.Timedelta(freq)
 
-        start_date = backtest.get("start_date", None)
-        if start_date and not isinstance(start_date, datetime.datetime):
-            start_date = datetime.datetime.fromisoformat(start_date)
-            start_date = start_date - td_freq * max_periods
+        start = backtest.get("start", None)
+        if start and not isinstance(start, datetime.datetime):
+            start = datetime.datetime.fromisoformat(start)
+            start = start - td_freq * max_periods
 
         # get the data from the local archive
         df = get_kline(
             backtest.get("symbol"),
             backtest.get("exchange"),
-            start_date,
-            backtest.get("end_date"),
+            start,
+            backtest.get("stop"),
             freq=backtest.get("freq") or backtest.get("chart_period"),
         )
         if progress_callback:
@@ -680,16 +680,16 @@ def run_backtest_chunked(
             freq = new_backtest.get("chart_period")
         td_freq = pd.Timedelta(freq)
 
-        start_date = backtest.get("start_date", None)
-        if start_date and not isinstance(start_date, datetime.datetime):
-            start_date = datetime.datetime.fromisoformat(start_date)
-            start_date = start_date - td_freq * max_periods
+        start = backtest.get("start", None)
+        if start and not isinstance(start, datetime.datetime):
+            start = datetime.datetime.fromisoformat(start)
+            start = start - td_freq * max_periods
 
         df = get_kline(
             backtest.get("symbol"),
             backtest.get("exchange"),
-            start_date,
-            backtest.get("end_date"),
+            start,
+            backtest.get("stop"),
             freq=backtest.get("freq") or backtest.get("chart_period"),
         )
 

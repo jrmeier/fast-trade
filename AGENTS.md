@@ -18,6 +18,14 @@
 - Quick run: `ft backtest ./strategy.yml [--save] [--plot]`
 - Download data: `ft download BTCUSDT binanceus --start 2024-12-01 --end 2025-01-01`
 
+## Agent Usage Notes
+- Prefer YAML for strategies and configs (`.yml/.yaml`). JSON is deprecated in examples.
+- Use `ft terminal` for interactive browsing of backtests and strategies.
+  - Shortcuts: `TR`, `SUM`, `GP`, `POS`, `OPEN BT`, `OPEN STRAT`, `EDIT`, `RUN`, `SAVE`, `N/P`, `Q`.
+  - `EDIT` writes `strategy.override.yml` in the backtest run folder.
+- Use `ft backtests list` / `ft backtests show --index N` for non‑interactive environments.
+- Use `ft evolve evolver_example.yml` for GA runs (config is YAML).
+
 ## Coding Style & Naming Conventions
 - Python 3.8+; 4‑space indentation; prefer type hints where practical.
 - Use snake_case for modules/functions/variables; CapWords for classes.

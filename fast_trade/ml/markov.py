@@ -145,8 +145,8 @@ if __name__ == "__main__":
         "symbol": "BTC-USDT",
         "exchange": "coinbase",
         "freq": "1h",
-        "start_date": "2024-02-01",
-        "end_date": "2025-03-01",
+        "start": "2024-02-01",
+        "stop": "2025-03-01",
         "datapoints": [
             {
                 "name": "rsi",
@@ -172,8 +172,8 @@ if __name__ == "__main__":
         symbol=strat_config["symbol"],
         exchange=strat_config["exchange"],
         freq=strat_config["freq"],
-        start_date=strat_config["start_date"],
-        end_date=strat_config["end_date"]
+        start_date=strat_config["start"],
+        end_date=strat_config["stop"]
     )
     kline_data = prepare_df(kline_data, backtest=strat_config)
     print(kline_data)

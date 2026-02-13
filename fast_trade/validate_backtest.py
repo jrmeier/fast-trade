@@ -52,8 +52,8 @@ def validate_backtest(backtest):
     backtest_mirror = {
         "base_balance": None,
         "freq": None,
-        "chart_start": None,
-        "chart_stop": None,
+        "start": None,
+        "stop": None,
         "comission": None,
         "datapoints": None,
         "enter": None,
@@ -68,7 +68,7 @@ def validate_backtest(backtest):
         "datapoints",
         "enter",
         "exit",
-        "start_date",
+        "start",
     ]
 
     curr_keys = list(backtest.keys())
@@ -78,6 +78,13 @@ def validate_backtest(backtest):
             backtest_mirror[req] = {
                 "error": True,
                 "msgs": [f'Paramater "{req}" required'],
+            }
+
+    for deprecated in ["start_date", "end_date"]:
+        if deprecated in curr_keys:
+            backtest_mirror[deprecated] = {
+                "error": True,
+                "msgs": [f'Paramater "{deprecated}" is deprecated; use "start" and "stop"'],
             }
 
     base_balance = backtest.get("base_balance")

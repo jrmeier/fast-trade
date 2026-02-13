@@ -168,6 +168,43 @@ Update the archive. Brings the archive up to date with the latest data for each 
 
 This update all the existing items in the archive, downloading the latest data for each symbol.
 
+## Terminal (Bloomberg‑style)
+
+Open the interactive terminal UI for browsing backtests and strategies.
+
+```bash
+ft terminal
+```
+
+### Terminal shortcuts
+- `TR` — trades (default)
+- `SUM` — summary
+- `GP` — plot/preview
+- `POS` — position metrics
+- `OPEN BT` — pick a backtest run
+- `OPEN STRAT` — pick a strategy file
+- `EDIT` — edit strategy with defaults (writes `strategy.override.yml`)
+- `RUN` — re‑run the edited/selected strategy
+- `SAVE` — save the latest run
+- `N` / `P` — next/prev page (trades)
+- `Q` — quit
+
+### Quick example
+
+```bash
+ft terminal
+```
+
+In the prompt:
+```
+OPEN BT
+TR
+OPEN STRAT
+RUN
+SAVE
+Q
+```
+
 
 ## Testing
 

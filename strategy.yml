@@ -29,7 +29,7 @@ exit:
     - <
     - close
     - 2
-start_date: 2025-12-01
+start: 2025-12-01
 exit_on_end: false
 trailing_stop_loss: null
 rules:

@@ -8,6 +8,25 @@ import pandas as pd
 ARCHIVE_PATH = os.getenv("ARCHIVE_PATH", os.path.join(os.getcwd(), "ft_archive"))
 
 
+def _atomic_write_parquet(df: pd.DataFrame, path: str, index: bool = True) -> None:
+    tmp_path = path + ".tmp"
+    df.to_parquet(tmp_path, index=index)
+    os.replace(tmp_path, path)
+
+
+def _safe_read_parquet(path: str) -> typing.Optional[pd.DataFrame]:
+    try:
+        return pd.read_parquet(path)
+    except Exception:
+        # If the parquet is corrupted, remove it so we can recover cleanly.
+        try:
+            if os.path.exists(path):
+                os.remove(path)
+        except OSError:
+            pass
+        return None
+
+
 # update the kline archive by the given symbol and exchange
 # get the archive path from the environment variable
 def get_local_assets() -> typing.List[typing.Tuple[str, str]]:
@@ -56,16 +75,19 @@ def update_klines_to_db(df, symbol, exchange) -> str:
     df.index.name = "date"
 
     if os.path.exists(symbol_path):
-        existing = pd.read_parquet(symbol_path)
-        if "date" in existing.columns:
-            existing = existing.set_index("date")
-        existing.index = pd.to_datetime(existing.index)
-        combined = pd.concat([existing, df])
-        combined = combined[~combined.index.duplicated(keep="last")]
-        combined = combined.sort_index()
-        combined.to_parquet(symbol_path, index=True)
+        existing = _safe_read_parquet(symbol_path)
+        if existing is None:
+            _atomic_write_parquet(df, symbol_path, index=True)
+        else:
+            if "date" in existing.columns:
+                existing = existing.set_index("date")
+            existing.index = pd.to_datetime(existing.index)
+            combined = pd.concat([existing, df])
+            combined = combined[~combined.index.duplicated(keep="last")]
+            combined = combined.sort_index()
+            _atomic_write_parquet(combined, symbol_path, index=True)
     else:
-        df.to_parquet(symbol_path, index=True)
+        _atomic_write_parquet(df, symbol_path, index=True)
 
     return symbol_path
 
@@ -97,7 +119,7 @@ def migrate_sqlite_to_parquet(sqlite_path: str, parquet_path: str) -> None:
     if "date" in df.columns:
         df["date"] = pd.to_datetime(df["date"])
         df = df.set_index("date")
-    df.to_parquet(parquet_path, index=True)
+    _atomic_write_parquet(df, parquet_path, index=True)
 
 
 def standardize_df(df):
@@ -153,24 +175,44 @@ def get_kline(
         if isinstance(end_date, str):
             end_date = datetime.datetime.fromisoformat(end_date)
 
+    df = None
     if os.path.exists(parquet_path):
-        df = pd.read_parquet(parquet_path)
-        if "date" in df.columns:
+        df = _safe_read_parquet(parquet_path)
+        if df is not None:
+            if "date" in df.columns:
+                df = df.set_index("date")
+            df.index = pd.to_datetime(df.index)
+
+    if df is None:
+        if os.path.exists(sqlite_path):
+            conn = connect_to_db(sqlite_path)
+            query = "SELECT * FROM klines"
+            if start_date:
+                query += f" WHERE date >= '{start_date.isoformat()}'"
+
+            if end_date:
+                query += f" AND date <= '{end_date.isoformat()}'"
+
+            df = pd.read_sql_query(query, conn)
+            df.date = pd.to_datetime(df.date)
             df = df.set_index("date")
-        df.index = pd.to_datetime(df.index)
-    else:
-        conn = connect_to_db(sqlite_path)
-        query = "SELECT * FROM klines"
-        if start_date:
-            query += f" WHERE date >= '{start_date.isoformat()}'"
+            _atomic_write_parquet(df, parquet_path, index=True)
+        else:
+            import fast_trade.archive.update_kline as update_kline
 
-        if end_date:
-            query += f" AND date <= '{end_date.isoformat()}'"
+            update_kline.update_kline(
+                symbol=symbol, exchange=exchange, start_date=start_date, end_date=end_date
+            )
+            if os.path.exists(parquet_path):
+                df = _safe_read_parquet(parquet_path)
+                if df is not None:
+                    if "date" in df.columns:
+                        df = df.set_index("date")
+                    df.index = pd.to_datetime(df.index)
 
-        df = pd.read_sql_query(query, conn)
-        df.date = pd.to_datetime(df.date)
-        df = df.set_index("date")
-        df.to_parquet(parquet_path, index=True)
+    if df is None:
+        raise RuntimeError(f"Failed to load parquet for {exchange}:{symbol}; file was corrupted or missing")
+
     # set the freq of the dataframe
     df = df.resample(freq).agg(
         {

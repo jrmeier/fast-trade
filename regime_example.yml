@@ -1,0 +1,12 @@
+settings:
+  freq: 1H
+  n_states: 6
+  n_iter: 100
+  vol_window: 20
+  trend_window: 20
+  volume_window: 20
+  trend_up: 0.0
+  trend_down: 0.0
+  vol_high: 0.02
+  vol_low: 0.005
+  liq_stress: 0.02

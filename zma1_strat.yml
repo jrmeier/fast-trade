@@ -1,0 +1,24 @@
+name: zma1
+symbol: BTC-USD
+exchange: coinbase
+freq: 15Min
+start: '2026-01-01'
+stop: '2026-03-01'
+base_balance: 1000
+lot_size_perc: 1.0
+max_lot_size: 0.0
+comission: 0.0
+trailing_stop_loss: 0.0
+datapoints:
+- name: rsi
+  transformer: rsi
+  args:
+  - 14
+enter:
+- - rsi
+  - <
+  - '35'
+exit:
+- - rsi
+  - '>'
+  - '65'
