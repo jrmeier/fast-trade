@@ -75,7 +75,9 @@ def create_trade_log(df):
 
 
 def summarize_time_held(trade_log_df):
-    trade_time_held_series = trade_log_df.index.to_series().diff()
+    idx = pd.to_datetime(trade_log_df.index)
+    idx = pd.Index(idx).sort_values()
+    trade_time_held_series = pd.Series(idx).diff()
     mean_trade_time_held = trade_time_held_series.mean()
     max_trade_time_held = trade_time_held_series.max()
     min_trade_time_held = trade_time_held_series.min()
