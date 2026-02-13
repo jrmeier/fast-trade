@@ -176,16 +176,26 @@ Open the interactive terminal UI for browsing backtests and strategies.
 ft terminal
 ```
 
+See `Terminal.md` for the full terminal command reference and live/stream/portfolio workflows.
+
 ### Terminal shortcuts
-- `TR` — trades (default)
+- `DB` — dashboard (default)
+- `TR` — trades
 - `SUM` — summary
+- `TS` — tearsheet
 - `GP` — plot/preview
 - `POS` — position metrics
+- `LIVE START/STOP/VIEW [SYMBOL]` — live signal runner
+- `STREAM START/STOP/VIEW` — market data stream
+- `LOGS [LIVE|STREAM|ALL] [FOLLOW]` — view persisted logs
+- `PORTFOLIO START|STATUS|STOP` — paper portfolio runner
 - `OPEN BT` — pick a backtest run
 - `OPEN STRAT` — pick a strategy file
-- `EDIT` — edit strategy with defaults (writes `strategy.override.yml`)
-- `RUN` — re‑run the edited/selected strategy
-- `SAVE` — save the latest run
+- `SHOW STRAT` — show current strategy summary
+- `EDIT STRAT` — edit strategy (writes `strategy.override.yml`)
+- `EDIT BT` — edit backtest summary fields
+- `BT [SAVE] [PLOT] [MODS k v ...]` — run backtest
+- `UA` — update archive
 - `N` / `P` — next/prev page (trades)
 - `Q` — quit
 
@@ -200,10 +210,13 @@ In the prompt:
 OPEN BT
 TR
 OPEN STRAT
-RUN
-SAVE
+BT SAVE
 Q
 ```
+
+## Changelog
+
+See `CHANGELOG.md`.
 
 
 ## Testing
