@@ -218,6 +218,40 @@ Q
 
 See `CHANGELOG.md`.
 
+## Machine Learning
+
+Fast Trade includes optional ML utilities for optimization and regime detection.
+
+### Genetic Algorithm (Evolver)
+
+Run a GA optimization using a YAML config:
+
+```bash
+ft evolve evolver_example.yml
+```
+
+Key fields in `evolver_example.yml`:
+- `strategy` or `strategy_path` — base strategy
+- `genes` — list of tunable parameters
+- `settings` — population size, generations, mutation rates, etc.
+- `fitness` — metrics to optimize
+
+### Regime Model
+
+Train a regime model:
+
+```bash
+ft regime_train regime_example.yml data.csv --out regime_model.pkl
+```
+
+Apply a trained model:
+
+```bash
+ft regime_apply regime_model.pkl data.csv --out regime_output.csv
+```
+
+See `regime_example.yml` for expected config structure.
+
 
 ## Testing
 

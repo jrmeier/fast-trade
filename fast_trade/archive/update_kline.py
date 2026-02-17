@@ -1,5 +1,6 @@
 import datetime
 import typing
+import time
 
 import pandas as pd
 
@@ -43,34 +44,53 @@ def update_kline(
         if progress_callback:
             progress_callback(status_obj)
 
-    if exchange == "binanceus":
-        klines, status_obj = get_binance_klines(
-            symbol,
-            curr_date,
-            end_date,
-            "us",
-            status_update,
-            store_func=update_klines_to_db,
-        )
-    elif exchange == "binancecom":
-        klines, status_obj = get_binance_klines(
-            symbol,
-            curr_date,
-            end_date,
-            "com",
-            status_update,
-            store_func=update_klines_to_db,
-        )
-    elif exchange == "coinbase":
-        klines, status_obj = get_product_candles(
-            symbol, curr_date, end_date, status_update, store_func=update_klines_to_db
-        )
-    else:
-        raise ValueError(f"Exchange {exchange} not supported")
+    window_delta = end_date - curr_date
+    max_windows = 10
+    max_retries = 5
 
-    db_path = update_klines_to_db(klines, symbol, exchange)
+    last_exc = None
+    for window_idx in range(max_windows):
+        window_start = curr_date + (window_delta * window_idx)
+        window_end = end_date + (window_delta * window_idx)
 
-    return db_path
+        for attempt in range(1, max_retries + 1):
+            try:
+                if exchange == "binanceus":
+                    klines, status_obj = get_binance_klines(
+                        symbol,
+                        window_start,
+                        window_end,
+                        "us",
+                        status_update,
+                        store_func=update_klines_to_db,
+                    )
+                elif exchange == "binancecom":
+                    klines, status_obj = get_binance_klines(
+                        symbol,
+                        window_start,
+                        window_end,
+                        "com",
+                        status_update,
+                        store_func=update_klines_to_db,
+                    )
+                elif exchange == "coinbase":
+                    klines, status_obj = get_product_candles(
+                        symbol, window_start, window_end, status_update, store_func=update_klines_to_db
+                    )
+                else:
+                    raise ValueError(f"Exchange {exchange} not supported")
+
+                db_path = update_klines_to_db(klines, symbol, exchange)
+                return db_path
+            except Exception as exc:
+                last_exc = exc
+                # exponential backoff with cap
+                sleep_for = min(2 ** attempt, 30)
+                time.sleep(sleep_for)
+
+    if last_exc:
+        raise last_exc
+    raise Exception(f"Download failed for {symbol}")
 
 
 if __name__ == "__main__":

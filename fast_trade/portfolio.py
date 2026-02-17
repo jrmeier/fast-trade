@@ -1,6 +1,7 @@
+import datetime
 import json
 import os
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import pandas as pd
 
@@ -15,7 +16,7 @@ def portfolio_paths(name: str, archive_path: Optional[str] = None) -> Dict[str, 
         "base": base,
         "state": os.path.join(base, "state.json"),
         "trades": os.path.join(base, "trades.parquet"),
-        "log": os.path.join(base, "portfolio.log"),
+        "log": os.path.join(base, "portfolio.jsonl"),
         "pid": os.path.join(base, "runner.pid"),
     }
 
@@ -38,11 +39,18 @@ def save_state(path: str, state: dict) -> None:
         pass
 
 
-def append_log(path: str, line: str) -> None:
+def append_log(path: str, record: Union[str, dict]) -> None:
     try:
+        if isinstance(record, str):
+            record = {"ts": datetime.datetime.utcnow().isoformat(), "message": record}
+        elif isinstance(record, dict):
+            record = dict(record)
+            record.setdefault("ts", datetime.datetime.utcnow().isoformat())
+        else:
+            record = {"ts": datetime.datetime.utcnow().isoformat(), "message": str(record)}
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "a", encoding="utf-8") as fh:
-            fh.write(line.rstrip("\n") + "\n")
+            fh.write(json.dumps(record, ensure_ascii=False) + "\n")
     except Exception:
         pass
 

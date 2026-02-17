@@ -6,6 +6,8 @@ import typing
 import pandas as pd
 
 ARCHIVE_PATH = os.getenv("ARCHIVE_PATH", os.path.join(os.getcwd(), "ft_archive"))
+if os.path.isfile(ARCHIVE_PATH):
+    ARCHIVE_PATH = os.path.dirname(ARCHIVE_PATH)
 
 
 def _atomic_write_parquet(df: pd.DataFrame, path: str, index: bool = True) -> None:
@@ -39,7 +41,10 @@ def get_local_assets() -> typing.List[typing.Tuple[str, str]]:
     all_assets = []
 
     for exchange in os.listdir(ARCHIVE_PATH):
-        for symbol in os.listdir(os.path.join(ARCHIVE_PATH, exchange)):
+        exchange_path = os.path.join(ARCHIVE_PATH, exchange)
+        if not os.path.isdir(exchange_path):
+            continue
+        for symbol in os.listdir(exchange_path):
             if symbol.startswith("_"):
                 continue
             if symbol.endswith(".parquet"):

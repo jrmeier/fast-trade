@@ -12,13 +12,9 @@ from typing import Dict, List, Optional, Deque, Tuple
 from collections import deque
 
 import pandas as pd
-import requests
 import typer
 from rich import box
-from rich.console import Console, Group
-from rich.align import Align
-from rich.columns import Columns
-from rich.layout import Layout
+from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Confirm, IntPrompt
 from prompt_toolkit import PromptSession
@@ -35,7 +31,6 @@ from rich.progress import (
 )
 from rich.live import Live
 from rich.table import Table
-from rich.text import Text
 
 from fast_trade.archive.cli import download_asset, get_assets
 from fast_trade.archive.db_helpers import connect_to_db, migrate_sqlite_to_parquet
@@ -49,6 +44,20 @@ from fast_trade.run_backtest import determine_action
 from fast_trade.cli_render import format_value as _format_value
 from fast_trade.cli_render import render_kv_table as _render_kv_table
 from fast_trade.cli_render import render_summary as _render_summary
+from fast_trade.terminal_ui import (
+    format_stream_line,
+    minute_floor,
+    parse_trade_time,
+    render_dashboard,
+    render_dict_table,
+    render_graph_page,
+    render_position_page,
+    render_summary_page,
+    render_tearsheet,
+    render_trades_table,
+    stringify_value,
+    update_candle,
+)
 from fast_trade.portfolio import (
     append_log as _append_portfolio_log,
     append_trades as _append_portfolio_trades,
@@ -74,7 +83,6 @@ console = Console()
 
 EXCHANGE_CHOICES = ["binancecom", "binanceus", "coinbase"]
 ASSET_EXCHANGE_CHOICES = ["local", "binanceus", "binancecom", "coinbase"]
-_WIDGET_CACHE: Dict[str, Dict[str, object]] = {}
 
 
 def _apply_mods(strategy: Dict, mods: Optional[List[str]]) -> Dict:
@@ -91,6 +99,21 @@ def _apply_mods(strategy: Dict, mods: Optional[List[str]]) -> Dict:
         i += 2
 
     return {**strategy, **overrides}
+
+
+def _format_log_line(raw: str) -> str:
+    try:
+        payload = json.loads(raw)
+    except Exception:
+        return raw.rstrip("\n")
+    if isinstance(payload, dict):
+        if "line" in payload:
+            return str(payload.get("line"))
+        if "message" in payload:
+            return str(payload.get("message"))
+        if "event" in payload:
+            return json.dumps(payload.get("event"), ensure_ascii=False)
+    return json.dumps(payload, ensure_ascii=False)
 
 
 @app.command()
@@ -658,170 +681,6 @@ def _load_backtest_summary(run_path: str) -> dict:
     raise FileNotFoundError("summary.yml or summary.json not found")
 
 
-def _render_trades_table(trade_df: pd.DataFrame, page: int, page_size: int):
-    if trade_df is None or trade_df.empty:
-        console.print("[yellow]No trade log available. Run backtest with --save --all[/yellow]")
-        return
-    start = page * page_size
-    end = start + page_size
-    view = trade_df.iloc[start:end]
-    if view.empty:
-        console.print("[yellow]No more trades[/yellow]")
-        return
-    table = Table(title=f"Trades (page {page + 1})", box=box.SIMPLE_HEAVY)
-    cols = list(view.columns)
-    if "action" not in cols and "action" in trade_df.columns:
-        cols = ["action"] + cols
-    cols = cols[:6]
-    table.add_column("date", style="cyan", no_wrap=True)
-    for col in cols:
-        table.add_column(col, style="white")
-    for idx, row in view.iterrows():
-        values = [str(row.get(c, "")) for c in cols]
-        table.add_row(str(idx), *values)
-    console.print(table)
-
-
-def _render_summary_page(summary: dict):
-    _render_summary(summary, details=False, show_strategy=False)
-
-
-def _render_tearsheet(summary: dict):
-    headline_keys = [
-        "return_perc",
-        "market_adjusted_return",
-        "sharpe_ratio",
-        "max_drawdown",
-        "num_trades",
-        "win_perc",
-        "loss_perc",
-        "total_fees",
-        "equity_final",
-        "equity_peak",
-        "test_duration",
-    ]
-    headline_rows = []
-    for key in headline_keys:
-        if key in summary:
-            headline_rows.append([key, _format_value(summary.get(key))])
-
-    section_keys = [
-        "position_metrics",
-        "trade_quality",
-        "market_exposure",
-        "effective_trades",
-        "drawdown_metrics",
-        "risk_metrics",
-        "trade_streaks",
-        "time_analysis",
-        "rules",
-    ]
-
-    groups = []
-    if headline_rows:
-        lines = ["Summary"]
-        for k, v in headline_rows:
-            lines.append(f"{k}: {v}")
-        groups.append("\n".join(lines))
-
-    strategy = summary.get("strategy")
-    if isinstance(strategy, dict) and strategy:
-        strat_name = strategy.get("name")
-        lines = [f"Strategy{(' - ' + str(strat_name)) if strat_name else ''}"]
-        for k, v in strategy.items():
-            lines.append(f"{k}: {_format_value(v)}")
-        groups.append("\n".join(lines))
-
-    for section_key in section_keys:
-        section = summary.get(section_key)
-        if isinstance(section, dict) and section:
-            lines = [section_key.replace("_", " ").title()]
-            for k, v in section.items():
-                lines.append(f"{k}: {_format_value(v)}")
-            groups.append("\n".join(lines))
-
-    remaining = []
-    for key, value in summary.items():
-        if key in headline_keys:
-            continue
-        if isinstance(value, dict):
-            continue
-        remaining.append([key, _format_value(value)])
-    if remaining:
-        lines = ["Other"]
-        for k, v in remaining:
-            lines.append(f"{k}: {v}")
-        groups.append("\n".join(lines))
-
-    if not groups:
-        console.print("[yellow]No summary data available[/yellow]")
-        return
-
-    # Auto-fit dense columns, keep groups intact
-    group_texts = [Text(g) for g in groups]
-    cols = Columns(group_texts, expand=False, equal=False, column_first=True, padding=(0, 2))
-    console.print(Panel.fit(cols, padding=(0, 1)))
-
-
-def _format_stream_line(payload: dict) -> List[str]:
-    channel = payload.get("channel") or "unknown"
-    ts = payload.get("timestamp") or datetime.datetime.utcnow().isoformat()
-    events = payload.get("events") or []
-    lines = []
-    for event in events:
-        product_id = event.get("product_id") or ""
-        ev_type = event.get("type") or ""
-        if channel == "market_trades":
-            trades = event.get("trades") or []
-            for t in trades[:5]:
-                side = t.get("side")
-                price = t.get("price")
-                size = t.get("size")
-                lines.append(f"{ts} {channel} {product_id} {side} {price} {size}")
-        elif channel == "level2":
-            updates = event.get("updates") or []
-            for u in updates[:5]:
-                side = u.get("side")
-                price = u.get("price_level") or u.get("price")
-                size = u.get("new_quantity") or u.get("size")
-                lines.append(f"{ts} {channel} {product_id} {ev_type} {side} {price} {size}")
-        else:
-            lines.append(f"{ts} {channel} {product_id} {ev_type}")
-    return lines or [f"{ts} {channel} (no events)"]
-
-
-def _parse_trade_time(value: str) -> Optional[datetime.datetime]:
-    if not value:
-        return None
-    try:
-        if value.endswith("Z"):
-            value = value.replace("Z", "+00:00")
-        dt = datetime.datetime.fromisoformat(value)
-        if dt.tzinfo is not None:
-            dt = dt.astimezone(datetime.timezone.utc).replace(tzinfo=None)
-        return dt
-    except Exception:
-        return None
-
-
-def _minute_floor(dt: datetime.datetime) -> datetime.datetime:
-    return dt.replace(second=0, microsecond=0)
-
-
-def _update_candle(candle: dict, price: float, size: float) -> None:
-    if candle["open"] is None:
-        candle["open"] = price
-        candle["high"] = price
-        candle["low"] = price
-        candle["close"] = price
-        candle["volume"] = size
-        return
-    candle["high"] = max(candle["high"], price)
-    candle["low"] = min(candle["low"], price)
-    candle["close"] = price
-    candle["volume"] += size
-
-
 def _max_datapoint_periods(backtest: dict) -> int:
     max_period = 0
     for dp in backtest.get("datapoints", []):
@@ -910,230 +769,6 @@ def _append_trades_parquet(symbol: str, trades: List[dict]) -> None:
         _atomic_write_parquet(df, out_path, index=False)
 
 
-def _render_position_page(summary: dict):
-    section = summary.get("position_metrics", {})
-    if not isinstance(section, dict) or not section:
-        console.print("[yellow]No position metrics available[/yellow]")
-        return
-    rows = [[k, str(v)] for k, v in section.items()]
-    _render_kv_table("Position Metrics", rows)
-
-
-def _render_graph_page(run_path: str, df: pd.DataFrame, trade_df: pd.DataFrame):
-    plot_png = os.path.join(run_path, "plot.png")
-    plot_html = os.path.join(run_path, "plot.html")
-    if os.path.exists(plot_png) or os.path.exists(plot_html):
-        console.print(f"[cyan]Plot[/cyan] {plot_png if os.path.exists(plot_png) else plot_html}")
-    if df is not None and not df.empty:
-        console.print("[cyan]Plot preview[/cyan]")
-        render_plot_preview_from_data(df, trade_df)
-    else:
-        console.print("[yellow]No dataframe available. Run backtest with --save --all[/yellow]")
-
-
-def _dashboard_table(title: str, rows: List[List[str]]) -> Panel:
-    table = Table(title=title, box=box.SIMPLE_HEAVY, show_lines=False)
-    table.add_column("Key", style="cyan", no_wrap=True)
-    table.add_column("Value", style="white")
-    for key, value in rows:
-        table.add_row(key, value)
-    return Panel.fit(table, padding=(0, 1))
-
-
-def _dashboard_text(title: str, lines: List[str]) -> Panel:
-    body = Text("\n".join(lines))
-    return Panel.fit(body, title=title, padding=(0, 1))
-
-
-def _widget_weather_nyc() -> Panel:
-    cache_key = "weather_nyc"
-    now = time.time()
-    cached = _WIDGET_CACHE.get(cache_key)
-    if cached and (now - cached.get("ts", 0)) < 300:
-        return cached["panel"]  # type: ignore[return-value]
-
-    title = "NYC Weather"
-
-    def fetch():
-        try:
-            resp = requests.get("https://wttr.in/New%20York?format=j1", timeout=5)
-            resp.raise_for_status()
-            data = resp.json()
-            current = (data.get("current_condition") or [{}])[0]
-            temp_f = current.get("temp_F")
-            temp_c = current.get("temp_C")
-            desc = ((current.get("weatherDesc") or [{}])[0]).get("value")
-            humidity = current.get("humidity")
-            wind = current.get("windspeedMiles")
-            lines = [
-                f"{desc}" if desc else "Conditions unavailable",
-                f"Temp: {temp_f}F / {temp_c}C" if temp_f and temp_c else "Temp: n/a",
-                f"Humidity: {humidity}%" if humidity else "Humidity: n/a",
-                f"Wind: {wind} mph" if wind else "Wind: n/a",
-            ]
-            panel = _dashboard_text(title, lines)
-        except Exception:
-            panel = _dashboard_text(title, ["Weather unavailable"])
-        _WIDGET_CACHE[cache_key] = {"ts": time.time(), "panel": panel, "fetching": False}
-
-    if not cached or not cached.get("fetching"):
-        _WIDGET_CACHE[cache_key] = {"ts": cached.get("ts", 0) if cached else 0, "panel": cached.get("panel") if cached else _dashboard_text(title, ["Loading..."]), "fetching": True}
-        threading.Thread(target=fetch, daemon=True).start()
-
-    return _WIDGET_CACHE[cache_key]["panel"]  # type: ignore[return-value]
-
-
-def _build_dashboard_layout(
-    run_id: str,
-    run_path: str,
-    summary: dict,
-    trade_df: pd.DataFrame,
-    df: pd.DataFrame,
-    runs: List[str],
-    archive_path: str,
-    stream_info: Optional[dict] = None,
-) -> Panel:
-    width = console.size.width
-    height = console.size.height
-    metrics_keys = [
-        ("return_perc", "Return %"),
-        ("cagr_perc", "CAGR %"),
-        ("sharpe", "Sharpe"),
-        ("sortino", "Sortino"),
-        ("max_drawdown_perc", "Max DD %"),
-        ("num_trades", "Trades"),
-        ("win_rate", "Win Rate"),
-    ]
-    metrics_rows = []
-    for key, label in metrics_keys:
-        if key in summary:
-            metrics_rows.append([label, _format_value(summary.get(key))])
-    if not metrics_rows:
-        metrics_rows = [["Metrics", "No summary metrics available"]]
-
-    strategy = summary.get("strategy", {}) if isinstance(summary.get("strategy"), dict) else {}
-    strat_rows = []
-    for key in ["name", "symbol", "exchange", "timeframe", "start", "end"]:
-        if key in strategy:
-            strat_rows.append([key, str(strategy.get(key))])
-    if not strat_rows:
-        strat_rows = [["Strategy", "No strategy in summary"]]
-
-    # Keep panels readable in shorter terminals
-    if height >= 45:
-        max_recent = 6
-        max_shortcuts = 5
-    elif height >= 35:
-        max_recent = 4
-        max_shortcuts = 4
-    else:
-        max_recent = 3
-        max_shortcuts = 3
-
-    recent_lines = runs[:max_recent] if runs else []
-    if not recent_lines:
-        recent_lines = ["No recent runs"]
-
-    archive_rows = [
-        ["Archive", archive_path],
-        ["Backtests", str(len(runs))],
-    ]
-    data_dirs = 0
-    if os.path.isdir(archive_path):
-        data_dirs = len([d for d in os.listdir(archive_path) if os.path.isdir(os.path.join(archive_path, d))])
-    archive_rows.append(["Data dirs", str(data_dirs)])
-
-    shortcuts = [
-        "TR trades  SUM summary  TS tearsheet  GP graph  POS positions",
-        "LIVE START [SYMBOL]  LIVE STOP",
-        "STREAM view  STREAM VIEW live  STREAM START <PRODUCT> channels=trades,level2  STREAM STOP",
-        "NEW STRAT  EDIT STRAT  OPEN STRAT",
-        "OPEN BT   OPEN STRAT   EDIT STRAT   EDIT BT",
-        "BT [SAVE] [PLOT] [MODS k v ...]   UA update archive   N/P page",
-        "HELP   Q quit",
-    ]
-    shortcuts = shortcuts[:max_shortcuts]
-
-    status_rows = [
-        ["Run ID", run_id],
-        ["Backtests", str(len(runs))],
-        ["Archive", archive_path],
-    ]
-    status_panel = _dashboard_table("App Status", status_rows)
-    archive_panel = _dashboard_table("Archive", archive_rows)
-    recent_panel = _dashboard_text("Recent Runs", recent_lines)
-    stream_panel = _build_stream_panel(stream_info or {"status": "n/a", "product": "n/a", "channels": [], "mps": 0.0})
-    shortcuts_panel = _dashboard_text("Shortcuts", shortcuts)
-    weather_panel = _widget_weather_nyc()
-
-    stream_lines = [
-        f"Status: {stream_info.get('status', 'n/a') if stream_info else 'n/a'}",
-        f"Product: {stream_info.get('product', 'n/a') if stream_info else 'n/a'}",
-        f"Channels: {', '.join(stream_info.get('channels', [])) if stream_info else 'n/a'}",
-        f"Msg/sec: {stream_info.get('mps', 0.0):.2f}" if stream_info else "Msg/sec: 0.00",
-    ]
-    live_info = stream_info.get("live") if stream_info and stream_info.get("live") else {}
-    live_lines = [
-        f"Status: {live_info.get('status', 'n/a')}",
-        f"Symbol: {live_info.get('symbol', 'n/a')}",
-        f"Action: {live_info.get('action', 'n/a')}",
-        f"Time: {live_info.get('time', 'n/a')}",
-    ]
-    weather_panel = _widget_weather_nyc()
-
-    groups = [
-        Text("Shortcuts\n" + "\n".join(shortcuts)),
-        Text("Recent Runs\n" + "\n".join(recent_lines)),
-        Text("App Status\n" + "\n".join([f"{k}: {v}" for k, v in status_rows])),
-        Text("Archive\n" + "\n".join([f"{k}: {v}" for k, v in archive_rows])),
-        Text("Stream\n" + "\n".join(stream_lines)),
-        Text("Live\n" + "\n".join(live_lines)),
-        weather_panel,
-    ]
-
-    cols = Columns(
-        [Text(g.plain) if isinstance(g, Text) else g for g in groups],
-        expand=False,
-        equal=False,
-        column_first=False,
-        padding=(0, 2),
-    )
-    panel = Panel.fit(cols, padding=(0, 1))
-    return panel
-
-
-def _render_dashboard(
-    run_id: str,
-    run_path: str,
-    summary: dict,
-    trade_df: pd.DataFrame,
-    df: pd.DataFrame,
-    runs: List[str],
-    archive_path: str,
-    stream_info: Optional[dict] = None,
-):
-    layout = _build_dashboard_layout(
-        run_id, run_path, summary, trade_df, df, runs, archive_path, stream_info=stream_info
-    )
-    console.print(layout)
-
-
-def _build_stream_panel(stream_info: dict) -> Panel:
-    stream_rows = [
-        ["Status", stream_info.get("status", "n/a")],
-        ["Product", stream_info.get("product", "n/a")],
-        ["Channels", ", ".join(stream_info.get("channels", [])) or "n/a"],
-        ["Msg/sec", f"{stream_info.get('mps', 0):.2f}"],
-    ]
-    return _dashboard_table("Stream", stream_rows)
-
-
-def _stringify_value(value) -> str:
-    if isinstance(value, (dict, list)):
-        return json.dumps(value, indent=2)
-    return str(value)
-
-
 def _parse_input_value(raw: str):
     if raw is None:
         return raw
@@ -1146,15 +781,6 @@ def _parse_input_value(raw: str):
         return raw
 
 
-def _render_dict_table(title: str, data: dict) -> None:
-    table = Table(title=title, box=box.SIMPLE_HEAVY, show_lines=True)
-    table.add_column("Key", style="cyan", no_wrap=True)
-    table.add_column("Value", style="white")
-    for key, value in data.items():
-        table.add_row(str(key), _stringify_value(value))
-    console.print(table)
-
-
 def _edit_dict_interactive(title: str, data: dict) -> Optional[dict]:
     session = PromptSession()
     updated = dict(data)
@@ -1164,7 +790,7 @@ def _edit_dict_interactive(title: str, data: dict) -> Optional[dict]:
     )
     while True:
         console.print(Panel.fit(title, style="blue"))
-        _render_dict_table(title, updated)
+        render_dict_table(console, title, updated)
         console.print(f"[cyan]{instructions}[/cyan]")
         key = session.prompt("Edit> ").strip()
         if key == "":
@@ -1184,7 +810,7 @@ def _edit_dict_interactive(title: str, data: dict) -> Optional[dict]:
 
         current = updated.get(key)
         console.print(Panel.fit(f"{key} (current)", style="cyan"))
-        console.print(_stringify_value(current))
+        console.print(stringify_value(current))
         raw_val = session.prompt("New value (blank to keep): ")
         if raw_val.strip() == "":
             continue
@@ -1343,8 +969,10 @@ def terminal_cmd(
     history_path = os.path.join(archive_path, "terminal_history.txt")
     live_log_dir = os.path.join(archive_path, "live_logs")
     stream_log_dir = os.path.join(archive_path, "stream_logs")
-    live_log_path = os.path.join(live_log_dir, f"{run_id}.log")
-    stream_log_path = os.path.join(stream_log_dir, f"{run_id}.log")
+    live_log_path = os.path.join(live_log_dir, f"{run_id}.jsonl")
+    stream_log_path = os.path.join(stream_log_dir, f"{run_id}.jsonl")
+    live_log_path_legacy = os.path.join(live_log_dir, f"{run_id}.log")
+    stream_log_path_legacy = os.path.join(stream_log_dir, f"{run_id}.log")
     last_strat_path_file = os.path.join(archive_path, "last_strategy_path.txt")
     session = PromptSession(history=FileHistory(history_path))
     completer = NestedCompleter.from_nested_dict(
@@ -1449,11 +1077,20 @@ def terminal_cmd(
     live_symbol = None
     live_history: Deque[str] = deque(maxlen=200)
 
-    def _append_log_line(path: str, line: str) -> None:
+    def _append_log_line(path: str, record, kind: Optional[str] = None) -> None:
         try:
+            if isinstance(record, str):
+                record = {"ts": datetime.datetime.utcnow().isoformat(), "message": record}
+            elif isinstance(record, dict):
+                record = dict(record)
+                record.setdefault("ts", datetime.datetime.utcnow().isoformat())
+            else:
+                record = {"ts": datetime.datetime.utcnow().isoformat(), "message": str(record)}
+            if kind:
+                record.setdefault("kind", kind)
             os.makedirs(os.path.dirname(path), exist_ok=True)
             with open(path, "a", encoding="utf-8") as fh:
-                fh.write(line.rstrip("\n") + "\n")
+                fh.write(json.dumps(record, ensure_ascii=False) + "\n")
         except Exception:
             # Avoid breaking live/stream loops due to logging issues.
             pass
@@ -1496,7 +1133,11 @@ def terminal_cmd(
                 stream_status = f"error: {exc}"
                 msg = f"ERROR {exc}"
                 stream_buffer.append(msg)
-                _append_log_line(stream_log_path, msg)
+                _append_log_line(
+                    stream_log_path,
+                    {"message": msg, "error": str(exc)},
+                    kind="stream",
+                )
                 return
 
             async def runner():
@@ -1531,13 +1172,18 @@ def terminal_cmd(
                                 except asyncio.TimeoutError:
                                     if time.time() - last_kline_flush >= 60:
                                         now_dt = datetime.datetime.utcnow()
-                                        cutoff = _minute_floor(now_dt)
+                                        cutoff = minute_floor(now_dt)
                                         ready = [(k, v) for k, v in candles.items() if k < cutoff and v["open"] is not None]
                                         if ready:
                                             _append_klines_to_archive(symbol, ready)
                                             _append_log_line(
                                                 stream_log_path,
-                                                f"KLINES_FLUSH count={len(ready)} through={cutoff.isoformat()}",
+                                                {
+                                                    "event": "klines_flush",
+                                                    "count": len(ready),
+                                                    "through": cutoff.isoformat(),
+                                                },
+                                                kind="stream",
                                             )
                                             for k, _ in ready:
                                                 candles.pop(k, None)
@@ -1547,7 +1193,13 @@ def terminal_cmd(
                                             _append_klines_to_archive(symbol, [(cutoff, current)])
                                             _append_log_line(
                                                 stream_log_path,
-                                                f"KLINES_FLUSH count=1 through={cutoff.isoformat()} current=1",
+                                                {
+                                                    "event": "klines_flush",
+                                                    "count": 1,
+                                                    "through": cutoff.isoformat(),
+                                                    "current": True,
+                                                },
+                                                kind="stream",
                                             )
                                         last_kline_flush = time.time()
                                     if trade_buffer and time.time() - last_trade_flush >= 60:
@@ -1555,7 +1207,8 @@ def terminal_cmd(
                                         _append_trades_parquet(symbol, trade_buffer)
                                         _append_log_line(
                                             stream_log_path,
-                                            f"TRADES_FLUSH count={trade_count}",
+                                            {"event": "trades_flush", "count": trade_count},
+                                            kind="stream",
                                         )
                                         trade_buffer = []
                                         last_trade_flush = time.time()
@@ -1567,9 +1220,17 @@ def terminal_cmd(
                                 stream_msg_total += 1
                                 try:
                                     payload = json.loads(raw)
-                                    for line in _format_stream_line(payload):
+                                    for line in format_stream_line(payload):
                                         stream_buffer.append(line)
-                                        _append_log_line(stream_log_path, line)
+                                        _append_log_line(
+                                            stream_log_path,
+                                            {
+                                                "event": "stream_line",
+                                                "line": line,
+                                                "channel": payload.get("channel"),
+                                            },
+                                            kind="stream",
+                                        )
                                     if payload.get("channel") == "market_trades":
                                         events = payload.get("events") or []
                                         for event in events:
@@ -1582,10 +1243,10 @@ def terminal_cmd(
                                                     if last_seen and now_ts - last_seen < 3600:
                                                         continue
                                                     seen_trades[trade_id] = now_ts
-                                                t_time = _parse_trade_time(t.get("time"))
+                                                t_time = parse_trade_time(t.get("time"))
                                                 if not t_time:
                                                     continue
-                                                minute = _minute_floor(t_time)
+                                                minute = minute_floor(t_time)
                                                 price = float(t.get("price"))
                                                 size = float(t.get("size"))
                                                 trade_buffer.append(
@@ -1602,15 +1263,20 @@ def terminal_cmd(
                                                     minute,
                                                     {"open": None, "high": None, "low": None, "close": None, "volume": 0.0},
                                                 )
-                                                _update_candle(candle, price, size)
+                                                update_candle(candle, price, size)
                                         now_dt = datetime.datetime.utcnow()
-                                        cutoff = _minute_floor(now_dt)
+                                        cutoff = minute_floor(now_dt)
                                         ready = [(k, v) for k, v in candles.items() if k < cutoff and v["open"] is not None]
                                         if ready:
                                             _append_klines_to_archive(symbol, ready)
                                             _append_log_line(
                                                 stream_log_path,
-                                                f"KLINES_FLUSH count={len(ready)} through={cutoff.isoformat()}",
+                                                {
+                                                    "event": "klines_flush",
+                                                    "count": len(ready),
+                                                    "through": cutoff.isoformat(),
+                                                },
+                                                kind="stream",
                                             )
                                             for k, _ in ready:
                                                 candles.pop(k, None)
@@ -1621,14 +1287,21 @@ def terminal_cmd(
                                             _append_klines_to_archive(symbol, [(cutoff, current)])
                                             _append_log_line(
                                                 stream_log_path,
-                                                f"KLINES_FLUSH count=1 through={cutoff.isoformat()} current=1",
+                                                {
+                                                    "event": "klines_flush",
+                                                    "count": 1,
+                                                    "through": cutoff.isoformat(),
+                                                    "current": True,
+                                                },
+                                                kind="stream",
                                             )
                                     if trade_buffer and time.time() - last_trade_flush >= 60:
                                         trade_count = len(trade_buffer)
                                         _append_trades_parquet(symbol, trade_buffer)
                                         _append_log_line(
                                             stream_log_path,
-                                            f"TRADES_FLUSH count={trade_count}",
+                                            {"event": "trades_flush", "count": trade_count},
+                                            kind="stream",
                                         )
                                         trade_buffer = []
                                         last_trade_flush = time.time()
@@ -1638,12 +1311,20 @@ def terminal_cmd(
                                 except Exception:
                                     msg = raw[:500]
                                     stream_buffer.append(msg)
-                                    _append_log_line(stream_log_path, msg)
+                                    _append_log_line(
+                                        stream_log_path,
+                                        {"message": msg, "event": "parse_error"},
+                                        kind="stream",
+                                    )
                     except Exception as exc:
                         stream_status = f"reconnecting: {exc}"
                         msg = f"ERROR {exc}"
                         stream_buffer.append(msg)
-                        _append_log_line(stream_log_path, msg)
+                        _append_log_line(
+                            stream_log_path,
+                            {"message": msg, "error": str(exc)},
+                            kind="stream",
+                        )
                         time.sleep(backoff)
                         backoff = min(backoff * 2, 30.0)
                 stream_status = "stopped"
@@ -1699,19 +1380,19 @@ def terminal_cmd(
         if current_page == "DB":
             stream_info = _current_stream_info()
             stream_info["live"] = _current_live_info()
-            _render_dashboard(
-                run_id, run_path, summary, trade_df, df, runs, archive_path, stream_info=stream_info
+            render_dashboard(
+                console, run_id, run_path, summary, trade_df, df, runs, archive_path, stream_info=stream_info
             )
         elif current_page == "TR":
-            _render_trades_table(trade_df, trade_page, page_size)
+            render_trades_table(console, trade_df, trade_page, page_size)
         elif current_page == "SUM":
-            _render_summary_page(summary)
+            render_summary_page(console, summary)
         elif current_page == "TS":
-            _render_tearsheet(summary)
+            render_tearsheet(console, summary)
         elif current_page == "GP":
-            _render_graph_page(run_path, df, trade_df)
+            render_graph_page(console, run_path, df, trade_df)
         elif current_page == "POS":
-            _render_position_page(summary)
+            render_position_page(console, summary)
         elif current_page == "STREAM":
             console.print(Panel.fit(f"Stream: {stream_status}", style="blue"))
             if not stream_buffer:
@@ -1726,13 +1407,72 @@ def terminal_cmd(
                 console.print("\n".join(list(live_history)[-50:]))
         elif current_page == "HELP":
             console.print(
-                "[cyan]Shortcuts:[/cyan] DB (dashboard), TR (trades), SUM (summary), TS (tearsheet), "
-                "GP (graph), POS (positions), LIVE START/STOP/VIEW [SYMBOL], STREAM (view), STREAM VIEW (live), "
-                "LOGS [LIVE|STREAM|ALL] [FOLLOW], PORTFOLIO START|STATUS|STOP, NEW STRAT, "
-                "STREAM START <PRODUCT> channels=trades,level2, "
-                "STREAM STOP, EDIT STRAT, EDIT BT, BT [SAVE] [PLOT] [MODS k v ...], "
-                "UA (update archive), N/P (page), Q (quit). "
-                "Any other command runs the equivalent `ft <command>`."
+                "[cyan]Terminal Help[/cyan]\n"
+                "\n"
+                "[bold]Navigation[/bold]\n"
+                "DB - Dashboard (default)\n"
+                "TR - Trades table (paged)\n"
+                "SUM - Summary page\n"
+                "TS - Tearsheet (summary + sections)\n"
+                "GP - Graph page (plot/preview if available)\n"
+                "POS - Position metrics\n"
+                "HELP - This help\n"
+                "Q - Quit\n"
+                "N / P - Next / Previous page in trades view\n"
+                "\n"
+                "[bold]Backtests[/bold]\n"
+                "BT [SAVE] [PLOT] [MODS k v ...]\n"
+                "  Runs the selected strategy/backtest. Defaults: no save, no plot.\n"
+                "  MODS overrides strategy keys. Example: BT SAVE MODS freq 1H trailing_stop_loss 0.02\n"
+                "SAVE - Save last backtest result (if any)\n"
+                "\n"
+                "[bold]Strategies[/bold]\n"
+                "OPEN STRAT - Pick a strategy file (from ft_archive/strategies)\n"
+                "SHOW STRAT - Show selected strategy summary\n"
+                "EDIT STRAT - Edit selected strategy (writes strategy.override.yml)\n"
+                "NEW STRAT - Create a new strategy (default: ft_archive/strategies/strategy.new.yml)\n"
+                "\n"
+                "[bold]Backtest Runs[/bold]\n"
+                "OPEN BT - Pick a backtest run\n"
+                "EDIT BT - Edit backtest summary fields\n"
+                "\n"
+                "[bold]Live Runner (paper signals)[/bold]\n"
+                "LIVE START [SYMBOL]\n"
+                "  Starts live signal loop using selected strategy; default symbol from strategy.\n"
+                "LIVE VIEW - Live follow view (press Enter to stop)\n"
+                "LIVE STOP - Stop live runner\n"
+                "\n"
+                "[bold]Stream Runner (market data)[/bold]\n"
+                "STREAM START <SYMBOL> [channels=trades,level2]\n"
+                "  Defaults: symbol=BTC-USD, channels=market_trades\n"
+                "STREAM VIEW - Live follow view (press Enter to stop)\n"
+                "STREAM STOP - Stop stream runner\n"
+                "STREAM - Show stream status page\n"
+                "\n"
+                "[bold]Logs[/bold]\n"
+                "LOGS [LIVE|STREAM|ALL] [FOLLOW]\n"
+                "  Defaults: ALL, no follow. FOLLOW tails until Enter.\n"
+                "\n"
+                "[bold]Portfolio (paper)[/bold]\n"
+                "PORTFOLIO START [--symbol BTC-USD] [--cash N] [--name NAME] [--once] [--no-daemon]\n"
+                "  Uses selected strategy if path not provided. Default: daemon on, symbol BTC-USD.\n"
+                "PORTFOLIO STATUS <name> - Show portfolio state\n"
+                "PORTFOLIO STOP <name> - Stop portfolio runner\n"
+                "\n"
+                "[bold]Archive[/bold]\n"
+                "UA - Update archive (same as ft update_archive)\n"
+                "\n"
+                "[bold]Machine Learning[/bold]\n"
+                "EVOLVE <config.yml>\n"
+                "  Runs genetic algorithm optimization using evolver config.\n"
+                "  Example: EVOLVE evolver_example.yml\n"
+                "REGIME TRAIN <config.yml> <data.csv> [--out regime_model.pkl]\n"
+                "  Trains a regime model.\n"
+                "REGIME APPLY <model.pkl> <data.csv> [--out regime_output.csv]\n"
+                "  Applies a regime model to data.\n"
+                "\n"
+                "[bold]CLI passthrough[/bold]\n"
+                "Any other command runs as `ft <command>` (first two tokens lowercased)."
             )
 
     render_page()
@@ -1740,22 +1480,30 @@ def terminal_cmd(
         raw_cmd = session.prompt("FT> ", completer=completer).strip()
         cmd = raw_cmd.upper()
         parts = cmd.split()
+        page_changed = False
         if cmd in ["Q", "QUIT", "EXIT"]:
             break
         if len(parts) >= 2 and parts[0] in ["DB", "DASH", "DASHBOARD"] and parts[1] == "LIVE":
             current_page = "DB"
+            page_changed = True
         elif cmd in ["DB", "DASH", "DASHBOARD"]:
             current_page = "DB"
+            page_changed = True
         elif cmd in ["TR", "TRADE", "TRADES"]:
             current_page = "TR"
+            page_changed = True
         elif cmd in ["SUM", "SUMMARY"]:
             current_page = "SUM"
+            page_changed = True
         elif cmd in ["TS", "TEAR", "TEARSHEET"]:
             current_page = "TS"
+            page_changed = True
         elif cmd in ["GP", "GRAPH"]:
             current_page = "GP"
+            page_changed = True
         elif cmd in ["POS", "POSITIONS"]:
             current_page = "POS"
+            page_changed = True
         elif parts[:2] == ["LIVE", "START"]:
             if live_thread and live_thread.is_alive():
                 console.print("[yellow]Live runner already running[/yellow]")
@@ -1841,12 +1589,25 @@ def terminal_cmd(
                                             live_last_action = "HOLD"
                                         live_last_time = datetime.datetime.utcnow().isoformat()
                                         parts = [f"{live_last_time}", f"{live_last_action}", f"close={_format_value(price)}"]
+                                        indicators = {}
                                         for col in ind_cols:
                                             val = getattr(frame, col, None)
+                                            indicators[col] = _format_value(val)
                                             parts.append(f"{col}={_format_value(val)}")
                                         line = " | ".join(parts)
                                         live_history.append(line)
-                                        _append_log_line(live_log_path, line)
+                                        _append_log_line(
+                                            live_log_path,
+                                            {
+                                                "event": "live_signal",
+                                                "line": line,
+                                                "action": live_last_action,
+                                                "symbol": live_symbol,
+                                                "price": price,
+                                                "indicators": indicators,
+                                            },
+                                            kind="live",
+                                        )
                                 except Exception as exc:
                                     live_last_action = f"ERROR: {exc}"
                                     live_last_time = datetime.datetime.utcnow().isoformat()
@@ -1895,6 +1656,7 @@ def terminal_cmd(
                 time.sleep(0.5)
         elif cmd in ["STREAM", "ST"]:
             current_page = "STREAM"
+            page_changed = True
         elif cmd in ["STREAM", "VIEW"] or cmd == "STREAM VIEW":
             current_page = "STREAM"
             # Live-follow view until Enter
@@ -1980,10 +1742,14 @@ def terminal_cmd(
 
             if show_live:
                 console.print(Panel.fit(f"LIVE log — {run_id}", style="blue"))
-                if os.path.exists(live_log_path):
+                live_read_path = live_log_path
+                if not os.path.exists(live_read_path) and os.path.exists(live_log_path_legacy):
+                    live_read_path = live_log_path_legacy
+                if os.path.exists(live_read_path):
                     try:
-                        with open(live_log_path, "r", encoding="utf-8", errors="ignore") as fh:
-                            console.print("\n".join(fh.read().splitlines()[-200:]))
+                        with open(live_read_path, "r", encoding="utf-8", errors="ignore") as fh:
+                            lines = [_format_log_line(line) for line in fh.read().splitlines()[-200:]]
+                            console.print("\n".join(lines))
                     except Exception as exc:
                         console.print(f"[red]Unable to read live log:[/red] {exc}")
                 else:
@@ -1991,10 +1757,14 @@ def terminal_cmd(
 
             if show_stream:
                 console.print(Panel.fit(f"STREAM log — {run_id}", style="blue"))
-                if os.path.exists(stream_log_path):
+                stream_read_path = stream_log_path
+                if not os.path.exists(stream_read_path) and os.path.exists(stream_log_path_legacy):
+                    stream_read_path = stream_log_path_legacy
+                if os.path.exists(stream_read_path):
                     try:
-                        with open(stream_log_path, "r", encoding="utf-8", errors="ignore") as fh:
-                            console.print("\n".join(fh.read().splitlines()[-200:]))
+                        with open(stream_read_path, "r", encoding="utf-8", errors="ignore") as fh:
+                            lines = [_format_log_line(line) for line in fh.read().splitlines()[-200:]]
+                            console.print("\n".join(lines))
                     except Exception as exc:
                         console.print(f"[red]Unable to read stream log:[/red] {exc}")
                 else:
@@ -2011,39 +1781,46 @@ def terminal_cmd(
                 positions = {}
                 while not stop_follow.is_set():
                     any_open = False
-                    if show_live and os.path.exists(live_log_path):
+                    live_follow_path = live_log_path
+                    if not os.path.exists(live_follow_path) and os.path.exists(live_log_path_legacy):
+                        live_follow_path = live_log_path_legacy
+                    if show_live and os.path.exists(live_follow_path):
                         any_open = True
                         try:
-                            fh = positions.get(live_log_path)
+                            fh = positions.get(live_follow_path)
                             if fh is None or fh.closed:
-                                fh = open(live_log_path, "r", encoding="utf-8", errors="ignore")
-                                positions[live_log_path] = fh
+                                fh = open(live_follow_path, "r", encoding="utf-8", errors="ignore")
+                                positions[live_follow_path] = fh
                                 fh.seek(0, os.SEEK_END)
                             while True:
                                 line = fh.readline()
                                 if not line:
                                     break
-                                console.print(line.rstrip("\n"))
+                                console.print(_format_log_line(line))
                         except Exception:
                             pass
-                    if show_stream and os.path.exists(stream_log_path):
+                    stream_follow_path = stream_log_path
+                    if not os.path.exists(stream_follow_path) and os.path.exists(stream_log_path_legacy):
+                        stream_follow_path = stream_log_path_legacy
+                    if show_stream and os.path.exists(stream_follow_path):
                         any_open = True
                         try:
-                            fh = positions.get(stream_log_path)
+                            fh = positions.get(stream_follow_path)
                             if fh is None or fh.closed:
-                                fh = open(stream_log_path, "r", encoding="utf-8", errors="ignore")
-                                positions[stream_log_path] = fh
+                                fh = open(stream_follow_path, "r", encoding="utf-8", errors="ignore")
+                                positions[stream_follow_path] = fh
                                 fh.seek(0, os.SEEK_END)
                             while True:
                                 line = fh.readline()
                                 if not line:
                                     break
-                                console.print(line.rstrip("\n"))
+                                console.print(_format_log_line(line))
                         except Exception:
                             pass
                     time.sleep(0.25 if any_open else 0.5)
         elif cmd in ["HELP", "H", "?"]:
             current_page = "HELP"
+            page_changed = True
         elif parts[:2] == ["NEW", "STRAT"] or parts[:2] == ["NEW", "STRATEGY"]:
             _create_strategy_interactive()
         elif parts[:2] == ["SHOW", "STRAT"] or parts[:2] == ["SHOW", "STRATEGY"]:
@@ -2218,8 +1995,10 @@ def terminal_cmd(
             console.print(f"[green]Saved[/green] backtest results to [bold]{save_path}[/bold]")
         elif cmd in ["N", "NEXT"] and current_page == "TR":
             trade_page += 1
+            page_changed = True
         elif cmd in ["P", "PREV", "PREVIOUS"] and current_page == "TR":
             trade_page = max(0, trade_page - 1)
+            page_changed = True
         elif raw_cmd and not _terminal_handles(parts, cmd):
             try:
                 args = shlex.split(raw_cmd)
@@ -2229,7 +2008,7 @@ def terminal_cmd(
                 subprocess.run(["ft"] + args, check=False)
             except Exception as exc:
                 console.print(f"[red]CLI command failed:[/red] {exc}")
-        if cmd in ["DB", "DASH", "DASHBOARD", "TS", "TEAR", "TEARSHEET"]:
+        if page_changed:
             render_page()
 
 
@@ -2315,17 +2094,30 @@ def logs_cmd(
 
     log_paths = []
     if kind in ["all", "live"]:
-        log_paths.append(("LIVE", os.path.join(archive_path, "live_logs", f"{run_id}.log")))
+        log_paths.append(
+            (
+                "LIVE",
+                os.path.join(archive_path, "live_logs", f"{run_id}.jsonl"),
+                os.path.join(archive_path, "live_logs", f"{run_id}.log"),
+            )
+        )
     if kind in ["all", "stream"]:
-        log_paths.append(("STREAM", os.path.join(archive_path, "stream_logs", f"{run_id}.log")))
+        log_paths.append(
+            (
+                "STREAM",
+                os.path.join(archive_path, "stream_logs", f"{run_id}.jsonl"),
+                os.path.join(archive_path, "stream_logs", f"{run_id}.log"),
+            )
+        )
 
-    for label, path in log_paths:
+    for label, path, legacy_path in log_paths:
+        read_path = path if os.path.exists(path) else legacy_path
         console.print(Panel.fit(f"{label} log — {run_id}", style="blue"))
-        if not os.path.exists(path):
+        if not os.path.exists(read_path):
             console.print(f"[yellow]No log file yet:[/yellow] {path}")
             continue
-        for line in _tail_file(path, tail):
-            console.print(line)
+        for line in _tail_file(read_path, tail):
+            console.print(_format_log_line(line))
 
     if not follow:
         return
@@ -2334,21 +2126,22 @@ def logs_cmd(
     positions = {}
     while True:
         any_open = False
-        for label, path in log_paths:
-            if not os.path.exists(path):
+        for label, path, legacy_path in log_paths:
+            read_path = path if os.path.exists(path) else legacy_path
+            if not os.path.exists(read_path):
                 continue
             any_open = True
             try:
-                fh = positions.get(path)
+                fh = positions.get(read_path)
                 if fh is None or fh.closed:
-                    fh = open(path, "r", encoding="utf-8", errors="ignore")
-                    positions[path] = fh
+                    fh = open(read_path, "r", encoding="utf-8", errors="ignore")
+                    positions[read_path] = fh
                     fh.seek(0, os.SEEK_END)
                 while True:
                     line = fh.readline()
                     if not line:
                         break
-                    console.print(line.rstrip("\n"))
+                    console.print(_format_log_line(line))
             except Exception:
                 pass
         if not any_open:

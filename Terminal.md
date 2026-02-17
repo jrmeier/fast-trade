@@ -300,6 +300,9 @@ The terminal automatically lowercases the first two tokens for compatibility.
 
 ### Other
 - `UA` — Update archive
+- `EVOLVE <config.yml>` — Run GA optimization (see `evolver_example.yml`)
+- `REGIME TRAIN <config.yml> <data.csv> [--out regime_model.pkl]` — Train regime model
+- `REGIME APPLY <model.pkl> <data.csv> [--out regime_output.csv]` — Apply regime model
 
 ## Troubleshooting
 
@@ -321,4 +324,3 @@ stat ft_archive/coinbase/<SYMBOL>.parquet
 ### Logs Not Updating
 - Use `LOGS STREAM FOLLOW` or `LOGS LIVE FOLLOW` to verify live stream output.
 - Check file paths under `ft_archive/`.
-

@@ -1,0 +1,102 @@
+strategy:
+  freq: "#freq"
+  symbol: BTCUSDT
+  exchange: binanceus
+  start: 2024-11-01
+  stop: 2025-01-01
+  any_enter:
+    -
+      - rsi
+      - "<"
+      - "#rsi_lower"
+  any_exit:
+    -
+      - rsi
+      - ">"
+      - "#rsi_upper"
+  datapoints:
+    -
+      name: sma_fast
+      transformer: zlema
+      args:
+        - "#fast_period"
+    -
+      name: sma_slow
+      transformer: zlema
+      args:
+        - "#slow_period"
+    -
+      name: rsi
+      transformer: rsi
+      args:
+        - "#rsi_period"
+  enter:
+    -
+      - sma_fast
+      - ">"
+      - sma_slow
+  exit:
+    -
+      - sma_fast
+      - "<"
+      - sma_slow
+  base_balance: 1000.0
+  exit_on_end: false
+  comission: 0.0
+  trailing_stop_loss: 0.0
+  lot_size_perc: 1.0
+  max_lot_size: 0.0
+genes:
+  -
+    name: freq
+    space:
+      low: 0
+      high: 2
+  -
+    name: fast_period
+    space:
+      low: 2
+      high: 10
+  -
+    name: slow_period
+    space:
+      low: 15
+      high: 40
+  -
+    name: rsi_period
+    space:
+      low: 2
+      high: 10
+  -
+    name: rsi_lower
+    space:
+      low: 10
+      high: 30
+  -
+    name: rsi_upper
+    space:
+      low: 70
+      high: 90
+settings:
+  num_generations: 1
+  num_parents_mating: 4
+  sol_per_pop: 6
+  mutation_type: adaptive
+  mutation_percent_genes:
+    - 50
+    - 10
+  crossover_type: uniform
+  parent_selection_type: tournament
+  K_tournament: 4
+  parallel_processing:
+    - thread
+    - 1
+fitness:
+  weights:
+    return_perc: 0.7
+    market_adjusted_return: 0.2
+    sharpe_ratio: 0.05
+    drawdown_metrics.max_drawdown_pct: -0.05
+    num_trades: 0.1
+  min_trades: 5
+  low_trades_penalty: -2.0

@@ -18,7 +18,7 @@ def test_portfolio_paths_respects_archive(tmp_path, monkeypatch):
     assert (tmp_path / "portfolio" / "demo").exists()
     assert paths["state"].endswith("state.json")
     assert paths["trades"].endswith("trades.parquet")
-    assert paths["log"].endswith("portfolio.log")
+    assert paths["log"].endswith("portfolio.jsonl")
     assert paths["pid"].endswith("runner.pid")
 
 
