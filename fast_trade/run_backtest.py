@@ -103,6 +103,7 @@ def run_backtest(
             progress_callback({"phase": "data", "percent": 0})
         # check the local archive for the data
         # calculate the start and end dates based on the max number of periods in any dp args
+
         def get_max_periods(datapoint):
             args = datapoint.get("args", [])
             periods = [int(arg) for arg in args if isinstance(arg, int)]
@@ -589,7 +590,7 @@ def run_backtest_chunked(
         chunk_size = max(1000, len(df) // mp.cpu_count())
 
     # Split the dataframe into chunks
-    chunks = [df.iloc[i : i + chunk_size] for i in range(0, len(df), chunk_size)]
+    chunks = [df.iloc[i:i + chunk_size] for i in range(0, len(df), chunk_size)]
 
     # Process each chunk in parallel
     with mp.Pool(processes=mp.cpu_count()) as pool:

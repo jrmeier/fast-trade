@@ -135,7 +135,7 @@ LIVE VIEW
 Live actions are also written to:
 
 ```
-ft_archive/live_logs/<RUN_ID>.log
+ft_archive/live_logs/<RUN_ID>.jsonl
 ```
 
 ### Stop Live
@@ -191,9 +191,9 @@ LOGS STREAM FOLLOW
 
 The logs are stored at:
 
-- Live: `ft_archive/live_logs/<RUN_ID>.log`
-- Stream: `ft_archive/stream_logs/<RUN_ID>.log`
-- Portfolio: `ft_archive/portfolio/<NAME>/portfolio.log`
+- Live: `ft_archive/live_logs/<RUN_ID>.jsonl`
+- Stream: `ft_archive/stream_logs/<RUN_ID>.jsonl`
+- Portfolio: `ft_archive/portfolio/<NAME>/portfolio.jsonl`
 
 ## Paper Portfolio Runner
 
@@ -236,7 +236,7 @@ PORTFOLIO STOP <name>
 
 - State: `ft_archive/portfolio/<name>/state.json`
 - Trades: `ft_archive/portfolio/<name>/trades.parquet`
-- Logs: `ft_archive/portfolio/<name>/portfolio.log`
+- Logs: `ft_archive/portfolio/<name>/portfolio.jsonl`
 
 ### Important Notes
 
@@ -324,3 +324,4 @@ stat ft_archive/coinbase/<SYMBOL>.parquet
 ### Logs Not Updating
 - Use `LOGS STREAM FOLLOW` or `LOGS LIVE FOLLOW` to verify live stream output.
 - Check file paths under `ft_archive/`.
+- Logs are written as JSONL. The terminal renders the readable `message` or `line` fields, but external consumers can parse the raw records directly.

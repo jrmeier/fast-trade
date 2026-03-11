@@ -3,7 +3,7 @@
 ## 2.0.0
 
 ### Release Highlights
-- Major CLI/Terminal expansion: live/stream support, persistent logging, and terminal command mirroring.
+- Major CLI/Terminal expansion: live/stream support, persistent JSONL logging, and terminal command mirroring.
 - New paper portfolio runner with state persistence and daemon support.
 - ML tooling additions (evolver/markov/regime) with examples and tests.
 - Summary and backtest logic refactored into cleaner, modular components.
@@ -15,7 +15,7 @@
 - Interactive `ft terminal` improvements:
 - Live runner (`LIVE START/STOP/VIEW`)
 - Stream runner (`STREAM START/STOP/VIEW`)
-- Persistent logs and terminal `LOGS` commands
+- Persistent JSONL logs and terminal `LOGS` commands
 - Terminal now forwards unknown commands to CLI (`ft <command>`)
 - New `Terminal.md` full usage guide.
 
@@ -25,6 +25,7 @@
 - `ft portfolio status`
 - `ft portfolio stop`
 - Persistent state and trade logs under `ft_archive/portfolio/<name>/`.
+- Persistent state, parquet trades, and JSONL logs under `ft_archive/portfolio/<name>/`.
 
 **ML Toolkit**
 - Added `fast_trade/ml` package:
@@ -55,6 +56,9 @@
    - All sample configs now YAML.
 3. **Terminal/CLI expansion**
    - Terminal now mirrors CLI commands by default (unknown commands run `ft <command>`).
+4. **Log format**
+   - Live, stream, and portfolio logs now default to `.jsonl`.
+   - CLI readers keep backward compatibility with legacy `.log` files when present.
 
 ### Files Added / Removed
 
@@ -82,3 +86,7 @@
 - Convert JSON strategy configs to YAML (`.yml`).
 - Summary internals moved, public API preserved.
 - Terminal now runs unknown commands via `ft <command>` by default.
+- If you consume logs programmatically, switch to JSONL readers for:
+  - `ft_archive/live_logs/<RUN_ID>.jsonl`
+  - `ft_archive/stream_logs/<RUN_ID>.jsonl`
+  - `ft_archive/portfolio/<NAME>/portfolio.jsonl`

@@ -1173,7 +1173,9 @@ def terminal_cmd(
                                     if time.time() - last_kline_flush >= 60:
                                         now_dt = datetime.datetime.utcnow()
                                         cutoff = minute_floor(now_dt)
-                                        ready = [(k, v) for k, v in candles.items() if k < cutoff and v["open"] is not None]
+                                        ready = [
+                                            (k, v) for k, v in candles.items() if k < cutoff and v["open"] is not None
+                                        ]
                                         if ready:
                                             _append_klines_to_archive(symbol, ready)
                                             _append_log_line(
@@ -1261,12 +1263,20 @@ def terminal_cmd(
                                                 )
                                                 candle = candles.setdefault(
                                                     minute,
-                                                    {"open": None, "high": None, "low": None, "close": None, "volume": 0.0},
+                                                    {
+                                                        "open": None,
+                                                        "high": None,
+                                                        "low": None,
+                                                        "close": None,
+                                                        "volume": 0.0,
+                                                    },
                                                 )
                                                 update_candle(candle, price, size)
                                         now_dt = datetime.datetime.utcnow()
                                         cutoff = minute_floor(now_dt)
-                                        ready = [(k, v) for k, v in candles.items() if k < cutoff and v["open"] is not None]
+                                        ready = [
+                                            (k, v) for k, v in candles.items() if k < cutoff and v["open"] is not None
+                                        ]
                                         if ready:
                                             _append_klines_to_archive(symbol, ready)
                                             _append_log_line(
@@ -1588,7 +1598,11 @@ def terminal_cmd(
                                         else:
                                             live_last_action = "HOLD"
                                         live_last_time = datetime.datetime.utcnow().isoformat()
-                                        parts = [f"{live_last_time}", f"{live_last_action}", f"close={_format_value(price)}"]
+                                        parts = [
+                                            f"{live_last_time}",
+                                            f"{live_last_action}",
+                                            f"close={_format_value(price)}",
+                                        ]
                                         indicators = {}
                                         for col in ind_cols:
                                             val = getattr(frame, col, None)
@@ -1905,7 +1919,7 @@ def terminal_cmd(
             mods = []
             if "MODS" in tokens:
                 idx = tokens.index("MODS")
-                mods = tokens[idx + 1 :]
+                mods = tokens[idx + 1:]
                 if len(mods) % 2 != 0:
                     console.print("[red]MODS must be key/value pairs[/red]")
                     continue
@@ -2503,13 +2517,13 @@ def evolve_cmd(
                 sol_per_pop=population,
                 mutation_percent_genes=mutation,
                 crossover_type=crossover,
-            parent_selection_type=selection,
-            K_tournament=tournament,
-            mutation_type=mutation_type,
-            parallel_processing=parallel_processing,
-            progress_callback=wrapped_progress_callback,
-            fitness_config=fitness_config,
-        )
+                parent_selection_type=selection,
+                K_tournament=tournament,
+                mutation_type=mutation_type,
+                parallel_processing=parallel_processing,
+                progress_callback=wrapped_progress_callback,
+                fitness_config=fitness_config,
+            )
 
     table = Table(title="Best Solution", box=box.SIMPLE_HEAVY)
     table.add_column("Gene", style="cyan", no_wrap=True)

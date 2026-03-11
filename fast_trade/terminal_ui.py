@@ -3,7 +3,7 @@ import json
 import os
 import threading
 import time
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import pandas as pd
 import requests
@@ -363,11 +363,6 @@ def build_dashboard_layout(
         ["Backtests", str(len(runs))],
         ["Archive", archive_path],
     ]
-    status_panel = _dashboard_table("App Status", status_rows)
-    archive_panel = _dashboard_table("Archive", archive_rows)
-    recent_panel = _dashboard_text("Recent Runs", recent_lines)
-    stream_panel = build_stream_panel(stream_info or {"status": "n/a", "product": "n/a", "channels": [], "mps": 0.0})
-    shortcuts_panel = _dashboard_text("Shortcuts", shortcuts)
     weather_panel = _widget_weather_nyc()
 
     stream_lines = [

@@ -3,7 +3,6 @@
 
 import datetime
 import time
-import pandas as pd
 from fast_trade import prepare_df
 from fast_trade.archive.db_helpers import get_kline
 from fast_trade.run_backtest import (

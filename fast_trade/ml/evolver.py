@@ -314,6 +314,7 @@ def save_yaml(strategy, filename):
     except Exception:
         yaml = None
     payload = _normalize_types(strategy)
+
     def _coerce_for_yaml(obj):
         return _normalize_types(obj)
 
@@ -494,23 +495,21 @@ def optimize_strategy(
         fitness_func=lambda ga, sol, idx: fitness_wrapper(
             ga, sol, idx, base_strategy, genes, fitness_config, error_callback
         ),
-            sol_per_pop=sol_per_pop,
-            num_genes=len(
-                genes
-            ),  # Set number of genes based on the actual gene list length
-            gene_space=gene_space,
-            initial_population=initial_population,
-            parent_selection_type=parent_selection_type,
-            crossover_type=crossover_type,
-            mutation_type=mutation_type,
-            mutation_percent_genes=mutation_percent_genes,
-            parallel_processing=parallel_processing,
-            random_mutation_min_val=-1.0,
-            random_mutation_max_val=1.0,
-            save_best_solutions=True,
-            K_tournament=K_tournament,
-            on_generation=on_generation,
-        )
+        sol_per_pop=sol_per_pop,
+        num_genes=len(genes),  # Set number of genes based on the actual gene list length
+        gene_space=gene_space,
+        initial_population=initial_population,
+        parent_selection_type=parent_selection_type,
+        crossover_type=crossover_type,
+        mutation_type=mutation_type,
+        mutation_percent_genes=mutation_percent_genes,
+        parallel_processing=parallel_processing,
+        random_mutation_min_val=-1.0,
+        random_mutation_max_val=1.0,
+        save_best_solutions=True,
+        K_tournament=K_tournament,
+        on_generation=on_generation,
+    )
     # Run the GA
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=UserWarning, module="pygad.pygad")

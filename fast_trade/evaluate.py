@@ -41,7 +41,8 @@ def handle_rule(result: dict, rule: list) -> bool:
 
 def evaluate_rules(result: dict, rules: list) -> tuple:
     """
-    Evaluate a backtest result against a list of rules. Useful for quickly checking if a backtest result meets certain criteria.
+    Evaluate a backtest result against a list of rules.
+    Useful for quickly checking if a backtest result meets certain criteria.
 
     Parameters
     ----------

@@ -2,6 +2,10 @@
 max_line_length = 122
 exclude =
     .fast_trade
+    venv
     build
     dist
     test
+per-file-ignores =
+    fast_trade/finta.py:E203,E305,E501,E741,F523,F841,W293
+    fast_trade/ml/markov.py:W293

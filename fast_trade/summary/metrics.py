@@ -1,6 +1,5 @@
 import warnings
 
-import numpy as np
 import pandas as pd
 
 from fast_trade.calculate_perc_missing import calculate_perc_missing

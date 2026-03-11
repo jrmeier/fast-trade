@@ -5,6 +5,9 @@ import subprocess
 import sys
 from typing import List, Optional
 
+from fast_trade.archive.cli import get_assets
+from fast_trade.portfolio import load_state, portfolio_paths
+
 try:
     from fastmcp import FastMCP
 except Exception:  # pragma: no cover - fallback for environments without fastmcp
@@ -27,8 +30,6 @@ class _DummyMCP:
     def run(self):
         raise RuntimeError("fastmcp is not installed")
 
-from fast_trade.archive.cli import get_assets
-from fast_trade.portfolio import load_state, portfolio_paths
 
 mcp = FastMCP("fast-trade") if FastMCP is not None else _DummyMCP()
 

@@ -5,14 +5,14 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/download/releases/3.11.0/)
 [![Python application](https://github.com/jrmeier/fast-trade/workflows/Python%20application/badge.svg)](https://github.com/jrmeier/fast-trade/actions)
 
-A library built with backtest portability and performance in mind for backtest trading strategies. There is also an [Archive](#Archive), which can be used to download compatible kline data from Binance (.com or .us) and Coinbase into sqlite databases..
+A library built with backtest portability and performance in mind for trading strategy backtests. There is also an [Archive](#Archive), which can be used to download compatible kline data from Binance (.com or .us) and Coinbase into local parquet datasets.
 
 ## Motivations
-If backests are fast, strategies are cheap.
+If backtests are fast, strategies are cheap.
 
 ## Beta Testing
 
-I'm using this library to build a whole platform (data management, backesting, scanners, signals, etc) via Jupyter Notebooks and a discord bot, and I'm looking for beta testers. If you like this library, send me an email at fasttrade@jedm.dev or join the discord [https://discord.gg/Y8ypD3dcgs](https://discord.gg/Y8ypD3dcgs)
+I'm using this library to build a whole platform (data management, backtesting, scanners, signals, etc.) via Jupyter Notebooks and a Discord bot, and I'm looking for beta testers. If you like this library, send me an email at fasttrade@jedm.dev or join the Discord [https://discord.gg/Y8ypD3dcgs](https://discord.gg/Y8ypD3dcgs)
 
 ## Contributing
 
@@ -23,9 +23,9 @@ To get started with local dev, clone the repo, set up a virtual env, source it, 
 ```bash
 git clone git@github.com:<YOUR GIT USERNAME>/fast-trade.git
 cd ./fast-trade
-python -m venv .fast_trade
-source .fast_trade/bin/activate
-pip install -r dev_requirements.txt
+python -m venv venv
+source venv/bin/activate
+pip install -e .
 ```
 
 To generate testing coverage, run
@@ -122,7 +122,7 @@ List the commands and their help.
 
 ### Basic usage
 
-This will download the last month of data for BTCUSD from binance.us and store in a `ft_archive/` directory as a sqlite database.
+This will download the last month of data for BTCUSD from binance.us and store it in `ft_archive/`.
 
 `ft download BTCUSD binanceus`
 
@@ -131,7 +131,7 @@ This will backtest a file with a strategy. By default, it will only show a summa
 `ft backtest ./strategy.yml`
 
 You can validate a backtest before you run it. This doesn't help with the data, but does help with the logic.
-`ft validate stategy.yml`
+`ft validate strategy.yml`
 
 ### Backteset Modifiers
 
@@ -214,9 +214,21 @@ BT SAVE
 Q
 ```
 
+### Persistent logs
+
+Live, stream, and portfolio activity is persisted as JSONL so it can be tailed in the terminal or consumed by external tools.
+
+- Live: `ft_archive/live_logs/<RUN_ID>.jsonl`
+- Stream: `ft_archive/stream_logs/<RUN_ID>.jsonl`
+- Portfolio: `ft_archive/portfolio/<NAME>/portfolio.jsonl`
+
 ## Changelog
 
 See `CHANGELOG.md`.
+
+## Release Notes
+
+Version `2.0.0` is a major release focused on terminal workflows, paper portfolio management, persistent live/stream logging, ML tooling, and internal modularization. See `CHANGELOG.md` for the full change list and `RELEASE.md` for the release checklist.
 
 ## Machine Learning
 
