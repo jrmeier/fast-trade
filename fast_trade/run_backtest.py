@@ -1,6 +1,8 @@
 import datetime
+import operator
 import re
 import multiprocessing as mp
+from collections import deque
 from functools import partial
 
 import pandas as pd
@@ -13,6 +15,16 @@ from .evaluate import evaluate_rules
 from .run_analysis import apply_logic_to_df
 from .logic_utils import can_vectorize_logic, max_last_frames, vectorized_actions
 from .validate_backtest import validate_backtest, validate_backtest_with_df
+
+
+_LOGIC_OPERATORS = {
+    ">": operator.gt,
+    "<": operator.lt,
+    "=": operator.eq,
+    "!=": operator.ne,
+    ">=": operator.ge,
+    "<=": operator.le,
+}
 
 
 def extract_error_messages(error_dict: dict) -> str:
@@ -283,19 +295,17 @@ def process_logic_and_generate_actions(
     so we know how many frames to pass in
     """
     max_last = max_last_frames(backtest)
+    compiled_logic = compile_action_logic(backtest)
 
     # If we need to look at previous frames, we can't fully vectorize
     if max_last:
         actions = []
-        last_frames = []
+        last_frames = deque(maxlen=max_last)
         total_rows = len(df)
         update_every = max(1, total_rows // 200)
         for idx, frame in enumerate(df.itertuples()):
-            last_frames.insert(0, frame)
-            if len(last_frames) >= max_last + 1:
-                last_frames.pop()
-            wtf = determine_action(frame, backtest, last_frames)
-            actions.append(wtf)
+            last_frames.appendleft(frame)
+            actions.append(determine_action_compiled(frame, compiled_logic, last_frames))
             if progress_callback and (idx % update_every == 0 or idx == total_rows - 1):
                 progress_callback({"percent": int((idx + 1) / total_rows * 100)})
         df["action"] = actions
@@ -310,7 +320,7 @@ def process_logic_and_generate_actions(
                 total_rows = len(df)
                 update_every = max(1, total_rows // 200)
                 for idx, frame in enumerate(df.itertuples()):
-                    actions.append(determine_action(frame, backtest))
+                    actions.append(determine_action_compiled(frame, compiled_logic))
                     if progress_callback and (idx % update_every == 0 or idx == total_rows - 1):
                         progress_callback({"percent": int((idx + 1) / total_rows * 100)})
                 df["action"] = actions
@@ -320,7 +330,7 @@ def process_logic_and_generate_actions(
             total_rows = len(df)
             update_every = max(1, total_rows // 200)
             for idx, frame in enumerate(df.itertuples()):
-                actions.append(determine_action(frame, backtest))
+                actions.append(determine_action_compiled(frame, compiled_logic))
                 if progress_callback and (
                     idx % update_every == 0 or idx == total_rows - 1
                 ):
@@ -330,7 +340,122 @@ def process_logic_and_generate_actions(
     return df
 
 
-def determine_action(frame: pd.DataFrame, backtest: dict, last_frames=[]):
+def _compile_field_accessor(field):
+    if isinstance(field, str):
+        if field.isnumeric():
+            return False, int(field)
+        if re.match(r"^-?\d+(?:\.\d+)$", field):
+            return False, float(field)
+        return True, field
+
+    if isinstance(field, (bool, int, float)):
+        return False, field
+
+    return False, field
+
+
+def compile_action_logic(backtest: dict) -> dict:
+    def compile_group(logics):
+        return [
+            (
+                _compile_field_accessor(logic[0]),
+                _LOGIC_OPERATORS.get(logic[1]),
+                _compile_field_accessor(logic[2]),
+                logic[3] if len(logic) > 3 else 0,
+            )
+            for logic in logics
+        ]
+
+    return {
+        "trailing_stop_loss": bool(backtest.get("trailing_stop_loss")),
+        "exit": compile_group(backtest.get("exit", [])),
+        "any_exit": compile_group(backtest.get("any_exit", [])),
+        "enter": compile_group(backtest.get("enter", [])),
+        "any_enter": compile_group(backtest.get("any_enter", [])),
+    }
+
+
+def _resolve_compiled_field(field_accessor, row):
+    is_attr, value = field_accessor
+    if not is_attr:
+        return value
+    if isinstance(row, dict):
+        return row[value]
+    return getattr(row, value)
+
+
+def _process_compiled_logic(compiled_logic, row):
+    left_accessor, op, right_accessor, _frames = compiled_logic
+    left_value = _resolve_compiled_field(left_accessor, row)
+    right_value = _resolve_compiled_field(right_accessor, row)
+    return bool(op(left_value, right_value))
+
+
+def _take_action_compiled(current_frame, compiled_logics, last_frames=None, require_any=False):
+    if not compiled_logics:
+        return False
+
+    if last_frames is None:
+        last_frames = []
+
+    for compiled_logic in compiled_logics:
+        frames = compiled_logic[3]
+        if frames > 0:
+            if len(last_frames) < frames:
+                if not require_any:
+                    return False
+                continue
+
+            result = True
+            for frame_idx in range(frames):
+                if not _process_compiled_logic(compiled_logic, last_frames[frame_idx]):
+                    result = False
+                    break
+        else:
+            result = _process_compiled_logic(compiled_logic, current_frame)
+
+        if require_any and result:
+            return True
+        if not require_any and not result:
+            return False
+
+    return not require_any
+
+
+def determine_action_compiled(frame, compiled_logic: dict, last_frames=None):
+    if last_frames is None:
+        last_frames = []
+
+    if compiled_logic.get("trailing_stop_loss"):
+        if frame.close <= frame.trailing_stop_loss:
+            return "tsl"
+
+    if _take_action_compiled(frame, compiled_logic.get("exit", []), last_frames):
+        return "x"
+
+    if _take_action_compiled(
+        frame,
+        compiled_logic.get("any_exit", []),
+        last_frames,
+        require_any=True,
+    ):
+        return "ax"
+
+    if _take_action_compiled(frame, compiled_logic.get("enter", []), last_frames):
+        return "e"
+
+    if _take_action_compiled(
+        frame,
+        compiled_logic.get("any_enter", []),
+        last_frames,
+        require_any=True,
+    ):
+        return "ae"
+
+    return "h"
+
+
+def determine_action(frame: pd.DataFrame, backtest: dict, last_frames=None):
     """processes the actions with the applied logic
     Parameters
     ----------
@@ -343,28 +468,12 @@ def determine_action(frame: pd.DataFrame, backtest: dict, last_frames=[]):
         the backtest would do
     """
 
-    trailing_stop_loss = backtest.get("trailing_stop_loss")
-
-    if trailing_stop_loss:
-        if frame.close <= frame.trailing_stop_loss:
-            return "tsl"
-
-    if take_action(frame, backtest.get("exit", []), last_frames):
-        return "x"
-
-    if take_action(frame, backtest.get("any_exit", []), last_frames, require_any=True):
-        return "ax"
-
-    if take_action(frame, backtest.get("enter", []), last_frames):
-        return "e"
-
-    if take_action(frame, backtest.get("any_enter", []), last_frames, require_any=True):
-        return "ae"
-
-    return "h"
+    if last_frames is None:
+        last_frames = []
+    return determine_action_compiled(frame, compile_action_logic(backtest), last_frames)
 
 
-def take_action(current_frame, logics, last_frames=[], require_any=False):
+def take_action(current_frame, logics, last_frames=None, require_any=False):
     """determines whether to take action based on the logic in the backtest
     Parameters
     ----------
@@ -377,56 +486,51 @@ def take_action(current_frame, logics, last_frames=[], require_any=False):
         False if otherwise
     """
 
-    results = []
+    if last_frames is None:
+        last_frames = []
+    if not logics:
+        return False
 
     if len(last_frames):
         for logic in logics:
             if len(logic) > 3:
                 frames = logic[3]
-                lcl_frames = last_frames[:frames]
-                lcl_results = []
+                if len(last_frames) < frames:
+                    if not require_any:
+                        return False
+                    continue
 
-                if len(lcl_frames) < frames:
-                    res = False
-                else:
-                    for lcl_frame in lcl_frames:
-                        lcl_res = process_single_frame(
-                            [logic], lcl_frame, require_any=False
-                        )
-                        lcl_results.append(lcl_res)
-                    res = all(lcl_results)
-                results.append(res)
+                res = True
+                for frame_idx in range(frames):
+                    if not process_single_frame([logic], last_frames[frame_idx], require_any=False):
+                        res = False
+                        break
             else:
                 res = process_single_frame([logic], current_frame, require_any)
-                results.append(res)
-    else:
-        res = process_single_frame(logics, current_frame, require_any)
-        results.append(res)
 
-    ret_value = False
-    if len(results):
-        if require_any:
-            ret_value = any(results)
-        else:
-            ret_value = all(results)
-    return ret_value
+            if require_any and res:
+                return True
+            if not require_any and not res:
+                return False
+    else:
+        return process_single_frame(logics, current_frame, require_any)
+
+    return not require_any
 
 
 def process_single_frame(logics, row, require_any):
-    results = []
+    if not logics:
+        return False
 
-    return_value = False
     for logic in logics:
         res = process_single_logic(logic, row)
-        results.append(res)
-
-    if len(results):
         if require_any:
-            return_value = any(results)
-        else:
-            return_value = all(results)
+            if res:
+                return True
+        elif not res:
+            return False
 
-    return return_value
+    return not require_any
 
 
 def process_single_logic(logic, row):
@@ -464,10 +568,6 @@ def clean_field_type(field, row=None):
         str or int
 
     """
-    if row:
-        if not isinstance(row, dict):
-            row = row._asdict()
-
     if isinstance(field, str):
         if field.isnumeric():
             return int(field)
@@ -482,7 +582,9 @@ def clean_field_type(field, row=None):
         return field
 
     if row:
-        return row[field]
+        if isinstance(row, dict):
+            return row[field]
+        return getattr(row, field)
 
     return row
 

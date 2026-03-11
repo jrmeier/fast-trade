@@ -3,6 +3,81 @@ import numpy as np
 import pandas as pd
 
 
+ACTION_HOLD = 0
+ACTION_ENTER = 1
+ACTION_EXIT = 2
+
+
+def _encode_actions(actions: np.ndarray) -> np.ndarray:
+    codes = np.zeros(len(actions), dtype=np.int8)
+    enter_mask = (actions == "e") | (actions == "ae")
+    exit_mask = (actions == "x") | (actions == "ax") | (actions == "tsl")
+    codes[enter_mask] = ACTION_ENTER
+    codes[exit_mask] = ACTION_EXIT
+    return codes
+
+
+def _simulate_account_path(
+    action_codes: np.ndarray,
+    close_prices: np.ndarray,
+    base_balance: float,
+    comission: float,
+    lot_size: float,
+    max_lot_size: float,
+    progress_callback=None,
+):
+    n = len(action_codes)
+    in_trade_array = np.zeros(n, dtype=bool)
+    account_value_array = np.zeros(n, dtype=float)
+    aux_array = np.zeros(n, dtype=float)
+    fee_array = np.zeros(n, dtype=float)
+
+    fee_rate = comission / 100 if comission else 0.0
+    in_trade = False
+    cash_value = base_balance
+    aux_value = 0.0
+    update_every = max(1, n // 200) if n else 1
+
+    for i in range(n):
+        close = close_prices[i]
+        fee = 0.0
+        action_code = action_codes[i]
+
+        if action_code == ACTION_ENTER and not in_trade:
+            base_transaction_amount = cash_value * lot_size
+            if max_lot_size and base_transaction_amount > max_lot_size:
+                base_transaction_amount = max_lot_size
+
+            aux_value = round(base_transaction_amount / close, 8) if base_transaction_amount else 0.0
+            fee = round(aux_value * fee_rate, 8) if fee_rate and aux_value else 0.0
+            aux_value = aux_value - fee
+            cash_value = round(cash_value - base_transaction_amount, 8)
+            in_trade = True
+
+        elif action_code == ACTION_EXIT and in_trade:
+            base_value = round(aux_value * close, 8) if aux_value else 0.0
+            fee = round(base_value * fee_rate, 8) if fee_rate and base_value else 0.0
+            cash_value = round(cash_value + base_value - fee, 8)
+            aux_value = 0.0
+            in_trade = False
+
+        account_value_array[i] = cash_value
+        aux_array[i] = aux_value
+        in_trade_array[i] = in_trade
+        fee_array[i] = fee
+        if progress_callback and (i % update_every == 0 or i == n - 1):
+            progress_callback({"percent": int((i + 1) / n * 100)})
+
+    adj_account_value_array = account_value_array + np.round(aux_array * close_prices, 8)
+    return {
+        "in_trade": in_trade_array,
+        "account_value": account_value_array,
+        "aux": aux_array,
+        "fee": fee_array,
+        "adj_account_value": adj_account_value_array,
+    }
+
+
 def apply_logic_to_df(df: pd.DataFrame, backtest: dict, progress_callback=None):
     """Analyzes the dataframe and runs sort of a market simulation, entering and exiting positions
 
@@ -34,88 +109,30 @@ def apply_logic_to_df(df: pd.DataFrame, backtest: dict, progress_callback=None):
     """
     # Try to use vectorized operations for better performance
     try:
-        # Initialize parameters
-        account_value = float(backtest.get("base_balance"))
+        base_balance = float(backtest.get("base_balance"))
         comission = float(backtest.get("comission"))
         lot_size = backtest.get("lot_size_perc")
         max_lot_size = backtest.get("max_lot_size")
 
-        # Create arrays to store results
-        n = len(df)
-        in_trade_array = np.zeros(n, dtype=bool)
-        account_value_array = np.zeros(n, dtype=float)
-        aux_array = np.zeros(n, dtype=float)
-        fee_array = np.zeros(n, dtype=float)
-        adj_account_value_array = np.zeros(n, dtype=float)
-
         # Get action and close price arrays
         actions = df["action"].values
         close_prices = df["close"].values
-
-        # Process each row sequentially (still need to do this due to state dependencies)
-        update_every = max(1, n // 200)
-        for i in range(n):
-            curr_action = actions[i]
-            close = close_prices[i]
-            fee = 0.0
-
-            # Get previous values (or initial values if first row)
-            prev_in_trade = in_trade_array[i - 1] if i > 0 else False
-            prev_account_value = account_value_array[i - 1] if i > 0 else account_value
-            prev_aux = aux_array[i - 1] if i > 0 else 0.0
-
-            # Process enter actions
-            if curr_action in ["e", "ae"] and not prev_in_trade:
-                # Calculate transaction amount
-                base_transaction_amount = prev_account_value * lot_size
-
-                # Limit transaction amount if max_lot_size is set
-                if max_lot_size and base_transaction_amount > max_lot_size:
-                    base_transaction_amount = max_lot_size
-
-                # Convert base to aux
-                new_aux = convert_base_to_aux(base_transaction_amount, close)
-                fee = calculate_fee(new_aux, comission)
-                new_aux = new_aux - fee
-
-                # Update account value
-                new_account_value = prev_account_value - base_transaction_amount
-
-                # Set current state
-                in_trade_array[i] = True
-                aux_array[i] = new_aux
-                account_value_array[i] = new_account_value
-                fee_array[i] = fee
-
-            # Process exit actions
-            elif curr_action in ["x", "ax", "tsl"] and prev_in_trade:
-                # Convert aux to base
-                new_base = convert_aux_to_base(prev_aux, close)
-                fee = calculate_fee(new_base, comission)
-                new_base = new_base - fee
-
-                # Update account value
-                new_account_value = prev_account_value + new_base
-
-                # Set current state
-                in_trade_array[i] = False
-                aux_array[i] = 0.0
-                account_value_array[i] = new_account_value
-                fee_array[i] = fee
-
-            # Hold position
-            else:
-                in_trade_array[i] = prev_in_trade
-                aux_array[i] = prev_aux
-                account_value_array[i] = prev_account_value
-                fee_array[i] = 0.0
-
-            # Calculate adjusted account value
-            adj_account_value_array[i] = account_value_array[i] + convert_aux_to_base(
-                aux_array[i], close
-            )
-            if progress_callback and (i % update_every == 0 or i == n - 1):
-                progress_callback({"percent": int((i + 1) / n * 100)})
+        action_codes = _encode_actions(actions)
+        sim = _simulate_account_path(
+            action_codes=action_codes,
+            close_prices=close_prices,
+            base_balance=base_balance,
+            comission=comission,
+            lot_size=lot_size,
+            max_lot_size=max_lot_size,
+            progress_callback=progress_callback,
+        )
+        fee_rate = comission / 100 if comission else 0.0
+        in_trade_array = sim["in_trade"]
+        account_value_array = sim["account_value"]
+        aux_array = sim["aux"]
+        fee_array = sim["fee"]
+        adj_account_value_array = sim["adj_account_value"]
 
         # Handle exit_on_end if needed
         if backtest.get("exit_on_end") and in_trade_array[-1]:
@@ -125,10 +142,9 @@ def apply_logic_to_df(df: pd.DataFrame, backtest: dict, progress_callback=None):
 
             # Process the exit
             close = close_prices[-1]
-            new_base = convert_aux_to_base(aux_array[-1], close)
-            fee = calculate_fee(new_base, comission)
-            new_base = new_base - fee
-            new_account_value = account_value_array[-1] + new_base
+            new_base = round(aux_array[-1] * close, 8) if aux_array[-1] else 0.0
+            fee = round(new_base * fee_rate, 8) if fee_rate and new_base else 0.0
+            new_account_value = account_value_array[-1] + new_base - fee
 
             # Add the new row to the dataframe
             df = pd.concat([df, pd.DataFrame(data=new_row)])

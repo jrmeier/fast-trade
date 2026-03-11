@@ -41,6 +41,8 @@ coverage report -m
 pip install fast-trade
 ```
 
+See `docs/GETTING_STARTED.md` for the fastest end-to-end setup and first-run guide.
+
 ## Usage
 
 [strategy.yml](./strategy.yml) for an example strategy. The basic idea is you describe the "datapoints" then compare them in the "logics". The "datapoints" describe the technical analysis functions to run, and the "logics" describe the logic to use to determine when to enter and exit trades.
@@ -176,7 +178,7 @@ Open the interactive terminal UI for browsing backtests and strategies.
 ft terminal
 ```
 
-See `Terminal.md` for the full terminal command reference and live/stream/portfolio workflows.
+See `docs/Terminal.md` for the full terminal command reference and live/stream/portfolio workflows.
 
 ### Terminal shortcuts
 - `DB` — dashboard (default)
@@ -224,11 +226,11 @@ Live, stream, and portfolio activity is persisted as JSONL so it can be tailed i
 
 ## Changelog
 
-See `CHANGELOG.md`.
+See `docs/CHANGELOG.md`.
 
 ## Release Notes
 
-Version `2.0.0` is a major release focused on terminal workflows, paper portfolio management, persistent live/stream logging, ML tooling, and internal modularization. See `CHANGELOG.md` for the full change list and `RELEASE.md` for the release checklist.
+Version `2.0.0` is a major release focused on terminal workflows, paper portfolio management, persistent live/stream logging, ML tooling, and internal modularization. See `docs/CHANGELOG.md` for the full change list and `docs/RELEASE.md` for the release checklist.
 
 ## Machine Learning
 
@@ -647,7 +649,7 @@ Simple SMA example
 
 ## Transfomers (Technical Indicators)
 
-See [TRANSFORMER_README.md](TRANSFORMER_README.md) for a list of supported indicators. For the most details, see the actual implementation in [fast_trade/finta.py](fast_trade/finta.py).
+See [docs/TRANSFORMER_README.md](docs/TRANSFORMER_README.md) for a list of supported indicators. For the most details, see the actual implementation in [fast_trade/finta.py](fast_trade/finta.py).
 
 Note:
   
@@ -678,4 +680,4 @@ Example:
 
 ## Supported Indicators
 
-See [finta/README.md](FINTA_README.md) for a list of supported indicators.
+See [finta/README.md](docs/FINTA_README.md) for a list of supported indicators.

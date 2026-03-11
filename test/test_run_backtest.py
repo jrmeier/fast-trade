@@ -1,13 +1,13 @@
-from numpy import nan
 from fast_trade.run_backtest import (
+    compile_action_logic,
     prepare_new_backtest,
     process_logic_and_generate_actions,
-    run_backtest,
     take_action,
     clean_field_type,
     process_single_logic,
     process_single_frame,
     determine_action,
+    determine_action_compiled,
     apply_backtest_to_df,
 )
 
@@ -877,3 +877,25 @@ def test_apply_backtest_to_df():
 
     assert "adj_account_value_change_perc" in list(res.columns)
     assert "adj_account_value_change" in list(res.columns)
+
+
+def test_determine_action_compiled_matches_runtime_logic():
+    mock_backtest = {
+        "trailing_stop_loss": None,
+        "enter": [["close", ">", "short", 2]],
+        "any_enter": [["close", "=", 5.0]],
+        "exit": [["close", "<", "long"]],
+        "any_exit": [["close", "!=", 1.0]],
+    }
+    MockRow = namedtuple("MockRow", "date close open high low volume short long trailing_stop_loss")
+    row_1 = MockRow(1, 5.0, 0.0, 0.0, 0.0, 0.0, 4.0, 10.0, 0.0)
+    row_2 = MockRow(2, 6.0, 0.0, 0.0, 0.0, 0.0, 4.0, 10.0, 0.0)
+    last_frames = [row_2, row_1]
+
+    compiled = compile_action_logic(mock_backtest)
+
+    assert determine_action(row_2, mock_backtest, last_frames=last_frames) == determine_action_compiled(
+        row_2,
+        compiled,
+        last_frames=last_frames,
+    )

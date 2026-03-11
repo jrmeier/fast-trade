@@ -40,7 +40,7 @@ from fast_trade.ml.evolver import optimize_strategy
 from fast_trade.ml.regime import apply_regime_model, load_regime_model, train_regime_model, save_regime_model
 from fast_trade.validate_backtest import validate_backtest
 from fast_trade.build_data_frame import prepare_df
-from fast_trade.run_backtest import determine_action
+from fast_trade.run_backtest import compile_action_logic, determine_action_compiled
 from fast_trade.cli_render import format_value as _format_value
 from fast_trade.cli_render import render_kv_table as _render_kv_table
 from fast_trade.cli_render import render_summary as _render_summary
@@ -1533,6 +1533,7 @@ def terminal_cmd(
                     if len(parts) >= 3:
                         live_symbol = parts[2]
                         strat_obj["symbol"] = live_symbol
+                    compiled_action_logic = compile_action_logic(strat_obj)
                     live_stop_event = threading.Event()
                     live_status = "running"
 
@@ -1575,7 +1576,11 @@ def terminal_cmd(
                                             frame = frames[-1]
                                             price = getattr(frame, "close", None)
                                             last_frames = list(reversed(frames))
-                                            action = determine_action(frame, strat_obj, last_frames=last_frames)
+                                            action = determine_action_compiled(
+                                                frame,
+                                                compiled_action_logic,
+                                                last_frames=last_frames,
+                                            )
                                             base_cols = {
                                                 "open",
                                                 "high",
@@ -2263,6 +2268,7 @@ def portfolio_start_cmd(
 
     console.print(Panel.fit(f"Portfolio {name} — {symbol} ({exchange})", style="blue"))
     console.print(f"[cyan]State[/cyan] cash={state.get('cash')} position={state.get('position_qty')}")
+    compiled_action_logic = compile_action_logic(strategy_obj)
 
     def _run_cycle():
         nonlocal state
@@ -2295,7 +2301,7 @@ def portfolio_start_cmd(
             return
         frame = frames[-1]
         last_frames = list(reversed(frames))
-        action = determine_action(frame, strategy_obj, last_frames=last_frames)
+        action = determine_action_compiled(frame, compiled_action_logic, last_frames=last_frames)
 
         last_ts = df.index[-1]
         last_price = float(getattr(frame, "close", 0.0))

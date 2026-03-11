@@ -17,7 +17,7 @@
 - Stream runner (`STREAM START/STOP/VIEW`)
 - Persistent JSONL logs and terminal `LOGS` commands
 - Terminal now forwards unknown commands to CLI (`ft <command>`)
-- New `Terminal.md` full usage guide.
+- New `docs/Terminal.md` full usage guide.
 
 **Paper Portfolio**
 - New paper portfolio runner:
@@ -68,7 +68,7 @@
 - `fast_trade/cli_render.py`
 - `fast_trade/summary/*`
 - `fast_trade/ml/*`
-- `Terminal.md`
+- `docs/Terminal.md`
 - `evolver_example.yml`, `regime_example.yml`, `genes.yml`
 - `run_parallel_example.py`
 

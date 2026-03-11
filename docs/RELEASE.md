@@ -42,8 +42,8 @@ python -m build
 Confirm these stay in sync:
 
 - `README.md`
-- `Terminal.md`
-- `CHANGELOG.md`
+- `docs/Terminal.md`
+- `docs/CHANGELOG.md`
 - `pyproject.toml`
 
 Specific things to check:
@@ -67,7 +67,7 @@ Use this summary for GitHub or PyPI:
 
 1. Run the pre-release checklist.
 2. Review `git diff --stat` and `git status`.
-3. Confirm `CHANGELOG.md` and `README.md` reflect the final state.
+3. Confirm `docs/CHANGELOG.md` and `README.md` reflect the final state.
 4. Create the release commit and push it.
 5. Tag the release as `v2.0.0`.
 6. Publish the package and attach release notes.
