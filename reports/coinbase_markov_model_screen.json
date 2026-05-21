@@ -1,0 +1,545 @@
+{
+  "generated_at": "2026-05-21T21:08:53.741240+00:00",
+  "data": {
+    "path": "reports/coinbase_btc_usd_1h_screen_data.parquet",
+    "rows": 10221,
+    "start": "2025-01-01 00:00:00",
+    "end": "2026-05-21 20:00:00",
+    "train_end_exclusive": "2026-01-01 00:00:00"
+  },
+  "actual_2026_rank": [
+    {
+      "name": "recommended_balanced_trend_35pct",
+      "test_return": 2.3506130170263706,
+      "full_return": 2.483,
+      "max_dd": -9.387,
+      "trades": 32
+    },
+    {
+      "name": "03_btc_4h_trend_ema12_84_rsi60_45",
+      "test_return": 1.6922852289603885,
+      "full_return": 1.881,
+      "max_dd": -6.801,
+      "trades": 32
+    },
+    {
+      "name": "04_btc_4h_trend_ema12_84_rsi60_42",
+      "test_return": 1.6899814844862249,
+      "full_return": 1.42,
+      "max_dd": -7.221,
+      "trades": 32
+    },
+    {
+      "name": "05_btc_4h_trend_ema12_84_rsi60_48",
+      "test_return": 1.6899518575698824,
+      "full_return": 1.153,
+      "max_dd": -7.463,
+      "trades": 34
+    },
+    {
+      "name": "recommended_defensive_trend_25pct",
+      "test_return": 1.1930760350708836,
+      "full_return": 0.759,
+      "max_dd": -6.414,
+      "trades": 30
+    },
+    {
+      "name": "02_btc_1h_mean_revert_rsi28_62_bb20",
+      "test_return": 0.16436172703813146,
+      "full_return": 0.594,
+      "max_dd": -0.738,
+      "trades": 6
+    },
+    {
+      "name": "recommended_conservative_mean_revert_25pct",
+      "test_return": 0.16346802576912012,
+      "full_return": 0.454,
+      "max_dd": -0.297,
+      "trades": 4
+    }
+  ],
+  "models": [
+    {
+      "model_name": "hmm_s5_vol12_trend24_volume0",
+      "config": {
+        "n_states": 5,
+        "vol_window": 12,
+        "trend_window": 24,
+        "include_volume": false
+      },
+      "latest_state": 2,
+      "next_state_probs": [
+        0.02472956038921002,
+        0.3056832680088968,
+        0.6201795941836189,
+        0.029898480283493976,
+        0.01950909713478025
+      ],
+      "predicted_best_now": {
+        "name": "recommended_conservative_mean_revert_25pct",
+        "expected_next_hour_return_pct": 0.00034503418854042565,
+        "risk_adjusted_score": 0.03988953055530494,
+        "actual_2026_return": 0.16346802576912012,
+        "max_dd": -0.297
+      },
+      "prediction_rank": [
+        {
+          "name": "recommended_conservative_mean_revert_25pct",
+          "expected_next_hour_return_pct": 0.00034503418854042565,
+          "risk_adjusted_score": 0.03988953055530494,
+          "actual_2026_return": 0.16346802576912012,
+          "max_dd": -0.297
+        },
+        {
+          "name": "02_btc_1h_mean_revert_rsi28_62_bb20",
+          "expected_next_hour_return_pct": 0.00034991540508303386,
+          "risk_adjusted_score": 0.020341687103933928,
+          "actual_2026_return": 0.16436172703813146,
+          "max_dd": -0.738
+        },
+        {
+          "name": "03_btc_4h_trend_ema12_84_rsi60_45",
+          "expected_next_hour_return_pct": -0.0010075243670664956,
+          "risk_adjusted_score": -0.009217289187671797,
+          "actual_2026_return": 1.6922852289603885,
+          "max_dd": -6.801
+        },
+        {
+          "name": "recommended_balanced_trend_35pct",
+          "expected_next_hour_return_pct": -0.001409428260553867,
+          "risk_adjusted_score": -0.00929136062238988,
+          "actual_2026_return": 2.3506130170263706,
+          "max_dd": -9.387
+        },
+        {
+          "name": "04_btc_4h_trend_ema12_84_rsi60_42",
+          "expected_next_hour_return_pct": -0.0010331391107713677,
+          "risk_adjusted_score": -0.009437919649615031,
+          "actual_2026_return": 1.6899814844862249,
+          "max_dd": -7.221
+        },
+        {
+          "name": "05_btc_4h_trend_ema12_84_rsi60_48",
+          "expected_next_hour_return_pct": -0.0012921386181002975,
+          "risk_adjusted_score": -0.01180286034533155,
+          "actual_2026_return": 1.6899518575698824,
+          "max_dd": -7.463
+        },
+        {
+          "name": "recommended_defensive_trend_25pct",
+          "expected_next_hour_return_pct": -0.0020674781476427715,
+          "risk_adjusted_score": -0.018637023106089994,
+          "actual_2026_return": 1.1930760350708836,
+          "max_dd": -6.414
+        }
+      ],
+      "selected_2026_return": 0.7704271156316,
+      "selected_2026_max_drawdown": -3.5343011191671603
+    },
+    {
+      "model_name": "hmm_s3_vol20_trend48_volume0",
+      "config": {
+        "n_states": 3,
+        "vol_window": 20,
+        "trend_window": 48,
+        "include_volume": false
+      },
+      "latest_state": 0,
+      "next_state_probs": [
+        0.9323246632474869,
+        0.04955212425558485,
+        0.01812321249692821
+      ],
+      "predicted_best_now": {
+        "name": "02_btc_1h_mean_revert_rsi28_62_bb20",
+        "expected_next_hour_return_pct": 0.00029395642434849607,
+        "risk_adjusted_score": 0.023949768755059,
+        "actual_2026_return": 0.16436172703813146,
+        "max_dd": -0.738
+      },
+      "prediction_rank": [
+        {
+          "name": "02_btc_1h_mean_revert_rsi28_62_bb20",
+          "expected_next_hour_return_pct": 0.00029395642434849607,
+          "risk_adjusted_score": 0.023949768755059,
+          "actual_2026_return": 0.16436172703813146,
+          "max_dd": -0.738
+        },
+        {
+          "name": "recommended_conservative_mean_revert_25pct",
+          "expected_next_hour_return_pct": 9.957239841984004e-05,
+          "risk_adjusted_score": 0.01207251777607865,
+          "actual_2026_return": 0.16346802576912012,
+          "max_dd": -0.297
+        },
+        {
+          "name": "recommended_balanced_trend_35pct",
+          "expected_next_hour_return_pct": 0.0012353858638585874,
+          "risk_adjusted_score": 0.010052851176621167,
+          "actual_2026_return": 2.3506130170263706,
+          "max_dd": -9.387
+        },
+        {
+          "name": "03_btc_4h_trend_ema12_84_rsi60_45",
+          "expected_next_hour_return_pct": 0.0008877852205777017,
+          "risk_adjusted_score": 0.01001572244556494,
+          "actual_2026_return": 1.6922852289603885,
+          "max_dd": -6.801
+        },
+        {
+          "name": "04_btc_4h_trend_ema12_84_rsi60_42",
+          "expected_next_hour_return_pct": 0.0008821974627496764,
+          "risk_adjusted_score": 0.009939943798473965,
+          "actual_2026_return": 1.6899814844862249,
+          "max_dd": -7.221
+        },
+        {
+          "name": "05_btc_4h_trend_ema12_84_rsi60_48",
+          "expected_next_hour_return_pct": 0.0007832163075151746,
+          "risk_adjusted_score": 0.008840904265312999,
+          "actual_2026_return": 1.6899518575698824,
+          "max_dd": -7.463
+        },
+        {
+          "name": "recommended_defensive_trend_25pct",
+          "expected_next_hour_return_pct": 0.0005390743134516546,
+          "risk_adjusted_score": 0.00611723980716313,
+          "actual_2026_return": 1.1930760350708836,
+          "max_dd": -6.414
+        }
+      ],
+      "selected_2026_return": 0.1634680257690979,
+      "selected_2026_max_drawdown": -0.29693287674471547
+    },
+    {
+      "model_name": "hmm_s3_vol48_trend120_volume0",
+      "config": {
+        "n_states": 3,
+        "vol_window": 48,
+        "trend_window": 120,
+        "include_volume": false
+      },
+      "latest_state": 1,
+      "next_state_probs": [
+        0.09278718389448969,
+        0.8972874356622451,
+        0.009925380443265235
+      ],
+      "predicted_best_now": {
+        "name": "recommended_balanced_trend_35pct",
+        "expected_next_hour_return_pct": 0.001879076058858308,
+        "risk_adjusted_score": 0.013450900601164589,
+        "actual_2026_return": 2.3506130170263706,
+        "max_dd": -9.387
+      },
+      "prediction_rank": [
+        {
+          "name": "recommended_balanced_trend_35pct",
+          "expected_next_hour_return_pct": 0.001879076058858308,
+          "risk_adjusted_score": 0.013450900601164589,
+          "actual_2026_return": 2.3506130170263706,
+          "max_dd": -9.387
+        },
+        {
+          "name": "03_btc_4h_trend_ema12_84_rsi60_45",
+          "expected_next_hour_return_pct": 0.0013506404461845845,
+          "risk_adjusted_score": 0.013395827650659201,
+          "actual_2026_return": 1.6922852289603885,
+          "max_dd": -6.801
+        },
+        {
+          "name": "05_btc_4h_trend_ema12_84_rsi60_48",
+          "expected_next_hour_return_pct": 0.0013471056006743823,
+          "risk_adjusted_score": 0.01334678873752836,
+          "actual_2026_return": 1.6899518575698824,
+          "max_dd": -7.463
+        },
+        {
+          "name": "04_btc_4h_trend_ema12_84_rsi60_42",
+          "expected_next_hour_return_pct": 0.0013450797160941648,
+          "risk_adjusted_score": 0.013326143472276827,
+          "actual_2026_return": 1.6899814844862249,
+          "max_dd": -7.221
+        },
+        {
+          "name": "recommended_conservative_mean_revert_25pct",
+          "expected_next_hour_return_pct": 7.097172655798142e-05,
+          "risk_adjusted_score": 0.00862401049125546,
+          "actual_2026_return": 0.16346802576912012,
+          "max_dd": -0.297
+        },
+        {
+          "name": "recommended_defensive_trend_25pct",
+          "expected_next_hour_return_pct": 0.0007363733395394694,
+          "risk_adjusted_score": 0.007273222069128595,
+          "actual_2026_return": 1.1930760350708836,
+          "max_dd": -6.414
+        },
+        {
+          "name": "02_btc_1h_mean_revert_rsi28_62_bb20",
+          "expected_next_hour_return_pct": 3.299407844719506e-05,
+          "risk_adjusted_score": 0.002167513222405326,
+          "actual_2026_return": 0.16436172703813146,
+          "max_dd": -0.738
+        }
+      ],
+      "selected_2026_return": 0.1634680257690979,
+      "selected_2026_max_drawdown": -0.29693287674471547
+    },
+    {
+      "model_name": "hmm_s4_vol48_trend120_volume1",
+      "config": {
+        "n_states": 4,
+        "vol_window": 48,
+        "trend_window": 120,
+        "include_volume": true
+      },
+      "latest_state": 2,
+      "next_state_probs": [
+        3.844222661487856e-102,
+        0.15927947681812515,
+        0.7834178606443327,
+        0.0573026625375422
+      ],
+      "predicted_best_now": {
+        "name": "recommended_balanced_trend_35pct",
+        "expected_next_hour_return_pct": 0.0023967896891638582,
+        "risk_adjusted_score": 0.01976589078882003,
+        "actual_2026_return": 2.3506130170263706,
+        "max_dd": -9.387
+      },
+      "prediction_rank": [
+        {
+          "name": "recommended_balanced_trend_35pct",
+          "expected_next_hour_return_pct": 0.0023967896891638582,
+          "risk_adjusted_score": 0.01976589078882003,
+          "actual_2026_return": 2.3506130170263706,
+          "max_dd": -9.387
+        },
+        {
+          "name": "03_btc_4h_trend_ema12_84_rsi60_45",
+          "expected_next_hour_return_pct": 0.001716394610980871,
+          "risk_adjusted_score": 0.019613277698113045,
+          "actual_2026_return": 1.6922852289603885,
+          "max_dd": -6.801
+        },
+        {
+          "name": "04_btc_4h_trend_ema12_84_rsi60_42",
+          "expected_next_hour_return_pct": 0.001683406234196045,
+          "risk_adjusted_score": 0.019210236342588,
+          "actual_2026_return": 1.6899814844862249,
+          "max_dd": -7.221
+        },
+        {
+          "name": "05_btc_4h_trend_ema12_84_rsi60_48",
+          "expected_next_hour_return_pct": 0.0016742957776525848,
+          "risk_adjusted_score": 0.019147832261546448,
+          "actual_2026_return": 1.6899518575698824,
+          "max_dd": -7.463
+        },
+        {
+          "name": "recommended_defensive_trend_25pct",
+          "expected_next_hour_return_pct": 0.0015892247354536665,
+          "risk_adjusted_score": 0.018281116909889747,
+          "actual_2026_return": 1.1930760350708836,
+          "max_dd": -6.414
+        },
+        {
+          "name": "recommended_conservative_mean_revert_25pct",
+          "expected_next_hour_return_pct": 5.669503944546895e-05,
+          "risk_adjusted_score": 0.00736828596272392,
+          "actual_2026_return": 0.16346802576912012,
+          "max_dd": -0.297
+        },
+        {
+          "name": "02_btc_1h_mean_revert_rsi28_62_bb20",
+          "expected_next_hour_return_pct": 8.458844005020469e-05,
+          "risk_adjusted_score": 0.007283201302998347,
+          "actual_2026_return": 0.16436172703813146,
+          "max_dd": -0.738
+        }
+      ],
+      "selected_2026_return": 0.1634680257690979,
+      "selected_2026_max_drawdown": -0.29693287674471547
+    },
+    {
+      "model_name": "hmm_s5_vol20_trend48_volume1",
+      "config": {
+        "n_states": 5,
+        "vol_window": 20,
+        "trend_window": 48,
+        "include_volume": true
+      },
+      "latest_state": 1,
+      "next_state_probs": [
+        0.15061652786924223,
+        0.79018558849931,
+        0.02846922333145251,
+        0.030728660299995162,
+        1.7966967747450446e-132
+      ],
+      "predicted_best_now": {
+        "name": "05_btc_4h_trend_ema12_84_rsi60_48",
+        "expected_next_hour_return_pct": 0.0013534847083414001,
+        "risk_adjusted_score": 0.015655973621803376,
+        "actual_2026_return": 1.6899518575698824,
+        "max_dd": -7.463
+      },
+      "prediction_rank": [
+        {
+          "name": "05_btc_4h_trend_ema12_84_rsi60_48",
+          "expected_next_hour_return_pct": 0.0013534847083414001,
+          "risk_adjusted_score": 0.015655973621803376,
+          "actual_2026_return": 1.6899518575698824,
+          "max_dd": -7.463
+        },
+        {
+          "name": "recommended_balanced_trend_35pct",
+          "expected_next_hour_return_pct": 0.0018605734997185239,
+          "risk_adjusted_score": 0.015535879904630755,
+          "actual_2026_return": 2.3506130170263706,
+          "max_dd": -9.387
+        },
+        {
+          "name": "03_btc_4h_trend_ema12_84_rsi60_45",
+          "expected_next_hour_return_pct": 0.0013318830870563186,
+          "risk_adjusted_score": 0.015420822224514092,
+          "actual_2026_return": 1.6922852289603885,
+          "max_dd": -6.801
+        },
+        {
+          "name": "04_btc_4h_trend_ema12_84_rsi60_42",
+          "expected_next_hour_return_pct": 0.001312340870678335,
+          "risk_adjusted_score": 0.015172425051078433,
+          "actual_2026_return": 1.6899814844862249,
+          "max_dd": -7.221
+        },
+        {
+          "name": "recommended_defensive_trend_25pct",
+          "expected_next_hour_return_pct": 0.001121631823967656,
+          "risk_adjusted_score": 0.012954184944698008,
+          "actual_2026_return": 1.1930760350708836,
+          "max_dd": -6.414
+        },
+        {
+          "name": "recommended_conservative_mean_revert_25pct",
+          "expected_next_hour_return_pct": 4.7732071633148614e-05,
+          "risk_adjusted_score": 0.007523841939017022,
+          "actual_2026_return": 0.16346802576912012,
+          "max_dd": -0.297
+        },
+        {
+          "name": "02_btc_1h_mean_revert_rsi28_62_bb20",
+          "expected_next_hour_return_pct": 4.57962780726096e-05,
+          "risk_adjusted_score": 0.005060246753238181,
+          "actual_2026_return": 0.16436172703813146,
+          "max_dd": -0.738
+        }
+      ],
+      "selected_2026_return": 0.1634680257690979,
+      "selected_2026_max_drawdown": -0.29693287674471547
+    },
+    {
+      "model_name": "hmm_s4_vol20_trend48_volume1",
+      "config": {
+        "n_states": 4,
+        "vol_window": 20,
+        "trend_window": 48,
+        "include_volume": true
+      },
+      "latest_state": 0,
+      "next_state_probs": [
+        0.8016750638103965,
+        0.0313925985189479,
+        0.017958923564729484,
+        0.1489734141059261
+      ],
+      "predicted_best_now": {
+        "name": "recommended_balanced_trend_35pct",
+        "expected_next_hour_return_pct": 0.00133157572575006,
+        "risk_adjusted_score": 0.011109155486042572,
+        "actual_2026_return": 2.3506130170263706,
+        "max_dd": -9.387
+      },
+      "prediction_rank": [
+        {
+          "name": "recommended_balanced_trend_35pct",
+          "expected_next_hour_return_pct": 0.00133157572575006,
+          "risk_adjusted_score": 0.011109155486042572,
+          "actual_2026_return": 2.3506130170263706,
+          "max_dd": -9.387
+        },
+        {
+          "name": "05_btc_4h_trend_ema12_84_rsi60_48",
+          "expected_next_hour_return_pct": 0.0009565650107458856,
+          "risk_adjusted_score": 0.011050196509905725,
+          "actual_2026_return": 1.6899518575698824,
+          "max_dd": -7.463
+        },
+        {
+          "name": "03_btc_4h_trend_ema12_84_rsi60_45",
+          "expected_next_hour_return_pct": 0.000950776902408749,
+          "risk_adjusted_score": 0.010996519159646268,
+          "actual_2026_return": 1.6922852289603885,
+          "max_dd": -6.801
+        },
+        {
+          "name": "04_btc_4h_trend_ema12_84_rsi60_42",
+          "expected_next_hour_return_pct": 0.0009325285755801586,
+          "risk_adjusted_score": 0.010769140433535329,
+          "actual_2026_return": 1.6899814844862249,
+          "max_dd": -7.221
+        },
+        {
+          "name": "recommended_defensive_trend_25pct",
+          "expected_next_hour_return_pct": 0.0009100398863277505,
+          "risk_adjusted_score": 0.010487229008104086,
+          "actual_2026_return": 1.1930760350708836,
+          "max_dd": -6.414
+        },
+        {
+          "name": "recommended_conservative_mean_revert_25pct",
+          "expected_next_hour_return_pct": 7.208205240181133e-05,
+          "risk_adjusted_score": 0.008175348162382742,
+          "actual_2026_return": 0.16346802576912012,
+          "max_dd": -0.297
+        },
+        {
+          "name": "02_btc_1h_mean_revert_rsi28_62_bb20",
+          "expected_next_hour_return_pct": 7.135697524269029e-05,
+          "risk_adjusted_score": 0.0065567146860852545,
+          "actual_2026_return": 0.16436172703813146,
+          "max_dd": -0.738
+        }
+      ],
+      "selected_2026_return": -4.602761349697982,
+      "selected_2026_max_drawdown": -4.828583607954262
+    }
+  ],
+  "consensus_predicted_best_now": [
+    {
+      "name": "recommended_balanced_trend_35pct",
+      "votes": 3,
+      "avg_expected_next_hour_return_pct": 0.0018691471579240753,
+      "avg_score": 0.014775315625342398
+    },
+    {
+      "name": "recommended_conservative_mean_revert_25pct",
+      "votes": 1,
+      "avg_expected_next_hour_return_pct": 0.00034503418854042565,
+      "avg_score": 0.03988953055530494
+    },
+    {
+      "name": "02_btc_1h_mean_revert_rsi28_62_bb20",
+      "votes": 1,
+      "avg_expected_next_hour_return_pct": 0.00029395642434849607,
+      "avg_score": 0.023949768755059
+    },
+    {
+      "name": "05_btc_4h_trend_ema12_84_rsi60_48",
+      "votes": 1,
+      "avg_expected_next_hour_return_pct": 0.0013534847083414001,
+      "avg_score": 0.015655973621803376
+    }
+  ]
+}

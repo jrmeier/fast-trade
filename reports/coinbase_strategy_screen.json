@@ -1,0 +1,486 @@
+{
+  "generated_at": "2026-05-21T20:55:56.644095Z",
+  "data": {
+    "symbol": "BTC-USD",
+    "exchange": "coinbase",
+    "combined_rows": 10221,
+    "start": "2025-01-01 00:00:00",
+    "end": "2026-05-21 20:00:00",
+    "recent_rows_fetched_1h": 2368,
+    "commission_pct_per_side_assumption": 0.6
+  },
+  "candidate_count": 315,
+  "valid_count": 267,
+  "filtered_count": 21,
+  "top": [
+    {
+      "name": "btc_1h_mean_revert_rsi28_62_bb48",
+      "return_perc": 0.454,
+      "buy_and_hold_perc": -21.381,
+      "market_adjusted_return": 21.835,
+      "max_drawdown_pct": -0.297,
+      "num_trades": 4,
+      "avg_executed_trades_per_day": 0.008,
+      "max_executed_trades_day": 1,
+      "win_perc": 50.0,
+      "profit_factor": 0.555,
+      "equity_final": 1004.565,
+      "recent_return_perc": 0.164,
+      "recent_max_drawdown_pct": -0.298,
+      "recent_num_trades": 2,
+      "score": 2.637,
+      "strategy_file": "generated_strategies/01_btc_1h_mean_revert_rsi28_62_bb48.yml"
+    },
+    {
+      "name": "btc_1h_mean_revert_rsi28_62_bb20",
+      "return_perc": 0.594,
+      "buy_and_hold_perc": -21.381,
+      "market_adjusted_return": 21.975,
+      "max_drawdown_pct": -0.738,
+      "num_trades": 6,
+      "avg_executed_trades_per_day": 0.012,
+      "max_executed_trades_day": 1,
+      "win_perc": 33.333,
+      "profit_factor": 0.149,
+      "equity_final": 1005.979,
+      "recent_return_perc": 0.165,
+      "recent_max_drawdown_pct": -0.741,
+      "recent_num_trades": 2,
+      "score": 0.733,
+      "strategy_file": "generated_strategies/02_btc_1h_mean_revert_rsi28_62_bb20.yml"
+    },
+    {
+      "name": "btc_4h_trend_ema12_84_rsi60_45",
+      "return_perc": 1.881,
+      "buy_and_hold_perc": -21.381,
+      "market_adjusted_return": 23.262,
+      "max_drawdown_pct": -6.801,
+      "num_trades": 32,
+      "avg_executed_trades_per_day": 0.063,
+      "max_executed_trades_day": 1,
+      "win_perc": 3.125,
+      "profit_factor": 0.004,
+      "equity_final": 1019.169,
+      "recent_return_perc": 1.505,
+      "recent_max_drawdown_pct": -3.395,
+      "recent_num_trades": 9,
+      "score": -3.836,
+      "strategy_file": "generated_strategies/03_btc_4h_trend_ema12_84_rsi60_45.yml"
+    },
+    {
+      "name": "btc_4h_trend_ema12_84_rsi60_42",
+      "return_perc": 1.42,
+      "buy_and_hold_perc": -21.381,
+      "market_adjusted_return": 22.801,
+      "max_drawdown_pct": -7.221,
+      "num_trades": 32,
+      "avg_executed_trades_per_day": 0.063,
+      "max_executed_trades_day": 1,
+      "win_perc": 3.125,
+      "profit_factor": 0.004,
+      "equity_final": 1014.402,
+      "recent_return_perc": 1.505,
+      "recent_max_drawdown_pct": -3.395,
+      "recent_num_trades": 9,
+      "score": -4.319,
+      "strategy_file": "generated_strategies/04_btc_4h_trend_ema12_84_rsi60_42.yml"
+    },
+    {
+      "name": "btc_4h_trend_ema12_84_rsi60_48",
+      "return_perc": 1.153,
+      "buy_and_hold_perc": -21.381,
+      "market_adjusted_return": 22.534,
+      "max_drawdown_pct": -7.463,
+      "num_trades": 34,
+      "avg_executed_trades_per_day": 0.067,
+      "max_executed_trades_day": 1,
+      "win_perc": 5.882,
+      "profit_factor": 0.026,
+      "equity_final": 1011.667,
+      "recent_return_perc": 1.505,
+      "recent_max_drawdown_pct": -3.395,
+      "recent_num_trades": 9,
+      "score": -4.471,
+      "strategy_file": "generated_strategies/05_btc_4h_trend_ema12_84_rsi60_48.yml"
+    },
+    {
+      "name": "btc_4h_trend_ema24_60_rsi50_45",
+      "return_perc": 0.759,
+      "buy_and_hold_perc": -21.381,
+      "market_adjusted_return": 22.14,
+      "max_drawdown_pct": -6.414,
+      "num_trades": 30,
+      "avg_executed_trades_per_day": 0.059,
+      "max_executed_trades_day": 1,
+      "win_perc": 0.0,
+      "profit_factor": 0.0,
+      "equity_final": 1007.647,
+      "recent_return_perc": 1.221,
+      "recent_max_drawdown_pct": -3.657,
+      "recent_num_trades": 9,
+      "score": -4.929,
+      "strategy_file": "generated_strategies/06_btc_4h_trend_ema24_60_rsi50_45.yml"
+    },
+    {
+      "name": "btc_4h_trend_ema24_60_rsi55_45",
+      "return_perc": 0.759,
+      "buy_and_hold_perc": -21.381,
+      "market_adjusted_return": 22.14,
+      "max_drawdown_pct": -6.414,
+      "num_trades": 30,
+      "avg_executed_trades_per_day": 0.059,
+      "max_executed_trades_day": 1,
+      "win_perc": 0.0,
+      "profit_factor": 0.0,
+      "equity_final": 1007.647,
+      "recent_return_perc": 1.221,
+      "recent_max_drawdown_pct": -3.657,
+      "recent_num_trades": 9,
+      "score": -4.929,
+      "strategy_file": "generated_strategies/07_btc_4h_trend_ema24_60_rsi55_45.yml"
+    },
+    {
+      "name": "btc_4h_trend_ema24_60_rsi60_45",
+      "return_perc": 0.328,
+      "buy_and_hold_perc": -21.381,
+      "market_adjusted_return": 21.709,
+      "max_drawdown_pct": -6.505,
+      "num_trades": 30,
+      "avg_executed_trades_per_day": 0.059,
+      "max_executed_trades_day": 1,
+      "win_perc": 0.0,
+      "profit_factor": 0.0,
+      "equity_final": 1003.289,
+      "recent_return_perc": 1.221,
+      "recent_max_drawdown_pct": -3.657,
+      "recent_num_trades": 9,
+      "score": -5.199,
+      "strategy_file": "generated_strategies/08_btc_4h_trend_ema24_60_rsi60_45.yml"
+    },
+    {
+      "name": "btc_4h_trend_ema24_36_rsi60_48",
+      "return_perc": 0.801,
+      "buy_and_hold_perc": -21.381,
+      "market_adjusted_return": 22.182,
+      "max_drawdown_pct": -7.097,
+      "num_trades": 36,
+      "avg_executed_trades_per_day": 0.071,
+      "max_executed_trades_day": 1,
+      "win_perc": 8.333,
+      "profit_factor": 0.062,
+      "equity_final": 1008.075,
+      "recent_return_perc": 0.764,
+      "recent_max_drawdown_pct": -3.291,
+      "recent_num_trades": 11,
+      "score": -5.3,
+      "strategy_file": "generated_strategies/09_btc_4h_trend_ema24_36_rsi60_48.yml"
+    },
+    {
+      "name": "btc_4h_trend_ema24_36_rsi60_45",
+      "return_perc": 0.727,
+      "buy_and_hold_perc": -21.381,
+      "market_adjusted_return": 22.108,
+      "max_drawdown_pct": -7.164,
+      "num_trades": 36,
+      "avg_executed_trades_per_day": 0.071,
+      "max_executed_trades_day": 1,
+      "win_perc": 8.333,
+      "profit_factor": 0.062,
+      "equity_final": 1007.326,
+      "recent_return_perc": 0.764,
+      "recent_max_drawdown_pct": -3.291,
+      "recent_num_trades": 11,
+      "score": -5.377,
+      "strategy_file": "generated_strategies/10_btc_4h_trend_ema24_36_rsi60_45.yml"
+    },
+    {
+      "name": "btc_4h_trend_ema24_60_rsi50_48",
+      "return_perc": 0.292,
+      "buy_and_hold_perc": -21.381,
+      "market_adjusted_return": 21.673,
+      "max_drawdown_pct": -6.287,
+      "num_trades": 32,
+      "avg_executed_trades_per_day": 0.063,
+      "max_executed_trades_day": 1,
+      "win_perc": 3.125,
+      "profit_factor": 0.009,
+      "equity_final": 1002.926,
+      "recent_return_perc": 0.639,
+      "recent_max_drawdown_pct": -3.53,
+      "recent_num_trades": 11,
+      "score": -5.733
+    },
+    {
+      "name": "btc_4h_trend_ema24_60_rsi55_48",
+      "return_perc": 0.292,
+      "buy_and_hold_perc": -21.381,
+      "market_adjusted_return": 21.673,
+      "max_drawdown_pct": -6.287,
+      "num_trades": 32,
+      "avg_executed_trades_per_day": 0.063,
+      "max_executed_trades_day": 1,
+      "win_perc": 3.125,
+      "profit_factor": 0.009,
+      "equity_final": 1002.926,
+      "recent_return_perc": 0.639,
+      "recent_max_drawdown_pct": -3.53,
+      "recent_num_trades": 11,
+      "score": -5.733
+    },
+    {
+      "name": "btc_4h_trend_ema24_60_rsi50_42",
+      "return_perc": 1.202,
+      "buy_and_hold_perc": -21.381,
+      "market_adjusted_return": 22.583,
+      "max_drawdown_pct": -6.831,
+      "num_trades": 28,
+      "avg_executed_trades_per_day": 0.055,
+      "max_executed_trades_day": 1,
+      "win_perc": 0.0,
+      "profit_factor": 0.0,
+      "equity_final": 1012.167,
+      "recent_return_perc": 0.743,
+      "recent_max_drawdown_pct": -4.121,
+      "recent_num_trades": 9,
+      "score": -6.092
+    },
+    {
+      "name": "btc_4h_trend_ema24_60_rsi55_42",
+      "return_perc": 1.202,
+      "buy_and_hold_perc": -21.381,
+      "market_adjusted_return": 22.583,
+      "max_drawdown_pct": -6.831,
+      "num_trades": 28,
+      "avg_executed_trades_per_day": 0.055,
+      "max_executed_trades_day": 1,
+      "win_perc": 0.0,
+      "profit_factor": 0.0,
+      "equity_final": 1012.167,
+      "recent_return_perc": 0.743,
+      "recent_max_drawdown_pct": -4.121,
+      "recent_num_trades": 9,
+      "score": -6.092
+    },
+    {
+      "name": "btc_4h_trend_ema24_60_rsi60_42",
+      "return_perc": 1.117,
+      "buy_and_hold_perc": -21.381,
+      "market_adjusted_return": 22.498,
+      "max_drawdown_pct": -6.912,
+      "num_trades": 28,
+      "avg_executed_trades_per_day": 0.055,
+      "max_executed_trades_day": 1,
+      "win_perc": 0.0,
+      "profit_factor": 0.0,
+      "equity_final": 1011.292,
+      "recent_return_perc": 0.743,
+      "recent_max_drawdown_pct": -4.121,
+      "recent_num_trades": 9,
+      "score": -6.183
+    },
+    {
+      "name": "btc_4h_trend_ema12_84_rsi50_45",
+      "return_perc": 1.419,
+      "buy_and_hold_perc": -21.381,
+      "market_adjusted_return": 22.8,
+      "max_drawdown_pct": -6.415,
+      "num_trades": 34,
+      "avg_executed_trades_per_day": 0.067,
+      "max_executed_trades_day": 1,
+      "win_perc": 2.941,
+      "profit_factor": 0.003,
+      "equity_final": 1014.389,
+      "recent_return_perc": 0.236,
+      "recent_max_drawdown_pct": -4.624,
+      "recent_num_trades": 11,
+      "score": -6.853
+    },
+    {
+      "name": "btc_4h_trend_ema12_84_rsi55_45",
+      "return_perc": 1.419,
+      "buy_and_hold_perc": -21.381,
+      "market_adjusted_return": 22.8,
+      "max_drawdown_pct": -6.415,
+      "num_trades": 34,
+      "avg_executed_trades_per_day": 0.067,
+      "max_executed_trades_day": 1,
+      "win_perc": 2.941,
+      "profit_factor": 0.003,
+      "equity_final": 1014.389,
+      "recent_return_perc": 0.236,
+      "recent_max_drawdown_pct": -4.624,
+      "recent_num_trades": 11,
+      "score": -6.853
+    },
+    {
+      "name": "btc_4h_trend_ema12_84_rsi50_42",
+      "return_perc": 0.956,
+      "buy_and_hold_perc": -21.381,
+      "market_adjusted_return": 22.337,
+      "max_drawdown_pct": -6.837,
+      "num_trades": 34,
+      "avg_executed_trades_per_day": 0.067,
+      "max_executed_trades_day": 1,
+      "win_perc": 2.941,
+      "profit_factor": 0.004,
+      "equity_final": 1009.65,
+      "recent_return_perc": 0.236,
+      "recent_max_drawdown_pct": -4.624,
+      "recent_num_trades": 11,
+      "score": -7.336
+    },
+    {
+      "name": "btc_4h_trend_ema12_84_rsi55_42",
+      "return_perc": 0.956,
+      "buy_and_hold_perc": -21.381,
+      "market_adjusted_return": 22.337,
+      "max_drawdown_pct": -6.837,
+      "num_trades": 34,
+      "avg_executed_trades_per_day": 0.067,
+      "max_executed_trades_day": 1,
+      "win_perc": 2.941,
+      "profit_factor": 0.004,
+      "equity_final": 1009.65,
+      "recent_return_perc": 0.236,
+      "recent_max_drawdown_pct": -4.624,
+      "recent_num_trades": 11,
+      "score": -7.336
+    },
+    {
+      "name": "btc_4h_trend_ema12_84_rsi50_48",
+      "return_perc": 0.686,
+      "buy_and_hold_perc": -21.381,
+      "market_adjusted_return": 22.067,
+      "max_drawdown_pct": -7.08,
+      "num_trades": 36,
+      "avg_executed_trades_per_day": 0.071,
+      "max_executed_trades_day": 1,
+      "win_perc": 5.556,
+      "profit_factor": 0.024,
+      "equity_final": 1006.91,
+      "recent_return_perc": 0.236,
+      "recent_max_drawdown_pct": -4.624,
+      "recent_num_trades": 11,
+      "score": -7.498
+    },
+    {
+      "name": "btc_4h_trend_ema12_84_rsi55_48",
+      "return_perc": 0.686,
+      "buy_and_hold_perc": -21.381,
+      "market_adjusted_return": 22.067,
+      "max_drawdown_pct": -7.08,
+      "num_trades": 36,
+      "avg_executed_trades_per_day": 0.071,
+      "max_executed_trades_day": 1,
+      "win_perc": 5.556,
+      "profit_factor": 0.024,
+      "equity_final": 1006.91,
+      "recent_return_perc": 0.236,
+      "recent_max_drawdown_pct": -4.624,
+      "recent_num_trades": 11,
+      "score": -7.498
+    }
+  ],
+  "errors": [
+    {
+      "name": "btc_1h_mean_revert_rsi24_58_bb20",
+      "error": "IndexError('single positional indexer is out-of-bounds')"
+    },
+    {
+      "name": "btc_1h_mean_revert_rsi24_58_bb36",
+      "error": "IndexError('single positional indexer is out-of-bounds')"
+    },
+    {
+      "name": "btc_1h_mean_revert_rsi24_58_bb48",
+      "error": "IndexError('single positional indexer is out-of-bounds')"
+    },
+    {
+      "name": "btc_1h_mean_revert_rsi24_62_bb20",
+      "error": "IndexError('single positional indexer is out-of-bounds')"
+    },
+    {
+      "name": "btc_1h_mean_revert_rsi24_62_bb36",
+      "error": "IndexError('single positional indexer is out-of-bounds')"
+    },
+    {
+      "name": "btc_1h_mean_revert_rsi24_62_bb48",
+      "error": "IndexError('single positional indexer is out-of-bounds')"
+    },
+    {
+      "name": "btc_1h_mean_revert_rsi24_66_bb20",
+      "error": "IndexError('single positional indexer is out-of-bounds')"
+    },
+    {
+      "name": "btc_1h_mean_revert_rsi24_66_bb36",
+      "error": "IndexError('single positional indexer is out-of-bounds')"
+    },
+    {
+      "name": "btc_1h_mean_revert_rsi24_66_bb48",
+      "error": "IndexError('single positional indexer is out-of-bounds')"
+    },
+    {
+      "name": "btc_1h_mean_revert_rsi28_58_bb36",
+      "error": "IndexError('single positional indexer is out-of-bounds')"
+    },
+    {
+      "name": "btc_1h_mean_revert_rsi28_62_bb36",
+      "error": "IndexError('single positional indexer is out-of-bounds')"
+    },
+    {
+      "name": "btc_1h_mean_revert_rsi28_66_bb36",
+      "error": "IndexError('single positional indexer is out-of-bounds')"
+    },
+    {
+      "name": "btc_4h_mean_revert_rsi24_58_bb10",
+      "error": "IndexError('single positional indexer is out-of-bounds')"
+    },
+    {
+      "name": "btc_4h_mean_revert_rsi24_58_bb18",
+      "error": "IndexError('single positional indexer is out-of-bounds')"
+    },
+    {
+      "name": "btc_4h_mean_revert_rsi24_58_bb24",
+      "error": "IndexError('single positional indexer is out-of-bounds')"
+    },
+    {
+      "name": "btc_4h_mean_revert_rsi24_62_bb10",
+      "error": "IndexError('single positional indexer is out-of-bounds')"
+    },
+    {
+      "name": "btc_4h_mean_revert_rsi24_62_bb18",
+      "error": "IndexError('single positional indexer is out-of-bounds')"
+    },
+    {
+      "name": "btc_4h_mean_revert_rsi24_62_bb24",
+      "error": "IndexError('single positional indexer is out-of-bounds')"
+    },
+    {
+      "name": "btc_4h_mean_revert_rsi24_66_bb10",
+      "error": "IndexError('single positional indexer is out-of-bounds')"
+    },
+    {
+      "name": "btc_4h_mean_revert_rsi24_66_bb18",
+      "error": "IndexError('single positional indexer is out-of-bounds')"
+    },
+    {
+      "name": "btc_4h_mean_revert_rsi24_66_bb24",
+      "error": "IndexError('single positional indexer is out-of-bounds')"
+    },
+    {
+      "name": "btc_4h_mean_revert_rsi28_58_bb10",
+      "error": "IndexError('single positional indexer is out-of-bounds')"
+    },
+    {
+      "name": "btc_4h_mean_revert_rsi28_58_bb18",
+      "error": "IndexError('single positional indexer is out-of-bounds')"
+    },
+    {
+      "name": "btc_4h_mean_revert_rsi28_58_bb24",
+      "error": "IndexError('single positional indexer is out-of-bounds')"
+    },
+    {
+      "name": "btc_4h_mean_revert_rsi28_62_bb10",
+      "error": "IndexError('single positional indexer is out-of-bounds')"
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+symbol: BTC-USD
+exchange: coinbase
+start: '2025-01-01'
+stop: '2026-05-21 21:00:00'
+base_balance: 1000.0
+comission: 0.6
+exit_on_end: true
+trailing_stop_loss: 0.0
+any_enter: []
+any_exit: []
+rules: []
+freq: 4h
+datapoints:
+- name: ema_fast
+  transformer: ema
+  args:
+  - 18
+- name: ema_slow
+  transformer: ema
+  args:
+  - 72
+- name: rsi
+  transformer: rsi
+  args:
+  - 14
+enter:
+- - ema_fast
+  - '>'
+  - ema_slow
+- - rsi
+  - '>'
+  - 58
+exit:
+- - ema_fast
+  - <
+  - ema_slow
+- - rsi
+  - <
+  - 42
+lot_size: 0.75
+max_lot_size: 750.0
