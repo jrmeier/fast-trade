@@ -6,6 +6,7 @@ import sys
 from typing import List, Optional
 
 from fast_trade.archive.cli import get_assets
+from fast_trade.fxmacrodata import build_macro_context
 from fast_trade.portfolio import load_state, portfolio_paths
 
 try:
@@ -173,6 +174,21 @@ def tail_log(kind: str, identifier: str, lines: int = 200) -> List[str]:
     return data
 
 
+def fxmacrodata_macro_context(
+    base: str,
+    quote: str = "usd",
+    indicator: str = "policy_rate",
+    limit: int = 10,
+) -> dict:
+    """Fetch FXMacroData macro context for an FX pair."""
+    return build_macro_context(
+        base=base,
+        quote=quote,
+        indicator=indicator,
+        limit=limit,
+    )
+
+
 @mcp.resource("fast-trade://version")
 def version_resource() -> str:
     """Return package version from pyproject."""
@@ -197,6 +213,7 @@ def main() -> None:
     mcp.tool(portfolio_stop)
     mcp.tool(portfolio_status)
     mcp.tool(tail_log)
+    mcp.tool(fxmacrodata_macro_context)
     mcp.run()
 
 
