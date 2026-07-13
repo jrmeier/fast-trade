@@ -10,10 +10,9 @@ A library built with backtest portability and performance in mind for trading st
 ## Motivations
 If backtests are fast, strategies are cheap.
 
-## Beta Testing
+## MCP Server
 
-I'm using this library to build a whole platform (data management, backtesting, scanners, signals, etc.) via Jupyter Notebooks and a Discord bot, and I'm looking for beta testers. If you like this library, send me an email at fasttrade@jedm.dev or join the Discord [https://discord.gg/Y8ypD3dcgs](https://discord.gg/Y8ypD3dcgs)
-
+I'm using this library and my own closed-source data collection software which has live-streaming data from HyperLiquid, Coinbase, and Binanceus. If you want to try it out with absolutely no garentees, send me an email at fasttrade@jedm.dev or join the Discord [https://discord.gg/Y8ypD3dcgs](https://discord.gg/Y8ypD3dcgs).
 ## Contributing
 
 If you'd like to add a feature, fix a bug, or something else, please clone the repo and fork it. When you're ready, open a PR into this main repo.
