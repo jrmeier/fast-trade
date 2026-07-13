@@ -12,7 +12,7 @@ Params = Mapping[str, Any]
 class FXMacroDataClient:
     """REST client for macro, FX, COT, commodity, and session data."""
 
-    DEFAULT_BASE_URL = "https://fxmacrodata.com/api/v1/"
+    DEFAULT_BASE_URL = "https://api.fxmacrodata.com/v1/"
 
     def __init__(
         self,
@@ -36,13 +36,14 @@ class FXMacroDataClient:
         timeout: Optional[int] = None,
     ) -> Dict[str, Any]:
         query = dict(params or {})
-        if self.api_key:
-            query["api_key"] = self.api_key
         url = urllib.parse.urljoin(self.base_url, path.lstrip("/"))
         if query:
             url = url + "?" + urllib.parse.urlencode(query)
 
-        req = urllib.request.Request(url, headers={"Accept": "application/json"})
+        headers = {"Accept": "application/json"}
+        if self.api_key:
+            headers["X-API-Key"] = self.api_key
+        req = urllib.request.Request(url, headers=headers)
         try:
             with urllib.request.urlopen(req, timeout=timeout or self.timeout) as resp:
                 payload = resp.read().decode("utf-8")
@@ -129,8 +130,8 @@ def build_macro_context(
     return {
         "base_catalogue": client.data_catalogue(base),
         "quote_catalogue": client.data_catalogue(quote),
-        "base_calendar": client.calendar(base, limit=limit),
-        "quote_calendar": client.calendar(quote, limit=limit),
+        "base_calendar": client.calendar(base, indicator=indicator),
+        "quote_calendar": client.calendar(quote, indicator=indicator),
         "base_announcements": client.announcements(base, indicator, limit=limit),
         "quote_announcements": client.announcements(quote, indicator, limit=limit),
         "forex": client.forex(base, quote, limit=limit),

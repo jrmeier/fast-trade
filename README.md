@@ -280,6 +280,13 @@ coverage run -m pytest
 coverage report -m
 ```
 
+## FXMacroData macro context
+
+`FXMacroDataClient` uses the canonical `https://api.fxmacrodata.com/v1/` API host.
+Set `FXMACRODATA_API_KEY` (or `FXMD_API_KEY`) to access protected data, or pass
+`api_key` directly when creating the client. `build_macro_context("EUR", "USD")`
+returns the pair's catalogue, filtered release calendars and announcements, and FX data.
+
 ## Output
 
 The output its a dictionary. The summary is a summary all the inputs and of the performace of the model. The df is a Pandas Dataframe, which contains all of the data used in the simulation. And the `trade_df` is a subset of the `df` frame which just has all the rows when there was an event. The `backtest` object is also returned, with the details of how the backtest was run.
