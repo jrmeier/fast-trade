@@ -1,5 +1,4 @@
 import json
-import os
 from types import SimpleNamespace
 
 import fast_trade.mcp_server as mcp_server
@@ -58,3 +57,18 @@ def test_ft_command_str_runs(monkeypatch):
     assert res["returncode"] == 0
     assert "fast_trade.cli" in " ".join(res["command"].split())
     assert calls["cmd"][0].endswith("python") or "python" in calls["cmd"][0]
+
+
+def test_fxmacrodata_macro_context_forwards_arguments(monkeypatch):
+    captured = {}
+
+    def fake_build_macro_context(**kwargs):
+        captured.update(kwargs)
+        return {"base_calendar": {"data": []}}
+
+    monkeypatch.setattr(mcp_server, "build_macro_context", fake_build_macro_context)
+
+    result = mcp_server.fxmacrodata_macro_context("EUR", "USD", "inflation", limit=5)
+
+    assert result == {"base_calendar": {"data": []}}
+    assert captured == {"base": "EUR", "quote": "USD", "indicator": "inflation", "limit": 5}
