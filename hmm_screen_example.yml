@@ -1,0 +1,23 @@
+# Example HMM screen config for `ft screen hmm hmm_screen_example.yml`
+exchange: coinbase
+symbols:
+  - BTC-USD
+  - ETH-USD
+live: false
+settings:
+  lookback_days: 260
+  freq: 1D
+  horizons: [7, 30, 60]
+  states: 3
+  simulations: 2000
+  seed: 42
+  max_products: 40
+filters:
+  min_candles: 180
+  min_quote_volume_24h: 0
+  min_avg_quote_volume_30d: 0
+  max_drawdown_60d: -1.0
+outputs:
+  title: Coinbase HMM Screener
+  json_out: ft_archive/screens/hmm_screen.json
+  md_out: ft_archive/screens/hmm_screen.md

@@ -78,11 +78,14 @@ from .run_backtest import run_backtest
 
 app = typer.Typer(help="Fast Trade CLI", add_completion=False)
 portfolio_app = typer.Typer(help="Paper portfolio runner")
+screen_app = typer.Typer(help="Market screening tools")
 app.add_typer(portfolio_app, name="portfolio")
+app.add_typer(screen_app, name="screen")
 console = Console()
 
 EXCHANGE_CHOICES = ["binancecom", "binanceus", "coinbase"]
 ASSET_EXCHANGE_CHOICES = ["local", "binanceus", "binancecom", "coinbase"]
+SCREEN_EXCHANGE_CHOICES = ["coinbase", "binanceus", "binancecom", "hyperliquid"]
 
 
 def _apply_mods(strategy: Dict, mods: Optional[List[str]]) -> Dict:
@@ -643,6 +646,91 @@ def regime_apply_cmd(
     res = apply_regime_model(df, model)
     res.to_csv(out)
     console.print(f"[green]Saved[/green] regime output to [bold]{out}[/bold]")
+
+
+@screen_app.command("hmm")
+def screen_hmm_cmd(
+    config: Optional[str] = typer.Argument(
+        None,
+        help="Optional YAML/JSON screen config path",
+    ),
+    exchange: str = typer.Option(
+        "coinbase",
+        "--exchange",
+        help="Exchange/universe source",
+    ),
+    symbol: Optional[List[str]] = typer.Option(
+        None,
+        "--symbol",
+        help="Symbol to screen; repeatable",
+    ),
+    live: bool = typer.Option(
+        False,
+        "--live/--archive",
+        help="Fetch live candles (coinbase/hyperliquid) instead of archive parquet",
+    ),
+    lookback_days: int = typer.Option(260, "--lookback-days"),
+    horizons: Optional[List[int]] = typer.Option(
+        None,
+        "--horizon",
+        help="Forecast horizon in days; repeatable",
+    ),
+    states: int = typer.Option(3, "--states"),
+    simulations: int = typer.Option(5000, "--simulations"),
+    seed: int = typer.Option(42, "--seed"),
+    max_products: int = typer.Option(40, "--max-products"),
+    json_out: Optional[str] = typer.Option(None, "--json-out"),
+    md_out: Optional[str] = typer.Option(None, "--md-out"),
+):
+    """Run an HMM forecast screen across a symbol universe."""
+    from fast_trade.ml.hmm_data import screen_from_config
+
+    cfg: Dict = {}
+    if config:
+        cfg = _load_json_or_yaml(config)
+    if exchange not in SCREEN_EXCHANGE_CHOICES and not cfg.get("exchange"):
+        raise typer.BadParameter(f"exchange must be one of {SCREEN_EXCHANGE_CHOICES}")
+
+    cfg.setdefault("settings", {})
+    cfg.setdefault("filters", {})
+    cfg.setdefault("outputs", {})
+    cfg["exchange"] = exchange or cfg.get("exchange") or "coinbase"
+    if symbol:
+        cfg["symbols"] = list(symbol)
+    cfg["live"] = live if config is None else bool(cfg.get("live", live))
+    if live:
+        cfg["live"] = True
+    cfg["settings"]["lookback_days"] = lookback_days
+    if horizons:
+        cfg["settings"]["horizons"] = list(horizons)
+    cfg["settings"]["states"] = states
+    cfg["settings"]["simulations"] = simulations
+    cfg["settings"]["seed"] = seed
+    cfg["settings"]["max_products"] = max_products
+    if json_out:
+        cfg["outputs"]["json_out"] = json_out
+    if md_out:
+        cfg["outputs"]["md_out"] = md_out
+    cfg["outputs"].setdefault(
+        "title",
+        f"{str(cfg['exchange']).title()} HMM Screener",
+    )
+
+    payload = screen_from_config(cfg)
+    console.print(
+        f"[green]Screened[/green] {len(payload['results'])} symbol(s), "
+        f"skipped {len(payload['skipped'])}"
+    )
+    if payload["results"]:
+        top = payload["results"][0]
+        console.print(
+            f"Top: [bold]{top['symbol']}[/bold] score={top['score']:.2f} "
+            f"price={top['price']}"
+        )
+    if cfg["outputs"].get("json_out"):
+        console.print(f"Wrote {cfg['outputs']['json_out']}")
+    if cfg["outputs"].get("md_out"):
+        console.print(f"Wrote {cfg['outputs']['md_out']}")
 
 
 def _load_backtest_run(backtests_path: str, run_id: str):

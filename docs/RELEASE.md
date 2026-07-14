@@ -1,17 +1,15 @@
 # Release Guide
 
-This project is currently prepared for the `2.0.0` release.
+This project is currently prepared for the `2.1.0` release.
 
 ## Scope
 
-`2.0.0` is a major release. It includes:
+`2.1.0` is a minor release. It includes:
 
-- terminal and CLI workflow expansion
-- live and stream runners with persistent JSONL logging
-- paper portfolio runner with daemon support
-- MCP server support
-- ML tooling and examples
-- internal modularization of summary, CLI, and backtest logic
+- FXMacroData REST client and `build_macro_context` helper
+- MCP tool `fxmacrodata_macro_context`
+- README notes for API host and env-based auth
+- Productized HMM screener (`ft screen hmm`, MCP `hmm_screen`, archive-first + optional live adapters)
 
 ## Pre-Release Checklist
 
@@ -48,20 +46,19 @@ Confirm these stay in sync:
 
 Specific things to check:
 
-- version is `2.0.0`
-- terminal commands match actual CLI behavior
-- log paths use `.jsonl`
-- YAML examples are referenced instead of removed JSON examples
+- version is `2.1.0`
+- FXMacroData README section documents host + env vars
+- MCP tools `fxmacrodata_macro_context` and `hmm_screen` are mentioned
+- `ft screen hmm` / `hmm_screen_example.yml` are documented
+- changelog includes the `2.1.0` section
 
 ## Release Notes Summary
 
 Use this summary for GitHub or PyPI:
 
-- Expanded `ft terminal` into a full operational interface for backtests, live signals, streams, and logs.
-- Added a daemonized paper portfolio runner with persisted state, trade history, and logs.
-- Added MCP server support so external agents can use the CLI and portfolio/log workflows.
-- Refactored core logic into smaller modules to reduce redundancy and improve maintainability.
-- Standardized examples and workflows around YAML configs and archive-backed parquet data.
+- Added an FXMacroData client and `build_macro_context` helper for pair-level macro/FX context.
+- Exposed `fxmacrodata_macro_context` on the MCP server for agent use.
+- Documented API host and `FXMACRODATA_API_KEY` / `FXMD_API_KEY` auth in the README.
 
 ## Release Steps
 
@@ -69,7 +66,7 @@ Use this summary for GitHub or PyPI:
 2. Review `git diff --stat` and `git status`.
 3. Confirm `docs/CHANGELOG.md` and `README.md` reflect the final state.
 4. Create the release commit and push it.
-5. Tag the release as `v2.0.0`.
+5. Tag the release as `v2.1.0`.
 6. Publish the package and attach release notes.
 
 ## Post-Release Checks
