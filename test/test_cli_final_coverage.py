@@ -1099,26 +1099,18 @@ def test_terminal_live_page_with_history_render(
     archive_env, backtest_run, strategy_file, monkeypatch, sample_ohlcv
 ):
     _mock_tty(monkeypatch)
-    monkeypatch.delenv("FT_TERMINAL_SYNC_LIVE", raising=False)
+    # Sync live path avoids real Thread.start/_started races under pytest.
+    monkeypatch.setenv("FT_TERMINAL_SYNC_LIVE", "1")
+    monkeypatch.delenv("FT_TERMINAL_SYNC_STREAM", raising=False)
     run_id, _, _ = backtest_run
     (archive_env / "last_strategy_path.txt").write_text(str(strategy_file))
 
-    class _NoopTimer:
-        def __init__(self, *args, **kwargs):
-            pass
+    class _ImmediateTimer:
+        def __init__(self, delay, func, args=None, kwargs=None):
+            self._func = func
 
         def start(self):
-            return None
-
-    wait_calls = {"n": 0}
-    orig_wait = threading.Event.wait
-
-    def wait_side(self, timeout=None):
-        wait_calls["n"] += 1
-        if wait_calls["n"] >= 1:
-            self.set()
-            return True
-        return orig_wait(self, timeout)
+            self._func()
 
     cmd_iter = iter(["LIVE START", "LIVE", "Q"])
 
@@ -1133,8 +1125,7 @@ def test_terminal_live_page_with_history_render(
     session = mock.Mock()
     session.prompt.side_effect = prompt_side
     monkeypatch.setattr(cli_mod, "PromptSession", lambda **kw: session)
-    monkeypatch.setattr(cli_mod.threading, "Timer", _NoopTimer)
-    monkeypatch.setattr(threading.Event, "wait", wait_side)
+    monkeypatch.setattr(cli_mod.threading, "Timer", _ImmediateTimer)
     monkeypatch.setattr(cli_mod, "open_strat_file", lambda p: {"symbol": "BTC-USD", "freq": "1Min", "datapoints": []})
     monkeypatch.setattr(cli_mod, "_load_latest_ohlcv", lambda *a, **k: sample_ohlcv.head(10))
     monkeypatch.setattr(cli_mod, "prepare_df", lambda df, s: df)
@@ -1148,26 +1139,44 @@ def test_terminal_follow_view_loops_with_content(
     archive_env, backtest_run, strategy_file, monkeypatch, sample_ohlcv
 ):
     _mock_tty(monkeypatch)
-    monkeypatch.delenv("FT_TERMINAL_SYNC_LIVE", raising=False)
+    # Do not patch threading.Event.wait globally: that prematurely sets Thread._started
+    # and makes later is_alive() raise AssertionError in CPython.
+    monkeypatch.setenv("FT_TERMINAL_SYNC_LIVE", "1")
+    monkeypatch.delenv("FT_TERMINAL_SYNC_STREAM", raising=False)
     run_id, _, _ = backtest_run
     (archive_env / "last_strategy_path.txt").write_text(str(strategy_file))
 
-    class _NoopTimer:
-        def __init__(self, *args, **kwargs):
-            pass
+    class _ImmediateTimer:
+        def __init__(self, delay, func, args=None, kwargs=None):
+            self._func = func
+
+        def start(self):
+            self._func()
+
+    class _NoopWorkerThread:
+        def __init__(self, target=None, daemon=None, *args, **kwargs):
+            self._target = target
 
         def start(self):
             return None
 
-    wait_calls = {"n": 0}
-    orig_wait = threading.Event.wait
+        def is_alive(self):
+            return False
 
-    def wait_side(self, timeout=None):
-        wait_calls["n"] += 1
-        if wait_calls["n"] >= 1:
-            self.set()
-            return True
-        return orig_wait(self, timeout)
+        def join(self, timeout=None):
+            return None
+
+    def thread_factory(target=None, daemon=None, *args, **kwargs):
+        name = getattr(target, "__name__", "") if target else ""
+        if name in (
+            "_wait_enter",
+            "_wait_enter_live_view",
+            "_wait_enter_logs",
+            "_run_stream",
+            "_run_live",
+        ):
+            return _NoopWorkerThread(target=target, daemon=daemon)
+        return _terminal_thread_factory(target=target, daemon=daemon, *args, **kwargs)
 
     cmd_iter = iter(["STREAM START BTC-USD", "LIVE START", "LIVE VIEW", "STREAM VIEW", "Q"])
 
@@ -1182,9 +1191,8 @@ def test_terminal_follow_view_loops_with_content(
     session = mock.Mock()
     session.prompt.side_effect = prompt_side
     monkeypatch.setattr(cli_mod, "PromptSession", lambda **kw: session)
-    monkeypatch.setattr(cli_mod.threading, "Timer", _NoopTimer)
-    monkeypatch.setattr(threading.Event, "wait", wait_side)
-    monkeypatch.setattr(cli_mod.threading, "Thread", _terminal_thread_factory)
+    monkeypatch.setattr(cli_mod.threading, "Timer", _ImmediateTimer)
+    monkeypatch.setattr(cli_mod.threading, "Thread", thread_factory)
     monkeypatch.setattr(cli_mod.threading, "Event", lambda: _AutoStopEvent(stop_after=2))
     monkeypatch.setattr(cli_mod, "open_strat_file", lambda p: {"symbol": "BTC-USD", "freq": "1Min", "datapoints": []})
     monkeypatch.setattr(cli_mod, "_load_latest_ohlcv", lambda *a, **k: sample_ohlcv.head(10))
