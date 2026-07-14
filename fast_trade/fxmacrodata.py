@@ -1,6 +1,7 @@
 import json
 import os
-from typing import Any, Dict, Mapping, Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, Callable, Dict, Mapping, Optional
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -29,6 +30,19 @@ class FXMacroDataClient:
         self.base_url = base_url.rstrip("/") + "/"
         self.timeout = timeout
 
+    def require_api_key(self, reason: str = "") -> None:
+        if self.api_key:
+            return
+        detail = f" ({reason})" if reason else ""
+        raise RuntimeError(
+            "FXMacroData API key required. Set FXMACRODATA_API_KEY or FXMD_API_KEY, "
+            f"or pass api_key=... when creating FXMacroDataClient.{detail}"
+        )
+
+    def _maybe_require_currency_key(self, currency: str) -> None:
+        if currency.lower() != "usd":
+            self.require_api_key(f"currency={currency.lower()}")
+
     def request(
         self,
         path: str,
@@ -52,34 +66,56 @@ class FXMacroDataClient:
             raise RuntimeError(
                 f"FXMacroData request failed with HTTP {exc.code}: {body}"
             ) from exc
-        return json.loads(payload)
+        except urllib.error.URLError as exc:
+            raise RuntimeError(
+                f"FXMacroData request failed for {url}: {exc.reason}"
+            ) from exc
+        except TimeoutError as exc:
+            raise RuntimeError(
+                f"FXMacroData request timed out for {url}"
+            ) from exc
+
+        try:
+            return json.loads(payload)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(
+                f"FXMacroData response was not valid JSON for {url}: {exc.msg}"
+            ) from exc
 
     def data_catalogue(self, currency: str) -> Dict[str, Any]:
+        self._maybe_require_currency_key(currency)
         return self.request(f"data_catalogue/{currency.lower()}")
 
     def announcements(
         self, currency: str, indicator: str, **params: Any
     ) -> Dict[str, Any]:
+        self._maybe_require_currency_key(currency)
         return self.request(
             f"announcements/{currency.lower()}/{indicator}",
             params,
         )
 
     def latest_announcements(self, currency: str, **params: Any) -> Dict[str, Any]:
+        self._maybe_require_currency_key(currency)
         return self.request(f"announcements/{currency.lower()}/latest", params)
 
     def calendar(self, currency: str, **params: Any) -> Dict[str, Any]:
+        self._maybe_require_currency_key(currency)
         return self.request(f"calendar/{currency.lower()}", params)
 
     def predictions(
         self, currency: str, indicator: str, **params: Any
     ) -> Dict[str, Any]:
+        self._maybe_require_currency_key(currency)
         return self.request(f"predictions/{currency.lower()}/{indicator}", params)
 
     def forex(self, base: str, quote: str = "usd", **params: Any) -> Dict[str, Any]:
+        self._maybe_require_currency_key(base)
+        self._maybe_require_currency_key(quote)
         return self.request(f"forex/{base.lower()}/{quote.lower()}", params)
 
     def cot(self, currency: str, **params: Any) -> Dict[str, Any]:
+        self._maybe_require_currency_key(currency)
         return self.request(f"cot/{currency.lower()}", params)
 
     def commodity(self, indicator: str, **params: Any) -> Dict[str, Any]:
@@ -91,6 +127,8 @@ class FXMacroDataClient:
     def rate_differentials(
         self, base: str, quote: str = "usd", **params: Any
     ) -> Dict[str, Any]:
+        self._maybe_require_currency_key(base)
+        self._maybe_require_currency_key(quote)
         return self.request(
             f"rate_differentials/{base.lower()}/{quote.lower()}",
             params,
@@ -99,6 +137,8 @@ class FXMacroDataClient:
     def forward_differentials(
         self, base: str, quote: str = "usd", **params: Any
     ) -> Dict[str, Any]:
+        self._maybe_require_currency_key(base)
+        self._maybe_require_currency_key(quote)
         return self.request(
             f"forward_differentials/{base.lower()}/{quote.lower()}",
             params,
@@ -111,9 +151,11 @@ class FXMacroDataClient:
         return self.request("risk_sentiment", params)
 
     def news(self, currency: str, **params: Any) -> Dict[str, Any]:
+        self._maybe_require_currency_key(currency)
         return self.request(f"news/{currency.lower()}", params)
 
     def press_releases(self, currency: str, **params: Any) -> Dict[str, Any]:
+        self._maybe_require_currency_key(currency)
         return self.request(f"press-releases/{currency.lower()}", params)
 
 
@@ -127,12 +169,33 @@ def build_macro_context(
     client = client or FXMacroDataClient()
     base = base.lower()
     quote = quote.lower()
-    return {
-        "base_catalogue": client.data_catalogue(base),
-        "quote_catalogue": client.data_catalogue(quote),
-        "base_calendar": client.calendar(base, indicator=indicator),
-        "quote_calendar": client.calendar(quote, indicator=indicator),
-        "base_announcements": client.announcements(base, indicator, limit=limit),
-        "quote_announcements": client.announcements(quote, indicator, limit=limit),
-        "forex": client.forex(base, quote, limit=limit),
+    jobs: Dict[str, Callable[[], Any]] = {
+        "base_catalogue": lambda: client.data_catalogue(base),
+        "quote_catalogue": lambda: client.data_catalogue(quote),
+        "base_calendar": lambda: client.calendar(base, indicator=indicator),
+        "quote_calendar": lambda: client.calendar(quote, indicator=indicator),
+        "base_announcements": lambda: client.announcements(
+            base, indicator, limit=limit
+        ),
+        "quote_announcements": lambda: client.announcements(
+            quote, indicator, limit=limit
+        ),
+        "forex": lambda: client.forex(base, quote, limit=limit),
     }
+
+    context: Dict[str, Any] = {}
+    errors: Dict[str, str] = {}
+    with ThreadPoolExecutor(max_workers=len(jobs)) as pool:
+        futures = {pool.submit(fn): key for key, fn in jobs.items()}
+        for future in as_completed(futures):
+            key = futures[future]
+            try:
+                context[key] = future.result()
+            except Exception as exc:
+                message = str(exc)
+                errors[key] = message
+                context[key] = {"error": message}
+
+    if errors:
+        context["errors"] = errors
+    return context

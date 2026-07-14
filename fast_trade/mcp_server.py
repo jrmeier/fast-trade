@@ -189,6 +189,36 @@ def fxmacrodata_macro_context(
     )
 
 
+def hmm_screen(
+    exchange: str = "coinbase",
+    symbols: Optional[List[str]] = None,
+    live: bool = False,
+    lookback_days: int = 260,
+    horizons: Optional[List[int]] = None,
+    states: int = 3,
+    simulations: int = 500,
+    seed: int = 42,
+    max_products: int = 20,
+) -> dict:
+    """Run an HMM forecast screen and return ranked JSON results."""
+    from fast_trade.ml.hmm_data import screen_from_config
+
+    config = {
+        "exchange": exchange,
+        "symbols": list(symbols or []),
+        "live": live,
+        "settings": {
+            "lookback_days": lookback_days,
+            "horizons": horizons or [7, 30, 60],
+            "states": states,
+            "simulations": simulations,
+            "seed": seed,
+            "max_products": max_products,
+        },
+    }
+    return screen_from_config(config)
+
+
 @mcp.resource("fast-trade://version")
 def version_resource() -> str:
     """Return package version from pyproject."""
@@ -214,6 +244,7 @@ def main() -> None:
     mcp.tool(portfolio_status)
     mcp.tool(tail_log)
     mcp.tool(fxmacrodata_macro_context)
+    mcp.tool(hmm_screen)
     mcp.run()
 
 

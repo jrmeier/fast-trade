@@ -1,352 +1,27 @@
 #!/usr/bin/env python3
-"""Run a Hyperliquid perp HMM screener and write JSON/Markdown reports."""
+"""Thin wrapper around the productized Hyperliquid HMM screener."""
 
 from __future__ import annotations
 
 import argparse
-import datetime as dt
-import json
-import math
-import time
-import warnings
 from pathlib import Path
-from typing import Any
 
-import numpy as np
-import pandas as pd
-import requests
-from hmmlearn.hmm import GaussianHMM
-from sklearn.preprocessing import StandardScaler
-
-
-INFO_URL = "https://api.hyperliquid.xyz/info"
-DEFAULT_HORIZONS = (7, 30, 60)
-
-
-def utc_now() -> dt.datetime:
-    return dt.datetime.now(dt.timezone.utc)
-
-
-def post_info(payload: dict[str, Any], timeout: int = 30) -> Any:
-    response = requests.post(INFO_URL, json=payload, timeout=timeout)
-    response.raise_for_status()
-    return response.json()
-
-
-def fetch_market_context() -> list[dict[str, Any]]:
-    meta, contexts = post_info({"type": "metaAndAssetCtxs"})
-    rows = []
-    for asset, context in zip(meta["universe"], contexts):
-        if asset.get("isDelisted"):
-            continue
-        coin = asset["name"]
-        mark_price = float(context.get("markPx") or 0.0)
-        day_volume = float(context.get("dayNtlVlm") or 0.0)
-        open_interest = float(context.get("openInterest") or 0.0)
-        rows.append(
-            {
-                "coin": coin,
-                "max_leverage": int(asset.get("maxLeverage") or 0),
-                "mark_price": mark_price,
-                "day_ntl_volume": day_volume,
-                "open_interest": open_interest,
-                "funding": float(context.get("funding") or 0.0),
-            }
-        )
-    rows.sort(key=lambda row: row["day_ntl_volume"], reverse=True)
-    return rows
-
-
-def candle_cache_path(cache_dir: Path, coin: str, interval: str) -> Path:
-    safe_name = coin.replace("/", "_").replace("-", "_")
-    return cache_dir / f"{safe_name}_{interval}.parquet"
-
-
-def load_cached_candles(cache_dir: Path, coin: str, interval: str, max_age_hours: float) -> pd.DataFrame | None:
-    path = candle_cache_path(cache_dir, coin, interval)
-    if not path.exists():
-        return None
-    age_hours = (time.time() - path.stat().st_mtime) / 3600
-    if age_hours > max_age_hours:
-        return None
-    return pd.read_parquet(path)
-
-
-def fetch_candles(coin: str, days: int, interval: str, cache_dir: Path, max_age_hours: float) -> pd.DataFrame:
-    cached = load_cached_candles(cache_dir, coin, interval, max_age_hours)
-    if cached is not None and len(cached) >= min(days, 30):
-        return cached
-
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    end_ms = int(utc_now().timestamp() * 1000)
-    start_ms = int((utc_now() - dt.timedelta(days=days)).timestamp() * 1000)
-    payload = {
-        "type": "candleSnapshot",
-        "req": {
-            "coin": coin,
-            "interval": interval,
-            "startTime": start_ms,
-            "endTime": end_ms,
-        },
-    }
-    candles = post_info(payload)
-    if not candles:
-        raise RuntimeError(f"No candles returned for {coin}")
-
-    df = pd.DataFrame(candles)
-    df = df.rename(
-        columns={
-            "t": "date",
-            "o": "open",
-            "h": "high",
-            "l": "low",
-            "c": "close",
-            "v": "volume",
-            "n": "trades",
-        }
-    )
-    df["date"] = pd.to_datetime(df["date"], unit="ms", utc=True)
-    df = df.set_index("date").sort_index()
-    numeric_cols = ["open", "high", "low", "close", "volume", "trades"]
-    for col in numeric_cols:
-        if col in df:
-            df[col] = pd.to_numeric(df[col], errors="coerce")
-    df = df.dropna(subset=["open", "high", "low", "close", "volume"])
-    df.to_parquet(candle_cache_path(cache_dir, coin, interval))
-    return df
-
-
-def make_features(df: pd.DataFrame) -> pd.DataFrame:
-    close = df["close"]
-    features = pd.DataFrame(index=df.index)
-    features["ret"] = close.pct_change().fillna(0.0)
-    features["vol"] = features["ret"].rolling(20).std().fillna(0.0)
-    features["range"] = ((df["high"] - df["low"]) / close).replace([np.inf, -np.inf], 0.0).fillna(0.0)
-    features["trend"] = close.pct_change(20).replace([np.inf, -np.inf], 0.0).fillna(0.0)
-    running_high = close.cummax()
-    features["drawdown"] = ((close / running_high) - 1.0).replace([np.inf, -np.inf], 0.0).fillna(0.0)
-    return features.replace([np.inf, -np.inf], 0.0).fillna(0.0)
-
-
-def max_drawdown(df: pd.DataFrame, lookback: int) -> float:
-    close = df["close"].tail(lookback)
-    if close.empty:
-        return 0.0
-    return float((close / close.cummax() - 1.0).min())
-
-
-def avg_notional_volume(df: pd.DataFrame, lookback: int) -> float:
-    recent = df.tail(lookback)
-    if recent.empty:
-        return 0.0
-    return float((recent["close"] * recent["volume"]).mean())
-
-
-def simulate_returns(
-    model: GaussianHMM,
-    states: np.ndarray,
-    returns: pd.Series,
-    horizons: tuple[int, ...],
-    simulations: int,
-    rng: np.random.Generator,
-) -> dict[int, dict[str, float]]:
-    state_returns = {
-        state: returns.iloc[np.where(states == state)[0]].dropna().to_numpy()
-        for state in range(model.n_components)
-    }
-    all_returns = returns.dropna().to_numpy()
-    current_state = int(states[-1])
-    max_horizon = max(horizons)
-    horizon_values = {h: [] for h in horizons}
-
-    for _ in range(simulations):
-        state = current_state
-        compounded = 1.0
-        for day in range(1, max_horizon + 1):
-            probs = np.asarray(model.transmat_[state], dtype=float)
-            if probs.sum() <= 0 or np.isnan(probs).any():
-                probs = np.ones(model.n_components) / model.n_components
-            state = int(rng.choice(model.n_components, p=probs / probs.sum()))
-            samples = state_returns.get(state)
-            if samples is None or len(samples) == 0:
-                samples = all_returns
-            sampled_ret = float(rng.choice(samples)) if len(samples) else 0.0
-            compounded *= 1.0 + sampled_ret
-            if day in horizon_values:
-                horizon_values[day].append(compounded - 1.0)
-
-    results = {}
-    for horizon, values in horizon_values.items():
-        arr = np.asarray(values)
-        results[horizon] = {
-            "p10": float(np.quantile(arr, 0.10)),
-            "p25": float(np.quantile(arr, 0.25)),
-            "p50": float(np.quantile(arr, 0.50)),
-            "p75": float(np.quantile(arr, 0.75)),
-            "p90": float(np.quantile(arr, 0.90)),
-        }
-    return results
-
-
-def fit_hmm_forecast(
-    market: dict[str, Any],
-    df: pd.DataFrame,
-    horizons: tuple[int, ...],
-    n_states: int,
-    simulations: int,
-    seed: int,
-) -> dict[str, Any]:
-    coin = market["coin"]
-    if len(df) < 90:
-        raise RuntimeError(f"{coin} has too little candle history: {len(df)} rows")
-
-    features = make_features(df)
-    returns = features["ret"]
-    scaler = StandardScaler()
-    x = scaler.fit_transform(features.to_numpy())
-    model = GaussianHMM(
-        n_components=n_states,
-        covariance_type="diag",
-        n_iter=500,
-        tol=1e-4,
-        random_state=seed,
-    )
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        model.fit(x)
-    states = model.predict(x)
-    rng = np.random.default_rng(seed)
-    forecasts = simulate_returns(model, states, returns, horizons, simulations, rng)
-    expected_daily = float(np.average(model.means_[:, 0], weights=model.predict_proba(x)[-1]))
-    score = forecasts.get(30, {}).get("p50", 0.0) * 100 + forecasts.get(60, {}).get("p50", 0.0) * 50
-    score += forecasts.get(30, {}).get("p25", 0.0) * 100
-
-    return {
-        "coin": coin,
-        "price": market["mark_price"],
-        "day_notional_volume": market["day_ntl_volume"],
-        "avg_notional_volume_30d": avg_notional_volume(df, 30),
-        "open_interest": market["open_interest"],
-        "funding": market["funding"],
-        "max_leverage": market["max_leverage"],
-        "candles": int(len(df)),
-        "current_state": int(states[-1]),
-        "expected_daily_return": expected_daily,
-        "max_drawdown_60d": max_drawdown(df, 60),
-        "forecasts": {str(k): v for k, v in forecasts.items()},
-        "score": float(score),
-        "warnings": sorted({str(w.message) for w in caught}),
-    }
-
-
-def pct(value: float) -> str:
-    return f"{value * 100:.1f}%"
-
-
-def money(value: float) -> str:
-    if value >= 1_000_000_000:
-        return f"${value / 1_000_000_000:.2f}B"
-    if value >= 1_000_000:
-        return f"${value / 1_000_000:.1f}M"
-    if value >= 1_000:
-        return f"${value / 1_000:.1f}K"
-    return f"${value:.2f}"
-
-
-def forecast_cell(item: dict[str, Any], horizon: int) -> str:
-    forecast = item["forecasts"][str(horizon)]
-    return f"{pct(forecast['p25'])} / {pct(forecast['p50'])} / {pct(forecast['p75'])}"
-
-
-def write_reports(results: list[dict[str, Any]], args: argparse.Namespace, skipped: list[dict[str, str]]) -> None:
-    payload = {
-        "generated_at": utc_now().isoformat(),
-        "settings": {
-            "lookback_days": args.lookback_days,
-            "horizons": list(args.horizons),
-            "states": args.states,
-            "simulations": args.simulations,
-            "min_day_notional_volume": args.min_day_notional_volume,
-            "min_avg_notional_volume_30d": args.min_avg_notional_volume_30d,
-            "max_drawdown_60d": args.max_drawdown_60d,
-            "interval": args.interval,
-        },
-        "results": results,
-        "skipped": skipped,
-    }
-    args.json_out.parent.mkdir(parents=True, exist_ok=True)
-    args.md_out.parent.mkdir(parents=True, exist_ok=True)
-    args.json_out.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-
-    lines = [
-        "# Hyperliquid HMM Screener",
-        "",
-        f"Generated: `{payload['generated_at']}`",
-        "",
-        "Ranges are p25 / p50 / p75 simulated returns from the current HMM state.",
-        "This screens Hyperliquid perpetual markets. It does not size leverage or place trades.",
-        "",
-        "| Rank | Coin | Price | 24h Ntl Vol | Avg 30d Ntl Vol | 7d | 30d | 60d | 60d DD | Funding | Score |",
-        "| ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
-    ]
-    for rank, item in enumerate(results, 1):
-        lines.append(
-            "| "
-            f"{rank} | `{item['coin']}` | ${item['price']:.6g} | "
-            f"{money(item['day_notional_volume'])} | {money(item['avg_notional_volume_30d'])} | "
-            f"{forecast_cell(item, 7)} | {forecast_cell(item, 30)} | {forecast_cell(item, 60)} | "
-            f"{pct(item['max_drawdown_60d'])} | {pct(item['funding'])} | {item['score']:.2f} |"
-        )
-
-    lines.extend(
-        [
-            "",
-            "## Practical Read",
-            "",
-            "- Favor positive 7d and 30d medians with controlled p25 downside and strong notional volume.",
-            "- Hyperliquid perps add liquidation and funding risk; this report assumes no leverage.",
-            "- Very high upside usually means unstable regime behavior.",
-            "- Size smaller on lower-liquidity alts, especially when using perps.",
-        ]
-    )
-    warning_count = sum(1 for item in results if item["warnings"])
-    if warning_count:
-        lines.extend(
-            [
-                "",
-                "## Model Warnings",
-                "",
-                f"{warning_count} result(s) emitted HMM fit warnings. Check the JSON for exact warning text.",
-            ]
-        )
-    if skipped:
-        lines.extend(["", "## Skipped", ""])
-        for item in skipped[:40]:
-            lines.append(f"- `{item['coin']}`: {item['reason']}")
-
-    args.md_out.write_text("\n".join(lines) + "\n", encoding="utf-8")
+from fast_trade.ml.hmm_data import screen_from_config
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run a Hyperliquid perp HMM forecast screener.")
-    parser.add_argument("--coin", action="append", dest="coins", help="Hyperliquid coin to screen; repeatable.")
-    parser.add_argument("--max-products", type=int, default=40, help="Maximum liquid perps to model.")
-    parser.add_argument("--lookback-days", type=int, default=260, help="Daily candle lookback.")
-    parser.add_argument("--interval", default="1d", help="Hyperliquid candle interval, usually 1d for this model.")
-    parser.add_argument(
-        "--horizons",
-        type=int,
-        nargs="+",
-        default=list(DEFAULT_HORIZONS),
-        help="Forecast horizons in days.",
-    )
-    parser.add_argument("--states", type=int, default=3, help="Hidden states in the Gaussian HMM.")
-    parser.add_argument("--simulations", type=int, default=5000, help="Monte Carlo paths per coin.")
-    parser.add_argument("--seed", type=int, default=42, help="Base random seed.")
-    parser.add_argument("--cache-dir", type=Path, default=Path("reports/hyperliquid_hmm_forecast_data"))
+    parser.add_argument("--coin", action="append", dest="coins", help="Hyperliquid coin; repeatable.")
+    parser.add_argument("--max-products", type=int, default=40)
+    parser.add_argument("--lookback-days", type=int, default=260)
+    parser.add_argument("--horizon", action="append", dest="horizons", type=int)
+    parser.add_argument("--states", type=int, default=3)
+    parser.add_argument("--simulations", type=int, default=5000)
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--cache-dir", type=Path, default=Path("ft_archive/screen_cache/hyperliquid"))
     parser.add_argument("--cache-max-age-hours", type=float, default=6.0)
-    parser.add_argument("--json-out", type=Path, default=Path("reports/hyperliquid_hmm_7_30_60_forecast.json"))
-    parser.add_argument("--md-out", type=Path, default=Path("reports/hyperliquid_hmm_7_30_60_forecast.md"))
+    parser.add_argument("--json-out", type=Path, default=Path("ft_archive/screens/hyperliquid_hmm.json"))
+    parser.add_argument("--md-out", type=Path, default=Path("ft_archive/screens/hyperliquid_hmm.md"))
     parser.add_argument("--min-candles", type=int, default=180)
     parser.add_argument("--min-day-notional-volume", type=float, default=10_000_000)
     parser.add_argument("--min-avg-notional-volume-30d", type=float, default=10_000_000)
@@ -354,61 +29,39 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def choose_universe(args: argparse.Namespace, markets: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    if args.coins:
-        wanted = {coin.upper() for coin in args.coins}
-        return [market for market in markets if market["coin"].upper() in wanted]
-    eligible = [
-        market
-        for market in markets
-        if market["day_ntl_volume"] >= args.min_day_notional_volume and market["mark_price"] > 0
-    ]
-    return eligible[: args.max_products]
-
-
 def main() -> int:
     args = parse_args()
-    args.horizons = tuple(sorted(set(args.horizons)))
-    markets = choose_universe(args, fetch_market_context())
-    results: list[dict[str, Any]] = []
-    skipped: list[dict[str, str]] = []
-
-    for index, market in enumerate(markets, 1):
-        coin = market["coin"]
-        print(f"[{index}/{len(markets)}] Screening {coin}")
-        try:
-            df = fetch_candles(coin, args.lookback_days, args.interval, args.cache_dir, args.cache_max_age_hours)
-            if len(df) < args.min_candles:
-                skipped.append({"coin": coin, "reason": f"only {len(df)} candles"})
-                continue
-            avg_vol = avg_notional_volume(df, 30)
-            if avg_vol < args.min_avg_notional_volume_30d:
-                skipped.append({"coin": coin, "reason": "below 30d average notional volume threshold"})
-                continue
-            dd60 = max_drawdown(df, 60)
-            if dd60 < args.max_drawdown_60d:
-                skipped.append({"coin": coin, "reason": f"60d drawdown {pct(dd60)}"})
-                continue
-            result = fit_hmm_forecast(
-                market,
-                df,
-                args.horizons,
-                args.states,
-                args.simulations,
-                args.seed + index,
-            )
-            if math.isnan(result["score"]):
-                skipped.append({"coin": coin, "reason": "model produced NaN score"})
-                continue
-            results.append(result)
-        except Exception as exc:
-            skipped.append({"coin": coin, "reason": str(exc)})
-
-    results.sort(key=lambda item: item["score"], reverse=True)
-    write_reports(results, args, skipped)
+    horizons = tuple(sorted(set(args.horizons or [7, 30, 60])))
+    config = {
+        "exchange": "hyperliquid",
+        "symbols": list(args.coins or []),
+        "live": True,
+        "settings": {
+            "lookback_days": args.lookback_days,
+            "horizons": list(horizons),
+            "states": args.states,
+            "simulations": args.simulations,
+            "seed": args.seed,
+            "max_products": args.max_products,
+            "cache_dir": str(args.cache_dir),
+            "cache_max_age_hours": args.cache_max_age_hours,
+        },
+        "filters": {
+            "min_candles": args.min_candles,
+            "min_quote_volume_24h": args.min_day_notional_volume,
+            "min_avg_quote_volume_30d": args.min_avg_notional_volume_30d,
+            "max_drawdown_60d": args.max_drawdown_60d,
+        },
+        "outputs": {
+            "title": "Hyperliquid HMM Screener",
+            "json_out": str(args.json_out),
+            "md_out": str(args.md_out),
+        },
+    }
+    payload = screen_from_config(config)
     print(f"Wrote {args.md_out}")
     print(f"Wrote {args.json_out}")
-    print(f"Screened {len(results)} market(s), skipped {len(skipped)}")
+    print(f"Screened {len(payload['results'])} market(s), skipped {len(payload['skipped'])}")
     return 0
 
 

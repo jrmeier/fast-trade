@@ -13,6 +13,9 @@ If backtests are fast, strategies are cheap.
 ## MCP Server
 
 I'm using this library and my own closed-source data collection software which has live-streaming data from HyperLiquid, Coinbase, and Binanceus. If you want to try it out with absolutely no garentees, send me an email at fasttrade@jedm.dev or join the Discord [https://discord.gg/Y8ypD3dcgs](https://discord.gg/Y8ypD3dcgs).
+
+Start the local MCP server with `python -m fast_trade.mcp_server`. Available tools include CLI wrappers, portfolio helpers, log tailing, `fxmacrodata_macro_context`, and `hmm_screen`.
+
 ## Contributing
 
 If you'd like to add a feature, fix a bug, or something else, please clone the repo and fork it. When you're ready, open a PR into this main repo.
@@ -229,7 +232,7 @@ See `docs/CHANGELOG.md`.
 
 ## Release Notes
 
-Version `2.0.0` is a major release focused on terminal workflows, paper portfolio management, persistent live/stream logging, ML tooling, and internal modularization. See `docs/CHANGELOG.md` for the full change list and `docs/RELEASE.md` for the release checklist.
+Version `2.1.0` adds FXMacroData macro/FX context and a productized HMM screener (`ft screen hmm`, MCP `hmm_screen`). See `docs/CHANGELOG.md` for the full change list and `docs/RELEASE.md` for the release checklist.
 
 ## Machine Learning
 
@@ -265,6 +268,22 @@ ft regime_apply regime_model.pkl data.csv --out regime_output.csv
 
 See `regime_example.yml` for expected config structure.
 
+### HMM Screener
+
+Rank symbols with a Gaussian HMM + Monte Carlo forecast screen:
+
+```bash
+# Archive-first (download candles first)
+ft download BTC-USD coinbase --start 2024-01-01
+ft screen hmm hmm_screen_example.yml
+
+# Or live Coinbase / Hyperliquid fetch
+ft screen hmm --exchange coinbase --symbol BTC-USD --symbol ETH-USD --live
+ft screen hmm --exchange hyperliquid --symbol BTC --live --json-out ft_archive/screens/hl.json
+```
+
+See `hmm_screen_example.yml` for filters, horizons, and output paths. Agents can call the MCP tool `hmm_screen`.
+
 
 ## Testing
 
@@ -285,6 +304,7 @@ coverage report -m
 Set `FXMACRODATA_API_KEY` (or `FXMD_API_KEY`) to access protected data, or pass
 `api_key` directly when creating the client. `build_macro_context("EUR", "USD")`
 returns the pair's catalogue, filtered release calendars and announcements, and FX data.
+The same helper is available to agents as the MCP tool `fxmacrodata_macro_context`.
 
 ## Output
 

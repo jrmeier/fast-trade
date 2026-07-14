@@ -1,6 +1,6 @@
 import io
 from unittest import mock
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 
 import pytest
 
@@ -52,6 +52,32 @@ def test_request_wraps_http_errors():
             FXMacroDataClient().data_catalogue("USD")
 
 
+def test_request_wraps_url_errors():
+    with mock.patch(
+        "fast_trade.fxmacrodata.urllib.request.urlopen",
+        side_effect=URLError("timed out"),
+    ):
+        with pytest.raises(RuntimeError, match="timed out"):
+            FXMacroDataClient().data_catalogue("USD")
+
+
+def test_request_wraps_invalid_json():
+    with mock.patch(
+        "fast_trade.fxmacrodata.urllib.request.urlopen",
+        return_value=FakeResponse(b"not-json"),
+    ):
+        with pytest.raises(RuntimeError, match="not valid JSON"):
+            FXMacroDataClient().data_catalogue("USD")
+
+
+def test_non_usd_requests_fail_fast_without_api_key(monkeypatch):
+    monkeypatch.delenv("FXMACRODATA_API_KEY", raising=False)
+    monkeypatch.delenv("FXMD_API_KEY", raising=False)
+
+    with pytest.raises(RuntimeError, match="API key required"):
+        FXMacroDataClient().calendar("EUR")
+
+
 def test_build_macro_context_filters_calendars_and_does_not_limit_them():
     calls = []
 
@@ -78,3 +104,27 @@ def test_build_macro_context_filters_calendars_and_does_not_limit_them():
     assert context["quote_calendar"]["params"] == {"indicator": "inflation"}
     assert ("announcements", "eur", {"indicator": "inflation", "limit": 5}) in calls
     assert ("forex", "eur/usd", {"limit": 5}) in calls
+    assert "errors" not in context
+
+
+def test_build_macro_context_returns_partial_success_on_section_errors():
+    class StubClient:
+        def data_catalogue(self, currency):
+            if currency == "eur":
+                raise RuntimeError("catalogue down")
+            return {"currency": currency}
+
+        def calendar(self, currency, **params):
+            return {"currency": currency, "params": params}
+
+        def announcements(self, currency, indicator, **params):
+            return {"currency": currency}
+
+        def forex(self, base, quote, **params):
+            return {"pair": f"{base}/{quote}"}
+
+    context = build_macro_context("EUR", "USD", client=StubClient())
+
+    assert context["base_catalogue"] == {"error": "catalogue down"}
+    assert context["quote_catalogue"] == {"currency": "usd"}
+    assert context["errors"]["base_catalogue"] == "catalogue down"
