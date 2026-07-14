@@ -72,8 +72,8 @@ def _parse_simple_yaml(text: str):
         while stack and indent <= stack[-1][1]:
             stack.pop()
         parent, _ = stack[-1]
-        if content.startswith("- "):
-            item_val = content[2:].strip()
+        if content == "-" or content.startswith("- "):
+            item_val = "" if content == "-" else content[2:].strip()
             if "_list" not in parent:
                 parent["_list"] = []
             if ":" in item_val:
@@ -225,6 +225,7 @@ def render_plot_preview_from_data(df, trade_df, width: int = 80, height: int = 1
                 continue
             y = int((val - min_val) / span * (height - 1))
             y = height - 1 - y
+            y = max(0, min(height - 1, y))
             grid[y][x] = "x"
 
     for row in grid:

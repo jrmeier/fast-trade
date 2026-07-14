@@ -292,7 +292,7 @@ class TA:
         kama = []
         # Current KAMA = Prior KAMA + smoothing_constant * (Price - Prior KAMA)
         for s, ma, price in zip(
-            sc.iteritems(), sma.shift().iteritems(), ohlc[column].iteritems()
+            sc.items(), sma.shift().items(), ohlc[column].items()
         ):
             try:
                 kama.append(kama[-1] + s[1] * (price[1] - kama[-1]))
@@ -492,12 +492,12 @@ class TA:
 
         # calculate fractal dimension
         D = (np.log(n1 + n2) - np.log(n3)) / np.log(2)
-        alp = np.exp(-4.6 * (D - 1))
-        alp = np.clip(alp, 0.01, 1).values
+        alp = np.clip(np.exp(-4.6 * (D - 1)), 0.01, 1)
 
-        filt = c.values
-        for i, x in enumerate(alp):
-            cl = c.values[i]
+        filt = c.to_numpy().copy()
+        alp_arr = alp.to_numpy()
+        for i, x in enumerate(alp_arr):
+            cl = filt[i]
             if i < window:
                 continue
             filt[i] = cl * x + (1 - x) * filt[i - 1]
@@ -832,11 +832,11 @@ class TA:
         SAR trails price as the trend extends over time. The indicator is below prices when prices are rising and above prices when prices are falling.
         In this regard, the indicator stops and reverses when the price trend reverses and breaks above or below the indicator.
         """
-        high, low = ohlc.high, ohlc.low
+        high, low = ohlc.high.values, ohlc.low.values
 
         # Starting values
         sig0, xpt0, af0 = True, high[0], af
-        _sar = [low[0] - (high - low).std()]
+        _sar = [low[0] - (ohlc.high - ohlc.low).std()]
 
         for i in range(1, len(ohlc)):
             sig1, xpt1, af1 = sig0, xpt0, af0
@@ -880,8 +880,10 @@ class TA:
         """
 
         length = len(ohlc)
-        high, low, close = ohlc.high, ohlc.low, ohlc.close
-        psar = close[0 : len(close)]
+        high = ohlc.high.values
+        low = ohlc.low.values
+        close = ohlc.close.values
+        psar = close.copy()
         psarbull = [None] * length
         psarbear = [None] * length
         bull = True
@@ -2361,9 +2363,6 @@ class TA:
         :param str column: column to look at
         :return Series: rolling max
         """
-        if column not in ohlc.columns:
-            raise ValueError(f"Column {column} not found in DataFrame")
-
         return ohlc[column].rolling(window=periods).max()
 
     @classmethod
@@ -2376,9 +2375,6 @@ class TA:
         :param str column: column to look at
         :return Series: rolling min
         """
-        if column not in ohlc.columns:
-            raise ValueError(f"Column {column} not found in DataFrame")
-
         return ohlc[column].rolling(window=periods).min()
 
     @classmethod
@@ -2415,6 +2411,16 @@ class TA:
             n = len(x)
             x_mean = np.mean(x)
             y_mean = np.mean(y)
+            denom = np.sum((x - x_mean) ** 2)
+            slope = np.sum((x - x_mean) * (y - y_mean)) / denom
+            intercept = y_mean - slope * x_mean
+            return slope * (n - 1) + intercept
+
+        result = ohlc[column].rolling(window=period, min_periods=1).apply(
+            calculate_lr_point, raw=True
+        )
+        return pd.Series(result, name="{0} period LINEAR_REGRESSION".format(period))
+
 
 if __name__ == "__main__":
     print([k for k in TA.__dict__.keys() if k[0] not in "_"])

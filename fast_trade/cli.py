@@ -1018,6 +1018,141 @@ def _pick_from_list(session: PromptSession, title: str, items: List[str]) -> Opt
     return items[choice - 1]
 
 
+def _flush_stream_timeout(
+    symbol: str,
+    candles: Dict[datetime.datetime, dict],
+    trade_buffer: List[dict],
+    seen_trades: Dict[str, float],
+    stream_log_path: str,
+    last_kline_flush: float,
+    last_trade_flush: float,
+    now: Optional[float] = None,
+    force_klines: bool = False,
+) -> Tuple[List[dict], Dict[str, float], float, float]:
+    """Flush kline/trade buffers when idle timeouts elapse. Returns updated state."""
+    now = time.time() if now is None else now
+    if force_klines or now - last_kline_flush >= 60:
+        now_dt = datetime.datetime.utcnow()
+        cutoff = minute_floor(now_dt)
+        ready = [(k, v) for k, v in candles.items() if k < cutoff and v["open"] is not None]
+        if ready:
+            _append_klines_to_archive(symbol, ready)
+            _append_log_line(
+                stream_log_path,
+                {
+                    "event": "klines_flush",
+                    "count": len(ready),
+                    "through": cutoff.isoformat(),
+                },
+                kind="stream",
+            )
+            for k, _ in ready:
+                candles.pop(k, None)
+        current = candles.get(cutoff)
+        if current and current["open"] is not None:
+            _append_klines_to_archive(symbol, [(cutoff, current)])
+            _append_log_line(
+                stream_log_path,
+                {
+                    "event": "klines_flush",
+                    "count": 1,
+                    "through": cutoff.isoformat(),
+                    "current": True,
+                },
+                kind="stream",
+            )
+        last_kline_flush = now
+    if trade_buffer and now - last_trade_flush >= 60:
+        trade_count = len(trade_buffer)
+        _append_trades_parquet(symbol, trade_buffer)
+        _append_log_line(
+            stream_log_path,
+            {"event": "trades_flush", "count": trade_count},
+            kind="stream",
+        )
+        trade_buffer = []
+        last_trade_flush = now
+        cutoff_ts = now - 3600
+        seen_trades = {k: v for k, v in seen_trades.items() if v >= cutoff_ts}
+    return trade_buffer, seen_trades, last_kline_flush, last_trade_flush
+
+
+def _stream_channel_name(channel: str) -> str:
+    """Map CLI stream channel aliases to Coinbase websocket channel names."""
+    if channel == "trades":
+        return "market_trades"
+    return channel
+
+
+def _save_last_strategy_path(path: str, content: str) -> None:
+    try:
+        with open(path, "w") as fh:
+            fh.write(content)
+    except Exception:
+        pass
+
+
+def _live_signal_from_df(df: pd.DataFrame, compiled_action_logic: dict) -> Tuple[str, Optional[float], dict, List[str]]:
+    """Compute one live signal from an OHLCV frame. Returns action label, price, indicators, log parts."""
+    if df is None or df.empty:
+        return "HOLD", None, {}, []
+    frames = list(df.tail(10).itertuples())
+    if not frames:
+        return "HOLD", None, {}, []
+    frame = frames[-1]
+    price = getattr(frame, "close", None)
+    last_frames = list(reversed(frames))
+    action = determine_action_compiled(frame, compiled_action_logic, last_frames=last_frames)
+    base_cols = {
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume",
+        "action",
+        "in_trade",
+        "account_value",
+        "adj_account_value",
+        "adj_account_value_change",
+        "adj_account_value_change_perc",
+        "trailing_stop_loss",
+    }
+    ind_cols = [c for c in df.columns if c not in base_cols][:8]
+    if action in ["e", "ae"]:
+        label = "ENTER"
+    elif action in ["x", "ax", "tsl"]:
+        label = "EXIT"
+    else:
+        label = "HOLD"
+    now_iso = datetime.datetime.utcnow().isoformat()
+    parts = [now_iso, label, f"close={_format_value(price)}"]
+    indicators = {}
+    for col in ind_cols:
+        val = getattr(frame, col, None)
+        indicators[col] = _format_value(val)
+        parts.append(f"{col}={_format_value(val)}")
+    return label, price, indicators, parts
+
+
+def _append_log_line(path: str, record, kind: Optional[str] = None) -> None:
+    try:
+        if isinstance(record, str):
+            record = {"ts": datetime.datetime.utcnow().isoformat(), "message": record}
+        elif isinstance(record, dict):
+            record = dict(record)
+            record.setdefault("ts", datetime.datetime.utcnow().isoformat())
+        else:
+            record = {"ts": datetime.datetime.utcnow().isoformat(), "message": str(record)}
+        if kind:
+            record.setdefault("kind", kind)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+    except Exception:
+        # Avoid breaking live/stream loops due to logging issues.
+        pass
+
+
 @app.command("terminal")
 def terminal_cmd(
     run_id: Optional[str] = typer.Option(None, "--run-id", help="Run ID to open"),
@@ -1165,24 +1300,6 @@ def terminal_cmd(
     live_symbol = None
     live_history: Deque[str] = deque(maxlen=200)
 
-    def _append_log_line(path: str, record, kind: Optional[str] = None) -> None:
-        try:
-            if isinstance(record, str):
-                record = {"ts": datetime.datetime.utcnow().isoformat(), "message": record}
-            elif isinstance(record, dict):
-                record = dict(record)
-                record.setdefault("ts", datetime.datetime.utcnow().isoformat())
-            else:
-                record = {"ts": datetime.datetime.utcnow().isoformat(), "message": str(record)}
-            if kind:
-                record.setdefault("kind", kind)
-            os.makedirs(os.path.dirname(path), exist_ok=True)
-            with open(path, "a", encoding="utf-8") as fh:
-                fh.write(json.dumps(record, ensure_ascii=False) + "\n")
-        except Exception:
-            # Avoid breaking live/stream loops due to logging issues.
-            pass
-
     def _current_stream_info() -> dict:
         elapsed = max(1e-6, time.time() - stream_rate_start)
         mps = stream_msg_total / elapsed if stream_status in ["running", "connecting", "reconnecting"] else 0.0
@@ -1249,8 +1366,7 @@ def terminal_cmd(
                                 "channel": None,
                             }
                             for ch in channels:
-                                if ch == "trades":
-                                    ch = "market_trades"
+                                ch = _stream_channel_name(ch)
                                 sub["channel"] = ch
                                 await ws.send(json.dumps(sub))
                             stream_status = "running"
@@ -1258,53 +1374,17 @@ def terminal_cmd(
                                 try:
                                     raw = await asyncio.wait_for(ws.recv(), timeout=1.0)
                                 except asyncio.TimeoutError:
-                                    if time.time() - last_kline_flush >= 60:
-                                        now_dt = datetime.datetime.utcnow()
-                                        cutoff = minute_floor(now_dt)
-                                        ready = [
-                                            (k, v) for k, v in candles.items() if k < cutoff and v["open"] is not None
-                                        ]
-                                        if ready:
-                                            _append_klines_to_archive(symbol, ready)
-                                            _append_log_line(
-                                                stream_log_path,
-                                                {
-                                                    "event": "klines_flush",
-                                                    "count": len(ready),
-                                                    "through": cutoff.isoformat(),
-                                                },
-                                                kind="stream",
-                                            )
-                                            for k, _ in ready:
-                                                candles.pop(k, None)
-                                        # also write current in-progress minute (do not remove)
-                                        current = candles.get(cutoff)
-                                        if current and current["open"] is not None:
-                                            _append_klines_to_archive(symbol, [(cutoff, current)])
-                                            _append_log_line(
-                                                stream_log_path,
-                                                {
-                                                    "event": "klines_flush",
-                                                    "count": 1,
-                                                    "through": cutoff.isoformat(),
-                                                    "current": True,
-                                                },
-                                                kind="stream",
-                                            )
-                                        last_kline_flush = time.time()
-                                    if trade_buffer and time.time() - last_trade_flush >= 60:
-                                        trade_count = len(trade_buffer)
-                                        _append_trades_parquet(symbol, trade_buffer)
-                                        _append_log_line(
+                                    trade_buffer, seen_trades, last_kline_flush, last_trade_flush = (
+                                        _flush_stream_timeout(
+                                            symbol,
+                                            candles,
+                                            trade_buffer,
+                                            seen_trades,
                                             stream_log_path,
-                                            {"event": "trades_flush", "count": trade_count},
-                                            kind="stream",
+                                            last_kline_flush,
+                                            last_trade_flush,
                                         )
-                                        trade_buffer = []
-                                        last_trade_flush = time.time()
-                                        # prune seen cache
-                                        cutoff_ts = time.time() - 3600
-                                        seen_trades = {k: v for k, v in seen_trades.items() if v >= cutoff_ts}
+                                    )
                                     continue
                                 nonlocal stream_msg_total
                                 stream_msg_total += 1
@@ -1360,52 +1440,18 @@ def terminal_cmd(
                                                     },
                                                 )
                                                 update_candle(candle, price, size)
-                                        now_dt = datetime.datetime.utcnow()
-                                        cutoff = minute_floor(now_dt)
-                                        ready = [
-                                            (k, v) for k, v in candles.items() if k < cutoff and v["open"] is not None
-                                        ]
-                                        if ready:
-                                            _append_klines_to_archive(symbol, ready)
-                                            _append_log_line(
+                                        trade_buffer, seen_trades, last_kline_flush, last_trade_flush = (
+                                            _flush_stream_timeout(
+                                                symbol,
+                                                candles,
+                                                trade_buffer,
+                                                seen_trades,
                                                 stream_log_path,
-                                                {
-                                                    "event": "klines_flush",
-                                                    "count": len(ready),
-                                                    "through": cutoff.isoformat(),
-                                                },
-                                                kind="stream",
+                                                last_kline_flush,
+                                                last_trade_flush,
+                                                force_klines=True,
                                             )
-                                            for k, _ in ready:
-                                                candles.pop(k, None)
-                                            last_kline_flush = time.time()
-                                        # also write current in-progress minute (do not remove)
-                                        current = candles.get(cutoff)
-                                        if current and current["open"] is not None:
-                                            _append_klines_to_archive(symbol, [(cutoff, current)])
-                                            _append_log_line(
-                                                stream_log_path,
-                                                {
-                                                    "event": "klines_flush",
-                                                    "count": 1,
-                                                    "through": cutoff.isoformat(),
-                                                    "current": True,
-                                                },
-                                                kind="stream",
-                                            )
-                                    if trade_buffer and time.time() - last_trade_flush >= 60:
-                                        trade_count = len(trade_buffer)
-                                        _append_trades_parquet(symbol, trade_buffer)
-                                        _append_log_line(
-                                            stream_log_path,
-                                            {"event": "trades_flush", "count": trade_count},
-                                            kind="stream",
                                         )
-                                        trade_buffer = []
-                                        last_trade_flush = time.time()
-                                        # prune seen cache
-                                        cutoff_ts = time.time() - 3600
-                                        seen_trades = {k: v for k, v in seen_trades.items() if v >= cutoff_ts}
                                 except Exception:
                                     msg = raw[:500]
                                     stream_buffer.append(msg)
@@ -1429,11 +1475,18 @@ def terminal_cmd(
 
             asyncio.run(runner())
 
+        if os.environ.get("FT_TERMINAL_SYNC_STREAM"):
+            # Tests: stop quickly so sync stream cannot hang forever.
+            delay = float(os.environ.get("FT_TERMINAL_SYNC_STOP_DELAY", "0.05"))
+            threading.Timer(delay, stream_stop_event.set).start()
+            _run_stream()
+            return
+
         stream_thread = threading.Thread(target=_run_stream, daemon=True)
         stream_thread.start()
 
     def _terminal_handles(parts: List[str], cmd: str) -> bool:
-        if not parts:
+        if not parts:  # pragma: no cover - empty input never reaches passthrough
             return True
         token = parts[0]
         if cmd in ["Q", "QUIT", "EXIT", "SAVE", "S", "N", "NEXT", "P", "PREV", "PREVIOUS", "HELP", "H", "?"]:
@@ -1651,56 +1704,12 @@ def terminal_cmd(
                                 try:
                                     df = _load_latest_ohlcv("coinbase", live_symbol, lookback)
                                     df = prepare_df(df, strat_obj)
-                                    if df.empty:
-                                        live_last_action = "HOLD"
-                                        live_last_time = datetime.datetime.utcnow().isoformat()
-                                    else:
-                                        frames = list(df.tail(10).itertuples())
-                                        if not frames:
-                                            action = "h"
-                                            price = None
-                                            ind_cols = []
-                                        else:
-                                            frame = frames[-1]
-                                            price = getattr(frame, "close", None)
-                                            last_frames = list(reversed(frames))
-                                            action = determine_action_compiled(
-                                                frame,
-                                                compiled_action_logic,
-                                                last_frames=last_frames,
-                                            )
-                                            base_cols = {
-                                                "open",
-                                                "high",
-                                                "low",
-                                                "close",
-                                                "volume",
-                                                "action",
-                                                "in_trade",
-                                                "account_value",
-                                                "adj_account_value",
-                                                "adj_account_value_change",
-                                                "adj_account_value_change_perc",
-                                                "trailing_stop_loss",
-                                            }
-                                            ind_cols = [c for c in df.columns if c not in base_cols][:8]
-                                        if action in ["e", "ae"]:
-                                            live_last_action = "ENTER"
-                                        elif action in ["x", "ax", "tsl"]:
-                                            live_last_action = "EXIT"
-                                        else:
-                                            live_last_action = "HOLD"
-                                        live_last_time = datetime.datetime.utcnow().isoformat()
-                                        parts = [
-                                            f"{live_last_time}",
-                                            f"{live_last_action}",
-                                            f"close={_format_value(price)}",
-                                        ]
-                                        indicators = {}
-                                        for col in ind_cols:
-                                            val = getattr(frame, col, None)
-                                            indicators[col] = _format_value(val)
-                                            parts.append(f"{col}={_format_value(val)}")
+                                    label, price, indicators, parts = _live_signal_from_df(
+                                        df, compiled_action_logic
+                                    )
+                                    live_last_action = label
+                                    live_last_time = datetime.datetime.utcnow().isoformat()
+                                    if parts:
                                         line = " | ".join(parts)
                                         live_history.append(line)
                                         _append_log_line(
@@ -1735,8 +1744,13 @@ def terminal_cmd(
                         finally:
                             live_status = "stopped"
 
-                    live_thread = threading.Thread(target=_run_live, daemon=True)
-                    live_thread.start()
+                    if os.environ.get("FT_TERMINAL_SYNC_LIVE"):
+                        delay = float(os.environ.get("FT_TERMINAL_SYNC_STOP_DELAY", "0.05"))
+                        threading.Timer(delay, live_stop_event.set).start()
+                        _run_live()
+                    else:
+                        live_thread = threading.Thread(target=_run_live, daemon=True)
+                        live_thread.start()
         elif parts[:2] == ["LIVE", "STOP"]:
             if live_stop_event:
                 live_stop_event.set()
@@ -1763,6 +1777,9 @@ def terminal_cmd(
                 time.sleep(0.5)
         elif cmd in ["STREAM", "ST"]:
             current_page = "STREAM"
+            page_changed = True
+        elif cmd in ["LIVE", "LV"] and len(parts) == 1:
+            current_page = "LIVE"
             page_changed = True
         elif cmd in ["STREAM", "VIEW"] or cmd == "STREAM VIEW":
             current_page = "STREAM"
@@ -1843,7 +1860,7 @@ def terminal_cmd(
                     follow_logs = True
             show_live = log_kind in ["ALL", "LIVE"]
             show_stream = log_kind in ["ALL", "STREAM"]
-            if not show_live and not show_stream:
+            if not show_live and not show_stream:  # pragma: no cover - log_kind is always valid
                 console.print("[yellow]Usage: LOGS [LIVE|STREAM|ALL] [FOLLOW][/yellow]")
                 continue
 
@@ -1987,11 +2004,7 @@ def terminal_cmd(
             selected = _pick_from_list(session, "Strategies", strategies)
             if selected:
                 current_strategy_path = selected
-                try:
-                    with open(last_strat_path_file, "w") as fh:
-                        fh.write(selected)
-                except Exception:
-                    pass
+                _save_last_strategy_path(last_strat_path_file, selected)
                 console.print(f"[green]Selected[/green] {selected}")
                 try:
                     strat_obj = open_strat_file(selected)

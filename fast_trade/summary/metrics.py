@@ -118,8 +118,19 @@ def calculate_risk_metrics(df):
 
 def calculate_trade_streaks(trade_log_df):
     """Calculate winning and losing streaks"""
+    empty = {
+        "current_streak": 0,
+        "max_win_streak": 0,
+        "max_loss_streak": 0,
+        "avg_win_streak": 0.0,
+        "avg_loss_streak": 0.0,
+    }
     try:
+        if trade_log_df is None or trade_log_df.empty:
+            return empty
         trades = trade_log_df.adj_account_value_change_perc > 0
+        if trades.empty:
+            return empty
         streaks = (trades != trades.shift()).cumsum()
 
         win_streaks = streaks[trades]
@@ -148,14 +159,8 @@ def calculate_trade_streaks(trade_log_df):
                 round(loss_streak_counts.mean() if not loss_streak_counts.empty else 0, 3)
             ),
         }
-    except (ValueError, AttributeError):
-        return {
-            "current_streak": 0,
-            "max_win_streak": 0,
-            "max_loss_streak": 0,
-            "avg_win_streak": 0.0,
-            "avg_loss_streak": 0.0,
-        }
+    except (ValueError, AttributeError, IndexError, KeyError):
+        return empty
 
 
 def calculate_time_analysis(df):

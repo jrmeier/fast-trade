@@ -25,6 +25,9 @@
 - `test/test_fxmacrodata.py` (mocked URL construction, env key loading, HTTP/URL/JSON errors, context request shape, partial success).
 - `test/test_hmm_screen.py` (synthetic OHLCV screen/filter/report coverage, MCP smoke).
 - MCP smoke coverage in `test/test_mcp_server.py`.
+- Expanded CLI/terminal coverage to 100%: stream/live helpers, follow views, portfolio passthrough, logs tail/follow, and `_parse_simple_yaml` empty-list items (`test/test_cli_final_coverage.py`, `test/test_cli_coverage_remaining.py`).
+- Correctness-first suite: golden `run_backtest` e2e, fee equity curve, trailing-stop PnL, action/sim path parity, trade quality, and documented metric formulas in `docs/METRICS.md` (`test/test_run_backtest_e2e.py`).
+- Full-package line coverage gated at 100% via `.coveragerc` `fail_under = 100`.
 
 ## 2.0.0
 

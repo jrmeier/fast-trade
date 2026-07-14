@@ -1,11 +1,15 @@
 [run]
-source=
+source =
     ./fast_trade
-omit=
-    ./fast-trade/.fast_trade/*
+omit =
     ./fast_trade/__main__.py
     ./fast_trade/__init__.py
-    ./fast_trade/file_helpers.py
-    ./fast_trade/cli.py
-    ./fast_trade/update_symbol_data.py
-    ./fast_trade/cli_helpers.py
+
+[report]
+show_missing = True
+skip_covered = False
+fail_under = 100
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:
+    if __name__ == "__main__":

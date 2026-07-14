@@ -138,19 +138,14 @@ def get_single_candle(product_id: str, params: dict = {}, df=pd.DataFrame()):
         if res.status_code > 399:
             bad_errors += 1
             console.print(f"[red]Coinbase error {res.status_code}: {res.text}[/red]")
-            # bad_errors += 1
-            if bad_errors > 1:
-                time.sleep(bad_errors * bad_errors * bad_errors)
-
+            time.sleep(bad_errors * bad_errors * bad_errors)
             if bad_errors > 5:
                 raise Exception(f"Api Error: {res.status_code} {res.text}")
-            # Warning("skipping call ", res.status_code, res.text)
-        # print("res", res.status_code, res.text)
         res = res.json()
         new_df = df_from_candles(res)
         if new_df.empty:
             bad_errors += 1
-            if bad_errors > 1:
+            if bad_errors > 0:
                 raise Exception(f"Error Downloading: for {product_id}")
             return pd.DataFrame()
         sleep_time = random.random() * 0.5 + 0.1

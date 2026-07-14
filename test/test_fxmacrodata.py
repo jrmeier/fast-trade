@@ -43,6 +43,25 @@ def test_constructor_reads_api_key_from_environment(monkeypatch):
     assert FXMacroDataClient().api_key == "environment-key"
     assert FXMacroDataClient(api_key="constructor-key").api_key == "constructor-key"
 
+    monkeypatch.delenv("FXMACRODATA_API_KEY", raising=False)
+    monkeypatch.setenv("FXMD_API_KEY", "fxmd-key")
+    assert FXMacroDataClient().api_key == "fxmd-key"
+
+
+def test_require_api_key_includes_reason():
+    client = FXMacroDataClient(api_key="")
+    with pytest.raises(RuntimeError, match="currency=eur"):
+        client.require_api_key("currency=eur")
+
+
+def test_request_wraps_timeout_errors():
+    with mock.patch(
+        "fast_trade.fxmacrodata.urllib.request.urlopen",
+        side_effect=TimeoutError("timed out"),
+    ):
+        with pytest.raises(RuntimeError, match="timed out"):
+            FXMacroDataClient(api_key="k").data_catalogue("USD")
+
 
 def test_request_wraps_http_errors():
     error = HTTPError("https://example.test", 401, "Unauthorized", {}, io.BytesIO(b"invalid key"))
@@ -128,3 +147,34 @@ def test_build_macro_context_returns_partial_success_on_section_errors():
     assert context["base_catalogue"] == {"error": "catalogue down"}
     assert context["quote_catalogue"] == {"currency": "usd"}
     assert context["errors"]["base_catalogue"] == "catalogue down"
+
+
+@pytest.mark.parametrize(
+    "method,args,expected_path",
+    [
+        ("announcements", ("USD", "cpi"), "announcements/usd/cpi"),
+        ("latest_announcements", ("USD",), "announcements/usd/latest"),
+        ("predictions", ("USD", "cpi"), "predictions/usd/cpi"),
+        ("forex", ("EUR", "USD"), "forex/eur/usd"),
+        ("cot", ("USD",), "cot/usd"),
+        ("commodity", ("gold",), "commodities/gold"),
+        ("commodities_latest", tuple(), "commodities/latest"),
+        ("rate_differentials", ("EUR", "USD"), "rate_differentials/eur/usd"),
+        ("forward_differentials", ("EUR", "USD"), "forward_differentials/eur/usd"),
+        ("market_sessions", tuple(), "market_sessions"),
+        ("risk_sentiment", tuple(), "risk_sentiment"),
+        ("news", ("USD",), "news/usd"),
+        ("press_releases", ("USD",), "press-releases/usd"),
+    ],
+)
+def test_endpoint_methods_build_expected_paths(method, args, expected_path):
+    captured = {}
+
+    def fake_urlopen(request, timeout):
+        captured["url"] = request.full_url
+        return FakeResponse(b"{}")
+
+    with mock.patch("fast_trade.fxmacrodata.urllib.request.urlopen", side_effect=fake_urlopen):
+        getattr(FXMacroDataClient(api_key="k"), method)(*args)
+
+    assert expected_path in captured["url"]

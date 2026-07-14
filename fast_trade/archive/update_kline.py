@@ -90,7 +90,7 @@ def update_kline(
 
     if last_exc:
         raise last_exc
-    raise Exception(f"Download failed for {symbol}")
+    raise Exception(f"Download failed for {symbol} with no recorded exception")
 
 
 if __name__ == "__main__":

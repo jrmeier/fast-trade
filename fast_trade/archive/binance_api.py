@@ -107,6 +107,7 @@ def get_binance_klines(
     total_duration_hours = (end_date - curr_date).total_seconds() / 3600
     num_calls = math.ceil(total_duration_hours / HOURS_TO_INCREMENT)
     total_api_calls = 0
+    error_count = 0
     klines = []
     start_time = time.time()
     while curr_date < end_date:
@@ -122,10 +123,10 @@ def get_binance_klines(
 
         req = requests.get(url)
         total_api_calls += 1
-        error_count = 0
         if req.status_code == 200:
             curr_date = next_end_date
             klines.extend(req.json())
+            error_count = 0
         else:
             console.print(f"[red]Binance error {symbol}: {req.text}[/red]")
             error_count += 1

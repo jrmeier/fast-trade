@@ -42,6 +42,12 @@ def calculate_trade_quality(trade_log_df):
 
 def calculate_effective_trades(df, trade_log_df):
     """Calculate trade metrics accounting for commission"""
+    if trade_log_df is None or trade_log_df.empty:
+        return {
+            "num_profitable_after_commission": 0,
+            "num_unprofitable_after_commission": 0,
+            "commission_drag_pct": 0.0,
+        }
     trade_fees = df.loc[trade_log_df.index, "fee"]
     pnl = trade_log_df.get("adj_account_value_change")
     if pnl is None:
@@ -49,7 +55,10 @@ def calculate_effective_trades(df, trade_log_df):
 
     profitable_trades = trade_log_df[pnl > trade_fees]
     unprofitable_trades = trade_log_df[pnl <= trade_fees]
-    commission_impact = df.fee.sum() / df.iloc[-1].adj_account_value * 100
+    final_equity = df.iloc[-1].adj_account_value
+    commission_impact = (
+        df.fee.sum() / final_equity * 100 if final_equity else 0.0
+    )
 
     return {
         "num_profitable_after_commission": int(len(profitable_trades)),
