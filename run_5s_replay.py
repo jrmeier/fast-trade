@@ -40,7 +40,9 @@ import psycopg2
 from shared_strategies import registry
 from shared_strategies import timeframe
 
-from fast_trade.backtest_glue import Bar, SubBar, build_rig, group_into_minutes
+from fast_trade.backtest_glue import (
+    Bar, SubBar, build_rig, group_into_minutes, group_native_5s,
+)
 
 logging.basicConfig(level=os.environ.get("LOGLEVEL", "ERROR"),
                     format="%(levelname)s %(name)s %(message)s")
@@ -331,7 +333,9 @@ def run_replay(strategy_name: str = "ema_retest_v134", symbol: str = None,
     tf_token = (parameters or {}).get("timeframe") \
         or registry.default_params(strategy_name).get("timeframe")
     minutes = timeframe.to_minutes(tf_token)
-    groups = group_into_minutes(rows, minutes=minutes)
+    # minutes == 0 → native 5-second bars (VER 97 Live-Chart); else whole-minute
+    # resample. The strategy's decision loop then runs per 5s bar.
+    groups = group_native_5s(rows) if minutes == 0 else group_into_minutes(rows, minutes=minutes)
 
     applied, ignored, restore = _apply_version_params(spec, parameters)
     try:

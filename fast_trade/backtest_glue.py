@@ -133,3 +133,14 @@ def group_into_minutes(rows: Iterable[tuple],
         subs.append(SubBar(date=t, open=op, high=hi, low=lo, close=cl))
     flush()
     return groups
+
+
+def group_native_5s(rows: Iterable[tuple]) -> List[Tuple[Bar, List[SubBar]]]:
+    """Native 5-second grouping: each 5s row IS a strategy bar (VER 97 "Live
+    Chart-Based" — EMAs computed on 5s bars). The single sub-bar is the bar itself
+    so resting OCA legs still match intrabar. Used when the timeframe token
+    resolves to 0 minutes ("5s"). NOTE: ~12× the bar count of the 1m path — the
+    strategy's decision loop runs on every 5-second bar."""
+    return [(Bar(date=t, open=op, high=hi, low=lo, close=cl),
+             [SubBar(date=t, open=op, high=hi, low=lo, close=cl)])
+            for t, op, hi, lo, cl in rows]
