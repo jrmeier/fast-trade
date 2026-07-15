@@ -86,6 +86,7 @@ class TradeRow(BaseModel):
     exit_time: Optional[str]
     exit_price: Optional[float]
     exits: List[str]
+    exit_reasons: List[str] = []      # granular trigger per exit (daily_loss_limit, session_end, …)
     realized_pnl: float
     breach: bool
     rescue: bool
