@@ -79,7 +79,7 @@ def fetch_5s(symbol: str, start: str, end: str) -> List[tuple]:
 # ── round-trip reconstruction from the broker fill ledger ────────────────────
 class Trade:
     __slots__ = ("entry_ts", "side", "entry_px", "entry_qty", "qty", "pnl",
-                 "exits", "exit_px", "exit_ts", "breach", "rescue")
+                 "exits", "exit_reasons", "exit_px", "exit_ts", "breach", "rescue")
 
     def __init__(self, rec):
         self.entry_ts = rec.ts
@@ -89,6 +89,11 @@ class Trade:
         self.qty = rec.qty
         self.pnl = 0.0
         self.exits: List[str] = []
+        # The granular exit trigger for each closing fill. SL/TP legs ARE their
+        # own reason; every FLATTEN/RESCUE/SESSION_END/REDUCE carries the real
+        # cause in the fill's `note` (ema_stop, daily_target, daily_loss_limit,
+        # daily_profit_target, session_end, window_end, runner_tp, end_of_data…).
+        self.exit_reasons: List[str] = []
         self.exit_px = None
         self.exit_ts = None
         self.breach = False
@@ -97,6 +102,10 @@ class Trade:
     def add_exit(self, rec):
         self.pnl += rec.pnl
         self.exits.append(rec.kind)
+        # SL/TP note is fill-mechanics ("", "limit"), not an exit reason — the
+        # kind IS the reason there. For everything else the note is the trigger.
+        self.exit_reasons.append(
+            rec.kind if rec.kind in ("SL", "TP") else (rec.note or rec.kind))
         self.qty -= rec.qty
         self.exit_px = rec.price            # last closing fill price wins
         self.exit_ts = rec.ts
@@ -116,6 +125,7 @@ class Trade:
             "exit_time": iso(self.exit_ts),
             "exit_price": self.exit_px,
             "exits": list(self.exits),
+            "exit_reasons": list(self.exit_reasons),
             "realized_pnl": round(self.pnl, 2),
             "breach": self.breach,
             "rescue": self.rescue,
