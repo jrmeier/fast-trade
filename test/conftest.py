@@ -1,46 +1,11 @@
-"""Shared fixtures for CLI and terminal tests."""
+"""Shared fixtures for CLI tests."""
 
-import multiprocessing as mp
-import os
-import sys
 from pathlib import Path
 
 import pandas as pd
 import pytest
 import yaml
 from typer.testing import CliRunner
-
-_SESSION_EXITSTATUS = None
-
-
-def pytest_configure(config):
-    # Terminal coverage starts threads before chunked backtests fork.
-    # Spawn avoids corrupting native libs that later abort on interpreter exit.
-    try:
-        mp.set_start_method("spawn", force=True)
-    except RuntimeError:
-        pass
-
-
-@pytest.hookimpl(trylast=True)
-def pytest_sessionfinish(session, exitstatus):
-    global _SESSION_EXITSTATUS
-    _SESSION_EXITSTATUS = int(exitstatus)
-
-
-def pytest_unconfigure(config):
-    # Runs after terminal reporting. Skip fragile C++/OpenBLAS atexit teardown;
-    # GitHub runners otherwise SIGABRT (exit 134) even when the suite is green.
-    if _SESSION_EXITSTATUS is None:
-        return
-    reporter = config.pluginmanager.get_plugin("terminalreporter")
-    if reporter is not None:
-        tw = getattr(reporter, "_tw", None)
-        if tw is not None and hasattr(tw, "flush"):
-            tw.flush()
-    sys.stdout.flush()
-    sys.stderr.flush()
-    os._exit(_SESSION_EXITSTATUS)
 
 
 @pytest.fixture

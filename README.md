@@ -172,59 +172,20 @@ Update the archive. Brings the archive up to date with the latest data for each 
 
 This update all the existing items in the archive, downloading the latest data for each symbol.
 
-## Terminal (Bloomberg‑style)
-
-Open the interactive terminal UI for browsing backtests and strategies.
+## Browse saved backtests
 
 ```bash
-ft terminal
-```
-
-See `docs/Terminal.md` for the full terminal command reference and live/stream/portfolio workflows.
-
-### Terminal shortcuts
-- `DB` — dashboard (default)
-- `TR` — trades
-- `SUM` — summary
-- `TS` — tearsheet
-- `GP` — plot/preview
-- `POS` — position metrics
-- `LIVE START/STOP/VIEW [SYMBOL]` — live signal runner
-- `STREAM START/STOP/VIEW` — market data stream
-- `LOGS [LIVE|STREAM|ALL] [FOLLOW]` — view persisted logs
-- `PORTFOLIO START|STATUS|STOP` — paper portfolio runner
-- `OPEN BT` — pick a backtest run
-- `OPEN STRAT` — pick a strategy file
-- `SHOW STRAT` — show current strategy summary
-- `EDIT STRAT` — edit strategy (writes `strategy.override.yml`)
-- `EDIT BT` — edit backtest summary fields
-- `BT [SAVE] [PLOT] [MODS k v ...]` — run backtest
-- `UA` — update archive
-- `N` / `P` — next/prev page (trades)
-- `Q` — quit
-
-### Quick example
-
-```bash
-ft terminal
-```
-
-In the prompt:
-```
-OPEN BT
-TR
-OPEN STRAT
-BT SAVE
-Q
+ft backtests list
+ft backtests show --index 1
+ft logs --kind all --tail 200
 ```
 
 ### Persistent logs
 
-Live, stream, and portfolio activity is persisted as JSONL so it can be tailed in the terminal or consumed by external tools.
+Portfolio activity is persisted as JSONL so it can be tailed with `ft logs` or consumed by external tools.
 
-- Live: `ft_archive/live_logs/<RUN_ID>.jsonl`
-- Stream: `ft_archive/stream_logs/<RUN_ID>.jsonl`
 - Portfolio: `ft_archive/portfolio/<NAME>/portfolio.jsonl`
+- Optional live/stream logs (if present): `ft_archive/live_logs/<RUN_ID>.jsonl`, `ft_archive/stream_logs/<RUN_ID>.jsonl`
 
 ## Changelog
 
