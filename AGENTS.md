@@ -21,10 +21,7 @@
 
 ## Agent Usage Notes
 - Prefer YAML for strategies and configs (`.yml/.yaml`). JSON is deprecated in examples.
-- Use `ft terminal` for interactive browsing of backtests and strategies.
-  - Shortcuts: `TR`, `SUM`, `GP`, `POS`, `OPEN BT`, `OPEN STRAT`, `EDIT`, `RUN`, `SAVE`, `N/P`, `Q`.
-  - `EDIT` writes `strategy.override.yml` in the backtest run folder.
-- Use `ft backtests list` / `ft backtests show --index N` for non‑interactive environments.
+- Use `ft backtests list` / `ft backtests show --index N` for browsing saved runs.
 - Use `ft evolve evolver_example.yml` for GA runs (config is YAML).
 
 ## Coding Style & Naming Conventions

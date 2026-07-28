@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Removed the interactive `ft terminal` UI and related live/stream TTY helpers; use `ft backtests` / `ft logs` / `ft portfolio` instead.
+
 ## 2.1.0
 
 ### Release Highlights

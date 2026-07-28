@@ -20,7 +20,7 @@ source venv/bin/activate
 python -m pytest
 flake8
 python -m fast_trade.cli --help
-python -m fast_trade.cli terminal --help
+python -m fast_trade.cli backtests --help
 python -m fast_trade.cli portfolio --help
 python -m fast_trade.cli logs --help
 python -m fast_trade.mcp_server
@@ -40,7 +40,6 @@ python -m build
 Confirm these stay in sync:
 
 - `README.md`
-- `docs/Terminal.md`
 - `docs/CHANGELOG.md`
 - `pyproject.toml`
 
@@ -73,6 +72,6 @@ Use this summary for GitHub or PyPI:
 
 - install from the published artifact into a clean environment
 - run `ft --help`
-- run `ft terminal --help`
+- run `ft backtests --help`
 - run `ft portfolio --help`
 - verify PyPI metadata renders `README.md` correctly

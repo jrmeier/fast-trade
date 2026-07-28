@@ -6,7 +6,6 @@ Project documentation lives in this directory.
 
 - `GETTING_STARTED.md`
 - `CHANGELOG.md`
-- `Terminal.md`
 - `RELEASE.md`
 - `CONTRIBUTING.md`
 
