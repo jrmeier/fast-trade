@@ -32,14 +32,18 @@ def test_evaluate_rules_empty_and_success():
     assert res == [True, True]
 
 
-def test_evaluate_rules_exception_is_printed_and_skipped(capsys):
+def test_evaluate_rules_raises_on_missing_key():
     rules = [["missing.key", ">", 1]]
+    with pytest.raises(KeyError, match="missing"):
+        evaluate_rules({"return_perc": 1.0}, rules)
+
+
+def test_evaluate_rules_invalid_operator_is_just_false():
+    rules = [["return_perc", "==", 1]]
     all_ok, any_ok, res = evaluate_rules({"return_perc": 1.0}, rules)
-    captured = capsys.readouterr()
-    assert "missing" in captured.out or "KeyError" in captured.out
     assert all_ok is False
     assert any_ok is False
-    assert res == []
+    assert res == [False]
 
 
 def test_extract_error_messages_nested_and_non_string():
