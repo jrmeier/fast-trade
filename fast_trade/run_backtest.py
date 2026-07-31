@@ -76,6 +76,23 @@ class BacktestKeyError(Exception):
         super().__init__(f"Backtest Error(s):\n{self.error_msgs}")
 
 
+def get_max_periods(datapoint) -> int:
+    """Return the largest lookback period in a datapoint's args.
+
+    Args may be ints or floats (e.g. ``args: [41.0]`` in example_backtest.yml),
+    so both are considered.
+    """
+    args = datapoint.get("args", [])
+    periods = [
+        int(arg)
+        for arg in args
+        if isinstance(arg, (int, float)) and not isinstance(arg, bool)
+    ]
+    if len(periods) == 0:
+        return 0
+    return max(periods)
+
+
 def run_backtest(
     backtest: dict,
     df: pd.DataFrame = pd.DataFrame(),
@@ -115,14 +132,6 @@ def run_backtest(
             progress_callback({"phase": "data", "percent": 0})
         # check the local archive for the data
         # calculate the start and end dates based on the max number of periods in any dp args
-
-        def get_max_periods(datapoint):
-            args = datapoint.get("args", [])
-            periods = [int(arg) for arg in args if isinstance(arg, int)]
-            if len(periods) == 0:
-                return 0
-            return max(periods)
-
         args = [get_max_periods(dp) for dp in new_backtest.get("datapoints", [])]
         max_periods = max(args)
         # print(max_periods)
@@ -651,13 +660,6 @@ def run_backtest_chunked(
 
     if df.empty:
         # Same data loading logic as in run_backtest
-        def get_max_periods(datapoint):
-            args = datapoint.get("args", [])
-            periods = [int(arg) for arg in args if isinstance(arg, int)]
-            if len(periods) == 0:
-                return 0
-            return max(periods)
-
         args = [get_max_periods(dp) for dp in new_backtest.get("datapoints", [])]
         max_periods = max(args)
         freq = new_backtest.get("freq")
