@@ -9,7 +9,7 @@ import pandas as pd
 
 from fast_trade.archive.db_helpers import get_kline
 
-from .build_data_frame import prepare_df
+from .build_data_frame import detect_time_unit, prepare_df
 from .build_summary import build_summary
 from .evaluate import evaluate_rules
 from .run_analysis import apply_logic_to_df
@@ -76,6 +76,42 @@ class BacktestKeyError(Exception):
         super().__init__(f"Backtest Error(s):\n{self.error_msgs}")
 
 
+def coerce_datetime(value):
+    """Convert a start/stop timestamp into a datetime.
+
+    Accepts datetime objects (returned as-is), ISO-format strings, and numeric
+    epoch timestamps (seconds or milliseconds). Numeric timestamps are common
+    in downloaded archives and previously crashed ``datetime.datetime.
+    fromisoformat``.
+
+    Float and numpy scalar epochs (e.g. YAML ``1523937600.0``) are accepted when
+    they represent whole seconds/milliseconds; ``detect_time_unit`` only matches
+    digit strings, so non-integer floats are rejected.
+    """
+    if value is None or isinstance(value, datetime.datetime):
+        return value
+    if isinstance(value, str) and not value.strip():
+        return None
+    # Numpy scalars (int64/float64) are not subclasses of int/float.
+    if hasattr(value, "item") and not isinstance(value, (bytes, str)):
+        try:
+            value = value.item()
+        except (AttributeError, ValueError):
+            pass
+    if isinstance(value, bool):
+        raise TypeError(f"Could not parse timestamp: {value!r}")
+    if isinstance(value, (int, float)):
+        if isinstance(value, float):
+            if not value.is_integer():
+                raise ValueError(f"Could not parse numeric timestamp: {value}")
+            value = int(value)
+        time_unit = detect_time_unit(value)
+        if time_unit:
+            return pd.to_datetime(value, unit=time_unit).to_pydatetime()
+        raise ValueError(f"Could not parse numeric timestamp: {value}")
+    return datetime.datetime.fromisoformat(value)
+
+
 def run_backtest(
     backtest: dict,
     df: pd.DataFrame = pd.DataFrame(),
@@ -133,17 +169,17 @@ def run_backtest(
         # convert the frequency to a timedelta
         td_freq = pd.Timedelta(freq)
 
-        start = backtest.get("start", None)
-        if start and not isinstance(start, datetime.datetime):
-            start = datetime.datetime.fromisoformat(start)
+        start = coerce_datetime(backtest.get("start"))
+        if start:
             start = start - td_freq * max_periods
+        stop = coerce_datetime(backtest.get("stop"))
 
         # get the data from the local archive
         df = get_kline(
             backtest.get("symbol"),
             backtest.get("exchange"),
             start,
-            backtest.get("stop"),
+            stop,
             freq=backtest.get("freq") or backtest.get("chart_period"),
         )
         if progress_callback:
@@ -665,16 +701,16 @@ def run_backtest_chunked(
             freq = new_backtest.get("chart_period")
         td_freq = pd.Timedelta(freq)
 
-        start = backtest.get("start", None)
-        if start and not isinstance(start, datetime.datetime):
-            start = datetime.datetime.fromisoformat(start)
+        start = coerce_datetime(backtest.get("start"))
+        if start:
             start = start - td_freq * max_periods
+        stop = coerce_datetime(backtest.get("stop"))
 
         df = get_kline(
             backtest.get("symbol"),
             backtest.get("exchange"),
             start,
-            backtest.get("stop"),
+            stop,
             freq=backtest.get("freq") or backtest.get("chart_period"),
         )
 
