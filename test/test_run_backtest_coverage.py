@@ -142,12 +142,25 @@ def test_run_backtest_numeric_stop_timestamp():
 def test_coerce_datetime_variants():
     import datetime
 
+    import numpy as np
+
     assert coerce_datetime(None) is None
+    assert coerce_datetime("") is None
+    assert coerce_datetime("  ") is None
     d = datetime.datetime(2018, 4, 17, 4, 0, 0)
     assert coerce_datetime(d) == d
     assert coerce_datetime("2018-04-17T04:00:00") == d
     assert coerce_datetime(1523937600) == d
     assert coerce_datetime(1523937600000) == d
+    # YAML/JSON often load whole epochs as floats
+    assert coerce_datetime(1523937600.0) == d
+    assert coerce_datetime(1523937600000.0) == d
+    assert coerce_datetime(np.int64(1523937600)) == d
+    assert coerce_datetime(np.float64(1523937600.0)) == d
+    with pytest.raises(ValueError, match="numeric timestamp"):
+        coerce_datetime(1523937600.5)
+    with pytest.raises(TypeError):
+        coerce_datetime(True)
 
 
 def test_run_backtest_loads_archive_with_progress_and_start_offset():

@@ -83,12 +83,28 @@ def coerce_datetime(value):
     epoch timestamps (seconds or milliseconds). Numeric timestamps are common
     in downloaded archives and previously crashed ``datetime.datetime.
     fromisoformat``.
+
+    Float and numpy scalar epochs (e.g. YAML ``1523937600.0``) are accepted when
+    they represent whole seconds/milliseconds; ``detect_time_unit`` only matches
+    digit strings, so non-integer floats are rejected.
     """
     if value is None or isinstance(value, datetime.datetime):
         return value
     if isinstance(value, str) and not value.strip():
         return None
-    if isinstance(value, (int, float)) and not isinstance(value, bool):
+    # Numpy scalars (int64/float64) are not subclasses of int/float.
+    if hasattr(value, "item") and not isinstance(value, (bytes, str)):
+        try:
+            value = value.item()
+        except (AttributeError, ValueError):
+            pass
+    if isinstance(value, bool):
+        raise TypeError(f"Could not parse timestamp: {value!r}")
+    if isinstance(value, (int, float)):
+        if isinstance(value, float):
+            if not value.is_integer():
+                raise ValueError(f"Could not parse numeric timestamp: {value}")
+            value = int(value)
         time_unit = detect_time_unit(value)
         if time_unit:
             return pd.to_datetime(value, unit=time_unit).to_pydatetime()
