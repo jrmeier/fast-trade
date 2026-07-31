@@ -102,6 +102,40 @@ def test_run_backtest_missing_data_when_archive_empty():
             run_backtest(bt, df=pd.DataFrame())
 
 
+def test_run_backtest_archive_warmup_with_t_freq():
+    df = _ohlcv()
+    bt = _valid_backtest(
+        symbol="BTCUSDT",
+        exchange="binanceus",
+        freq="5T",
+        start="2018-04-17T04:00:00",
+        datapoints=[{"name": "sma", "transformer": "sma", "args": [3]}],
+    )
+
+    with mock.patch("fast_trade.run_backtest.get_kline", return_value=df.copy()) as get_kline:
+        result = run_backtest(bt)
+
+    assert get_kline.called
+    assert "summary" in result
+
+
+def test_run_backtest_archive_warmup_with_bare_numeric_freq():
+    df = _ohlcv()
+    bt = _valid_backtest(
+        symbol="BTCUSDT",
+        exchange="binanceus",
+        freq="30",
+        start="2018-04-17T04:00:00",
+        datapoints=[{"name": "sma", "transformer": "sma", "args": [3]}],
+    )
+
+    with mock.patch("fast_trade.run_backtest.get_kline", return_value=df.copy()) as get_kline:
+        result = run_backtest(bt)
+
+    assert get_kline.called
+    assert "summary" in result
+
+
 def test_run_backtest_loads_archive_with_progress_and_start_offset():
     df = _ohlcv()
     bt = _valid_backtest(
