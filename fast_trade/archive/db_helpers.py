@@ -5,6 +5,8 @@ import typing
 
 import pandas as pd
 
+from fast_trade.build_data_frame import normalize_freq
+
 ARCHIVE_PATH = os.getenv("ARCHIVE_PATH", os.path.join(os.getcwd(), "ft_archive"))
 if os.path.isfile(ARCHIVE_PATH):
     ARCHIVE_PATH = os.path.dirname(ARCHIVE_PATH)
@@ -219,7 +221,7 @@ def get_kline(
         raise RuntimeError(f"Failed to load parquet for {exchange}:{symbol}; file was corrupted or missing")
 
     # set the freq of the dataframe
-    df = df.resample(freq).agg(
+    df = df.resample(normalize_freq(freq)).agg(
         {
             "open": "first",
             "high": "max",

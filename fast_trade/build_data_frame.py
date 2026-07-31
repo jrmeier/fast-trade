@@ -16,6 +16,40 @@ class TransformerError(Exception):
         return self.message
 
 
+_FREQ_ALIASES = {
+    "T": "min",
+    "t": "min",
+    "Min": "min",
+    "min": "min",
+    "H": "h",
+    "h": "h",
+    "S": "s",
+    "s": "s",
+    "d": "D",
+    "D": "D",
+}
+
+
+def normalize_freq(freq) -> str:
+    """Normalize a pandas frequency string to aliases supported by current pandas.
+
+    pandas removed the legacy ``T`` (minute) alias and deprecated the uppercase
+    ``H``/``S`` aliases. Bare numeric frequencies (e.g. ``"30"``) are
+    interpreted as minutes; pandas would otherwise silently treat them as
+    nanoseconds.
+    """
+    if not freq:
+        return freq
+    freq = str(freq)
+    match = re.match(r"^(\d+)\s*([a-zA-Z]*)$", freq)
+    if not match:
+        return freq
+    count, unit = match.groups()
+    if not unit:
+        return f"{count}min"
+    return f"{count}{_FREQ_ALIASES.get(unit, unit)}"
+
+
 def build_data_frame(backtest: dict, csv_path: str):
     """Creates a Pandas DataFame with the provided backtest. Used when providing a CSV as the datafile
 
@@ -135,7 +169,7 @@ def apply_charting_to_df(df: pd.DataFrame, freq: str, start_time: str, stop_time
             stop_time = pd.to_datetime(stop_time, unit=time_unit)
             stop_time = stop_time.strftime("%Y-%m-%d %H:%M:%S")
 
-    df = df.resample(freq).first()
+    df = df.resample(normalize_freq(freq)).first()
 
     if start_time and stop_time:
         df = df[start_time:stop_time]  # noqa

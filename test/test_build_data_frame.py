@@ -8,9 +8,41 @@ from fast_trade.build_data_frame import (
     load_basic_df_from_csv,
     apply_transformers_to_dataframe,
     apply_charting_to_df,
+    normalize_freq,
     prepare_df,
     process_res_df,
 )
+
+
+def test_normalize_freq():
+    assert normalize_freq("5T") == "5min"
+    assert normalize_freq("5t") == "5min"
+    assert normalize_freq("5Min") == "5min"
+    assert normalize_freq("5min") == "5min"
+    assert normalize_freq("4H") == "4h"
+    assert normalize_freq("1h") == "1h"
+    assert normalize_freq("30S") == "30s"
+    assert normalize_freq("1D") == "1D"
+    assert normalize_freq("1d") == "1D"
+    assert normalize_freq("3W") == "3W"
+    assert normalize_freq("1M") == "1M"
+
+
+def test_normalize_freq_bare_numeric_is_minutes():
+    assert normalize_freq("30") == "30min"
+
+
+def test_normalize_freq_empty_and_unknown():
+    assert normalize_freq("") == ""
+    assert normalize_freq(None) is None
+    assert normalize_freq("1Min22") == "1Min22"
+
+
+def test_normalize_freq_produces_timedelta_compatible_value():
+    import pandas as pd
+
+    assert pd.Timedelta(normalize_freq("5T")) == pd.Timedelta("5min")
+    assert pd.Timedelta(normalize_freq("30")) == pd.Timedelta("30min")
 
 
 def test_detect_time_unit_s():

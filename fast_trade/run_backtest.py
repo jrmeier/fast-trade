@@ -9,7 +9,7 @@ import pandas as pd
 
 from fast_trade.archive.db_helpers import get_kline
 
-from .build_data_frame import prepare_df
+from .build_data_frame import normalize_freq, prepare_df
 from .build_summary import build_summary
 from .evaluate import evaluate_rules
 from .run_analysis import apply_logic_to_df
@@ -131,7 +131,7 @@ def run_backtest(
         if not freq and new_backtest.get("chart_period"):
             freq = new_backtest.get("chart_period")
         # convert the frequency to a timedelta
-        td_freq = pd.Timedelta(freq)
+        td_freq = pd.Timedelta(normalize_freq(freq))
 
         start = backtest.get("start", None)
         if start and not isinstance(start, datetime.datetime):
@@ -663,7 +663,7 @@ def run_backtest_chunked(
         freq = new_backtest.get("freq")
         if not freq and new_backtest.get("chart_period"):
             freq = new_backtest.get("chart_period")
-        td_freq = pd.Timedelta(freq)
+        td_freq = pd.Timedelta(normalize_freq(freq))
 
         start = backtest.get("start", None)
         if start and not isinstance(start, datetime.datetime):
