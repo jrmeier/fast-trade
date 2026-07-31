@@ -105,6 +105,40 @@ def test_validate_enter_logic_invalid_1():
     assert backtest_mirror["enter"].get("error") is True
 
 
+def test_validate_null_any_enter_any_exit():
+    # strategy.yml / example_backtest.yml use `any_enter:` / `any_exit:` with no
+    # value, which YAML loads as None. These must not crash validate_backtest.
+    mock_backtest = {
+        "any_enter": None,
+        "any_exit": None,
+        "datapoints": [],
+        "enter": [["close", ">", "10"]],
+        "exit": [["close", "<", "5"]],
+    }
+
+    backtest_mirror = validate_backtest(mock_backtest)
+
+    assert backtest_mirror["any_enter"] is None
+    assert backtest_mirror["any_exit"] is None
+
+
+def test_validate_null_any_enter_any_exit_with_valid_datapoints():
+    mock_backtest = {
+        "any_enter": None,
+        "any_exit": None,
+        "datapoints": [{"args": [9], "transformer": "sma", "name": "sma_short"}],
+        "enter": [["close", ">", "sma_short"]],
+        "exit": [["close", "<", "sma_short"]],
+        "start": "2025-12-01",
+    }
+
+    backtest_mirror = validate_backtest(mock_backtest)
+
+    assert backtest_mirror.get("has_error") is False
+    assert backtest_mirror["any_enter"] is None
+    assert backtest_mirror["any_exit"] is None
+
+
 def test_validate_any_enter_logic_valid():
     mock_datapoints = [
         {"args": [30], "transformer": "sma", "name": "sma_short"},
