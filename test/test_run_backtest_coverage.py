@@ -16,6 +16,7 @@ from fast_trade.run_backtest import (
     clean_field_type,
     compile_action_logic,
     extract_error_messages,
+    get_max_periods,
     prepare_new_backtest,
     process_logic_and_generate_actions,
     process_single_frame,
@@ -100,6 +101,32 @@ def test_run_backtest_missing_data_when_archive_empty():
     with mock.patch("fast_trade.run_backtest.get_kline", return_value=pd.DataFrame()):
         with pytest.raises(MissingData, match="No data found"):
             run_backtest(bt, df=pd.DataFrame())
+
+
+def test_get_max_periods_int_and_float_args():
+    assert get_max_periods({"args": [41.0]}) == 41
+    assert get_max_periods({"args": [10, 41.0]}) == 41
+    assert get_max_periods({"args": [3]}) == 3
+    assert get_max_periods({"args": []}) == 0
+    assert get_max_periods({"args": ["5"]}) == 0
+    assert get_max_periods({}) == 0
+
+
+def test_run_backtest_archive_warmup_uses_float_args():
+    df = _ohlcv()
+    bt = _valid_backtest(
+        symbol="BTCUSDT",
+        exchange="binanceus",
+        start="2018-04-17T04:05:00",
+        datapoints=[{"name": "ema", "transformer": "ema", "args": [41.0]}],
+    )
+
+    with mock.patch("fast_trade.run_backtest.get_kline", return_value=df.copy()) as get_kline:
+        run_backtest(bt)
+
+    assert get_kline.called
+    start_arg = get_kline.call_args[0][2]
+    assert start_arg == pd.Timestamp("2018-04-17T03:24:00")
 
 
 def test_run_backtest_loads_archive_with_progress_and_start_offset():
