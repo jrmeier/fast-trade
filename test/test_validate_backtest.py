@@ -105,6 +105,39 @@ def test_validate_enter_logic_invalid_1():
     assert backtest_mirror["enter"].get("error") is True
 
 
+def test_validate_start_is_optional():
+    mock_backtest = {
+        "any_enter": [],
+        "any_exit": [],
+        "datapoints": [{"args": [9], "transformer": "sma", "name": "sma_short"}],
+        "enter": [["close", ">", "sma_short"]],
+        "exit": [["close", "<", "sma_short"]],
+    }
+
+    backtest_mirror = validate_backtest(mock_backtest)
+
+    assert backtest_mirror.get("has_error") is False
+    assert backtest_mirror["start"] is None
+
+
+def test_validate_deprecated_start_date_message_spelling():
+    mock_backtest = {
+        "any_enter": [],
+        "any_exit": [],
+        "datapoints": [{"args": [9], "transformer": "sma", "name": "sma_short"}],
+        "enter": [["close", ">", "sma_short"]],
+        "exit": [["close", "<", "sma_short"]],
+        "start_date": "2025-12-01",
+    }
+
+    backtest_mirror = validate_backtest(mock_backtest)
+
+    assert backtest_mirror["start_date"]["error"] is True
+    msg = backtest_mirror["start_date"]["msgs"][0]
+    assert "Paramater" not in msg
+    assert 'Parameter "start_date" is deprecated' in msg
+
+
 def test_validate_any_enter_logic_valid():
     mock_datapoints = [
         {"args": [30], "transformer": "sma", "name": "sma_short"},
