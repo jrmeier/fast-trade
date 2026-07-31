@@ -65,13 +65,7 @@ def evaluate_rules(result: dict, rules: list) -> tuple:
 
     res = []
     for rule in rules:
-        try:
-            res.append(handle_rule(result, rule))
-        except Exception as e:
-            print(e)
-
-    if len(res) == 0:
-        return False, False, []
+        res.append(handle_rule(result, rule))
 
     return all(res), any(res), res
 
