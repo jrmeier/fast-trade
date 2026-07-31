@@ -134,6 +134,7 @@ def validate_backtest(backtest):
 
     def process_logics(logics: list, logic_type: str):
         logic_errors = []
+        logics = logics or []
         for logic in logics:
             res = process_logic(logic, logic_type)
             if res.get("has_error"):
