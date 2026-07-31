@@ -14,6 +14,7 @@ from fast_trade.run_backtest import (
     _take_action_compiled,
     apply_backtest_to_df,
     clean_field_type,
+    coerce_datetime,
     compile_action_logic,
     extract_error_messages,
     prepare_new_backtest,
@@ -100,6 +101,53 @@ def test_run_backtest_missing_data_when_archive_empty():
     with mock.patch("fast_trade.run_backtest.get_kline", return_value=pd.DataFrame()):
         with pytest.raises(MissingData, match="No data found"):
             run_backtest(bt, df=pd.DataFrame())
+
+
+def test_run_backtest_numeric_start_timestamp():
+    df = _ohlcv()
+    bt = _valid_backtest(
+        symbol="BTCUSDT",
+        exchange="binanceus",
+        start=1523937600,
+        datapoints=[{"name": "sma", "transformer": "sma", "args": [3]}],
+    )
+
+    with mock.patch("fast_trade.run_backtest.get_kline", return_value=df.copy()) as get_kline:
+        result = run_backtest(bt)
+
+    assert get_kline.called
+    start_arg = get_kline.call_args[0][2]
+    assert isinstance(start_arg, pd.Timestamp) or hasattr(start_arg, "year")
+    assert "summary" in result
+
+
+def test_run_backtest_numeric_stop_timestamp():
+    df = _ohlcv()
+    bt = _valid_backtest(
+        symbol="BTCUSDT",
+        exchange="binanceus",
+        stop=1523952000,
+        datapoints=[{"name": "sma", "transformer": "sma", "args": [3]}],
+    )
+
+    with mock.patch("fast_trade.run_backtest.get_kline", return_value=df.copy()) as get_kline:
+        result = run_backtest(bt)
+
+    assert get_kline.called
+    stop_arg = get_kline.call_args[0][3]
+    assert isinstance(stop_arg, pd.Timestamp) or hasattr(stop_arg, "year")
+    assert "summary" in result
+
+
+def test_coerce_datetime_variants():
+    import datetime
+
+    assert coerce_datetime(None) is None
+    d = datetime.datetime(2018, 4, 17, 4, 0, 0)
+    assert coerce_datetime(d) == d
+    assert coerce_datetime("2018-04-17T04:00:00") == d
+    assert coerce_datetime(1523937600) == d
+    assert coerce_datetime(1523937600000) == d
 
 
 def test_run_backtest_loads_archive_with_progress_and_start_offset():
