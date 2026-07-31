@@ -100,15 +100,8 @@ def run_backtest(
     errors = validate_backtest(new_backtest)
 
     if errors.get("has_error"):
-        # find all the keys with values
-        error_keys = [
-            key for key, value in errors.items() if value and key != "has_error"
-        ]
         error_msgs = extract_error_messages(errors)
-        for ek in error_keys:
-            if ek not in ["any_enter", "any_exit"]:
-                # get the errors from the errors dict
-                raise BacktestKeyError(error_msgs)
+        raise BacktestKeyError(error_msgs)
 
     if df.empty:
         if progress_callback:
@@ -641,13 +634,8 @@ def run_backtest_chunked(
     errors = validate_backtest(new_backtest)
 
     if errors.get("has_error"):
-        error_keys = [
-            key for key, value in errors.items() if value and key != "has_error"
-        ]
         error_msgs = extract_error_messages(errors)
-        for ek in error_keys:
-            if ek not in ["any_enter", "any_exit"]:
-                raise BacktestKeyError(error_msgs)
+        raise BacktestKeyError(error_msgs)
 
     if df.empty:
         # Same data loading logic as in run_backtest

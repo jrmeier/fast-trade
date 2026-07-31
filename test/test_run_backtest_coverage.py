@@ -91,6 +91,27 @@ def test_run_backtest_raises_on_validation_error():
         run_backtest({"datapoints": [], "enter": [], "exit": []})
 
 
+def test_run_backtest_raises_on_invalid_any_enter_column():
+    bt = _valid_backtest(any_enter=[["nonexistent_col", ">", 5]])
+
+    with pytest.raises(BacktestKeyError, match="nonexistent_col"):
+        run_backtest(bt, df=_ohlcv())
+
+
+def test_run_backtest_raises_on_invalid_any_exit_column():
+    bt = _valid_backtest(any_exit=[["nonexistent_col", ">", 5]])
+
+    with pytest.raises(BacktestKeyError, match="nonexistent_col"):
+        run_backtest(bt, df=_ohlcv())
+
+
+def test_run_backtest_chunked_raises_on_invalid_any_enter_column():
+    bt = _valid_backtest(any_enter=[["nonexistent_col", ">", 5]])
+
+    with pytest.raises(BacktestKeyError, match="nonexistent_col"):
+        run_backtest_chunked(bt, df=_ohlcv())
+
+
 def test_run_backtest_missing_data_when_archive_empty():
     bt = _valid_backtest(
         symbol="BTCUSDT",
