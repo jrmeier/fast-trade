@@ -257,3 +257,21 @@ def test_build_summary():
     assert type(res["test_duration"]) is float
     assert len(trade_df.index) == 3
     assert res["total_missing"] == 0
+
+
+def test_build_summary_equity_peak_includes_open_positions():
+    mock_df = create_mock_trade_log()
+    mock_df.close = [10, 11, 11, 9, 9, 10, 11, 90, 11]
+    mock_df["action"] = ["e", "h", "h", "h", "x", "e", "h", "h", "x"]
+    # account_value only tracks cash; adj_account_value also values open positions
+    mock_df["account_value"] = [90, 100, 100, 100, 100, 90, 90, 90, 90]
+    mock_df["adj_account_value"] = [90, 110, 120, 100, 100, 90, 100, 130, 90]
+    mock_df["adj_account_value_change"] = mock_df["adj_account_value"].diff()
+    mock_df["adj_account_value_change_perc"] = mock_df["account_value"].pct_change()
+    mock_df["fee"] = [0.0] * 9
+    mock_df["aux"] = [1] * 9
+
+    res, _ = build_summary(mock_df, datetime.datetime.utcnow())
+
+    assert res["equity_peak"] == 130
+    assert res["equity_final"] == 90

@@ -45,7 +45,7 @@ __all__ = [
 
 
 def build_summary(df, performance_start_time):
-    equity_peak = round(df["account_value"].max(), 3)
+    equity_peak = round(df["adj_account_value"].max(), 3)
     equity_final = round(df.iloc[-1]["adj_account_value"], 3)
     max_drawdown = round(df["adj_account_value"].min(), 3)
 
