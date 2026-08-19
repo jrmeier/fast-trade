@@ -14,7 +14,9 @@ If backtests are fast, strategies are cheap.
 
 I'm using this library and my own closed-source data collection software which has live-streaming data from HyperLiquid, Coinbase, and Binanceus. If you want to try it out with absolutely no garentees, send me an email at fasttrade@jedm.dev or join the Discord [https://discord.gg/Y8ypD3dcgs](https://discord.gg/Y8ypD3dcgs).
 
-Start the local MCP server with `python -m fast_trade.mcp_server`. Available tools include CLI wrappers, portfolio helpers, log tailing, `fxmacrodata_macro_context`, and `hmm_screen`.
+Start the local MCP server with `python -m fast_trade.mcp_server`.
+
+Every `ft` CLI command has a dedicated MCP tool (`download`, `assets`, `backtest`, `backtests`, `logs`, `portfolio_*`, `screen_hmm`, etc.). See `docs/FEATURES.md` for the full CLI ↔ MCP matrix. Additional helpers include `list_strategies`, `tail_log`, `fxmacrodata_macro_context`, and structured `hmm_screen` JSON output. Raw passthrough is available via `ft_command` / `ft_command_str`.
 
 ## Contributing
 

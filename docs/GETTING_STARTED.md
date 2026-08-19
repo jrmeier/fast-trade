@@ -206,6 +206,7 @@ See `hmm_screen_example.yml` for filters, horizons, and output paths. Agents can
 - `docs/CHANGELOG.md`: release notes and major changes
 - `docs/RELEASE.md`: release checklist
 - `docs/METRICS.md`: summary metric definitions used by backtests
+- `docs/FEATURES.md`: CLI ↔ MCP feature matrix
 - `hmm_screen_example.yml`: example config for `ft screen hmm`
 - `docs/ACTION_ENGINE_PLAN.md`: action-engine optimization notes
 - `docs/RUN_ANALYSIS_PLAN.md`: simulation-engine optimization notes

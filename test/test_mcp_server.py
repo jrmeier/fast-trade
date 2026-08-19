@@ -41,9 +41,22 @@ def test_portfolio_status_reads_state(tmp_path, monkeypatch):
     state_path.write_text(json.dumps({"cash": 123}), encoding="utf-8")
     monkeypatch.setenv("ARCHIVE_PATH", str(archive))
 
-    res = mcp_server.portfolio_status("demo")
+    res = mcp_server.portfolio_state("demo")
     assert res["state"]["cash"] == 123
     assert res["paths"]["state"].endswith("state.json")
+
+
+def test_portfolio_status_uses_cli(monkeypatch):
+    captured = {}
+
+    def fake_run(*cli_args):
+        captured["args"] = list(cli_args)
+        return {"returncode": 0, "stdout": "ok", "stderr": "", "command": " ".join(cli_args)}
+
+    monkeypatch.setattr(mcp_server, "_run_ft_cli", fake_run)
+    res = mcp_server.portfolio_status("demo")
+    assert res["stdout"] == "ok"
+    assert captured["args"] == ["portfolio", "status", "demo"]
 
 
 def test_ft_command_str_runs(monkeypatch):
@@ -57,8 +70,8 @@ def test_ft_command_str_runs(monkeypatch):
     res = mcp_server.ft_command_str("assets")
 
     assert res["returncode"] == 0
-    assert "fast_trade.cli" in " ".join(res["command"].split())
     assert calls["cmd"][0].endswith("python") or "python" in calls["cmd"][0]
+    assert "--no-interactive" in calls["cmd"]
 
 
 def test_fxmacrodata_macro_context_forwards_arguments(monkeypatch):
@@ -86,6 +99,155 @@ def test_list_assets(monkeypatch):
     assert mcp_server.list_assets("coinbase") == ["coinbase:BTC-USD", "ETH-USD"]
 
 
+def test_assets_uses_cli(monkeypatch):
+    monkeypatch.setattr(
+        mcp_server,
+        "_run_ft_cli",
+        lambda *args: {"returncode": 0, "stdout": "assets", "stderr": "", "command": " ".join(args)},
+    )
+    assert mcp_server.assets("coinbase")["stdout"] == "assets"
+
+
+@pytest.mark.parametrize(
+    "tool_name,args,expected",
+    [
+        ("download", ("BTCUSDT", "binanceus"), ["download", "BTCUSDT", "binanceus"]),
+        ("backtests", (), ["backtests", "list"]),
+        ("migrate_backtests", (), ["migrate_backtests"]),
+        ("migrate_archive", (), ["migrate_archive"]),
+        ("regime_train", ("cfg.yml", "data.csv"), ["regime_train", "cfg.yml", "data.csv", "--out", "regime_model.pkl"]),
+        ("regime_apply", ("model.pkl", "data.csv"), ["regime_apply", "model.pkl", "data.csv", "--out", "regime_output.csv"]),
+        ("validate", ("strategy.yml",), ["validate", "strategy.yml"]),
+        ("update_archive", (), ["update_archive"]),
+        ("evolve", ("evolver.yml",), ["evolve", "evolver.yml"]),
+        (
+            "screen_hmm",
+            (),
+            [
+                "screen",
+                "hmm",
+                "--exchange",
+                "coinbase",
+                "--archive",
+                "--lookback-days",
+                "260",
+                "--states",
+                "3",
+                "--simulations",
+                "5000",
+                "--seed",
+                "42",
+                "--max-products",
+                "40",
+            ],
+        ),
+    ],
+)
+def test_cli_parity_tools(monkeypatch, tool_name, args, expected):
+    captured = {}
+
+    def fake_run(*cli_args):
+        captured["args"] = list(cli_args)
+        return {"returncode": 0, "stdout": "", "stderr": "", "command": " ".join(cli_args)}
+
+    monkeypatch.setattr(mcp_server, "_run_ft_cli", fake_run)
+    getattr(mcp_server, tool_name)(*args)
+    assert captured["args"] == expected
+
+
+def test_logs_builds_cli_args(monkeypatch):
+    captured = {}
+
+    def fake_run(*cli_args):
+        captured["args"] = list(cli_args)
+        return {"returncode": 0, "stdout": "", "stderr": "", "command": " ".join(cli_args)}
+
+    monkeypatch.setattr(mcp_server, "_run_ft_cli", fake_run)
+    mcp_server.logs(run_id="run1", index=2, kind="live", follow=True, tail=50)
+    assert captured["args"] == [
+        "logs",
+        "--kind",
+        "live",
+        "--tail",
+        "50",
+        "--run-id",
+        "run1",
+        "--index",
+        "2",
+        "--follow",
+    ]
+
+
+def test_cli_wrapper_optional_args(monkeypatch):
+    captured = []
+
+    def fake_run(*cli_args):
+        captured.append(list(cli_args))
+        return {"returncode": 0, "stdout": "", "stderr": "", "command": " ".join(cli_args)}
+
+    monkeypatch.setattr(mcp_server, "_run_ft_cli", fake_run)
+
+    mcp_server.download("BTCUSDT", start="2024-01-01", end="2024-02-01")
+    mcp_server.backtest(
+        "strategy.yml",
+        live=True,
+        details=True,
+        show_strategy=True,
+        preview=False,
+        mods=["freq", "1H"],
+    )
+    mcp_server.backtests("show", run_id="run1", limit=5, last=2, index=3)
+    mcp_server.migrate_backtests(limit=3)
+    mcp_server.migrate_archive(limit=2)
+    mcp_server.validate("strategy.yml", mods=["x", "1"])
+    mcp_server.portfolio_start("s.yml", paper=False, once=True, daemon=False)
+    mcp_server.screen_hmm(
+        config="screen.yml",
+        symbols=["BTC-USD"],
+        live=True,
+        horizons=[7, 30],
+        json_out="out.json",
+        md_out="out.md",
+    )
+
+    assert captured[0] == ["download", "BTCUSDT", "binanceus", "--start", "2024-01-01", "--end", "2024-02-01"]
+    assert captured[1] == [
+        "backtest",
+        "strategy.yml",
+        "--no-save",
+        "--live",
+        "--details",
+        "--show-strategy",
+        "--no-preview",
+        "--mods",
+        "freq",
+        "1H",
+    ]
+    assert captured[2] == ["backtests", "show", "run1", "--limit", "5", "--last", "2", "--index", "3"]
+    assert captured[3] == ["migrate_backtests", "--limit", "3"]
+    assert captured[4] == ["migrate_archive", "--limit", "2"]
+    assert captured[5] == ["validate", "strategy.yml", "--mods", "x", "1"]
+    assert captured[6] == [
+        "portfolio",
+        "start",
+        "s.yml",
+        "--symbol",
+        "BTC-USD",
+        "--no-paper",
+        "--once",
+        "--no-daemon",
+    ]
+    assert captured[7][:3] == ["screen", "hmm", "screen.yml"]
+    assert "--live" in captured[7]
+    assert "--symbol" in captured[7]
+    assert "--json-out" in captured[7]
+    assert "--md-out" in captured[7]
+
+    captured.clear()
+    mcp_server.logs(follow=False)
+    assert captured[0][-1] == "--no-follow"
+
+
 def test_backtest_builds_cli_args(monkeypatch):
     captured = {}
 
@@ -96,6 +258,7 @@ def test_backtest_builds_cli_args(monkeypatch):
     monkeypatch.setattr(mcp_server, "_run_ft", fake_run)
     mcp_server.backtest("strategy.yml", save=True, save_all=True, plot=True, mods=["a=1"])
     assert captured["args"] == [
+        "--no-interactive",
         "backtest",
         "strategy.yml",
         "--save",
@@ -116,6 +279,7 @@ def test_portfolio_start_and_stop(monkeypatch):
     monkeypatch.setattr(mcp_server, "_run_ft", fake_run)
     mcp_server.portfolio_start("s.yml", symbol="ETH-USD", name="demo", cash=100.0, daemon=False)
     assert captured[0] == [
+        "--no-interactive",
         "portfolio",
         "start",
         "s.yml",
@@ -125,10 +289,11 @@ def test_portfolio_start_and_stop(monkeypatch):
         "demo",
         "--cash",
         "100.0",
+        "--paper",
         "--no-daemon",
     ]
     mcp_server.portfolio_stop("demo")
-    assert captured[1] == ["portfolio", "stop", "demo"]
+    assert captured[1] == ["--no-interactive", "portfolio", "stop", "demo"]
 
 
 def test_ft_command_forwards(monkeypatch):
@@ -229,7 +394,10 @@ def test_main_registers_tools(monkeypatch):
     monkeypatch.setattr(mcp_server, "mcp", FakeMCP())
     mcp_server.main()
     assert registered["ran"] is True
-    assert "backtest" in registered["tools"]
+    for name in mcp_server.CLI_PARITY_TOOLS:
+        assert name in registered["tools"]
+    assert "hmm_screen" in registered["tools"]
+    assert "portfolio_state" in registered["tools"]
 
 
 def test_version_resource_open_failure(monkeypatch):
@@ -250,6 +418,7 @@ def test_portfolio_start_default_daemon(monkeypatch):
 
     monkeypatch.setattr(mcp_server, "_run_ft", fake_run)
     mcp_server.portfolio_start("s.yml")
+    assert captured[0][:2] == ["--no-interactive", "portfolio"]
     assert "--daemon" in captured[0]
 
 

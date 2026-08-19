@@ -54,7 +54,7 @@ Specific things to check:
 
 - version is `2.1.0`
 - FXMacroData README section documents host + env vars
-- MCP tools `fxmacrodata_macro_context` and `hmm_screen` are mentioned
+- MCP tools cover every `ft` CLI command; verify against `docs/FEATURES.md`
 - `ft screen hmm` / `hmm_screen_example.yml` are documented
 - changelog includes the `2.1.0` section with terminal removal and test/coverage notes
 - no stale references to `ft terminal` or `docs/Terminal.md`

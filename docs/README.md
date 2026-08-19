@@ -9,6 +9,7 @@ Project documentation lives in this directory.
 - `RELEASE.md` — release checklist and publish steps
 - `CONTRIBUTING.md` — local dev setup and PR expectations
 - `METRICS.md` — backtest summary metric definitions
+- `FEATURES.md` — CLI ↔ MCP feature matrix
 
 ## Optimization Notes
 
