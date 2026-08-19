@@ -1,8 +1,8 @@
 # Fast Trade
 
-[![License: LGPL v3](https://img.shields.io/github/license/jrmeier/fast-trade)](LICENSE)
+[![License: AGPL v3](https://img.shields.io/github/license/jrmeier/fast-trade)](LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/fast-trade.svg?style=flat-square)](https://pypi.org/project/fast-trade/)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/download/releases/3.11.0/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Python application](https://github.com/jrmeier/fast-trade/workflows/Python%20application/badge.svg)](https://github.com/jrmeier/fast-trade/actions)
 
 A library built with backtest portability and performance in mind for trading strategy backtests. There is also an [Archive](#Archive), which can be used to download compatible kline data from Binance (.com or .us) and Coinbase into local parquet datasets.
@@ -14,7 +14,9 @@ If backtests are fast, strategies are cheap.
 
 I'm using this library and my own closed-source data collection software which has live-streaming data from HyperLiquid, Coinbase, and Binanceus. If you want to try it out with absolutely no garentees, send me an email at fasttrade@jedm.dev or join the Discord [https://discord.gg/Y8ypD3dcgs](https://discord.gg/Y8ypD3dcgs).
 
-Start the local MCP server with `python -m fast_trade.mcp_server`. Available tools include CLI wrappers, portfolio helpers, log tailing, `fxmacrodata_macro_context`, and `hmm_screen`.
+Start the local MCP server with `python -m fast_trade.mcp_server`.
+
+Every `ft` CLI command has a dedicated MCP tool (`download`, `assets`, `backtest`, `backtests`, `logs`, `portfolio_*`, `screen_hmm`, etc.). See `docs/FEATURES.md` for the full CLI ↔ MCP matrix. Additional helpers include `list_strategies`, `tail_log`, `fxmacrodata_macro_context`, and structured `hmm_screen` JSON output. Raw passthrough is available via `ft_command` / `ft_command_str`.
 
 ## Contributing
 
@@ -27,10 +29,10 @@ git clone git@github.com:<YOUR GIT USERNAME>/fast-trade.git
 cd ./fast-trade
 python -m venv venv
 source venv/bin/activate
-pip install -e .
+pip install -e ".[dev]"
 ```
 
-To generate testing coverage, run
+To generate testing coverage, install the dev extra first, then run:
 
 ```bash
 coverage run -m pytest
@@ -130,14 +132,14 @@ This will download the last month of data for BTCUSD from binance.us and store i
 
 `ft download BTCUSD binanceus`
 
-This will backtest a file with a strategy. By default, it will only show a summary of the backtest. However, if you want to save the results, add the `--save` flag and it will go the `saved_backtests/` directory.
+This will backtest a file with a strategy. By default, it will only show a summary of the backtest. Add `--save` to write the run under `ft_archive/backtests/`. Use `--all` to also persist the dataframe and trade log as parquet.
 
 `ft backtest ./strategy.yml`
 
 You can validate a backtest before you run it. This doesn't help with the data, but does help with the logic.
 `ft validate strategy.yml`
 
-### Backteset Modifiers
+### Backtest Modifiers
 
 Modifying the `freq`
 
@@ -148,15 +150,15 @@ Modifying the `freq` and the `trailing_stop_loss`
 `ft backtest ./strategy.yml --mods freq 1H trailing_stop_loss .05`
 
 Saving a test result
-This generates creates the `saved_backtest` directory (if it doesn't exist), then inside of there, is another directory with a timestamp, with a chart, the backtest file, the summary, and the raw dataframe as a csv.
+`--save` creates a timestamped directory under `ft_archive/backtests/` with the strategy summary and a plot. `--all` also writes `dataframe.parquet` and `trade_log.parquet`.
 `ft backtest ./strategy.yml --save`
 
 ### Archive
 You can download data directly from the CoinbaseAPI and BinanceAPI without registering for an API key.
 
-Get a list of assets available for download from the given exchange. Defaults to binanceus.
+Get a list of assets available for download from the given exchange. Defaults to local archive symbols.
 
-`ft assets --exchange=EXCHANGE`
+`ft assets --exchange EXCHANGE`
 
 Download a single asset from the given exchange. Defaults to binanceus.
 `ft download SYMBOL EXCHANGE`
@@ -164,20 +166,20 @@ Download a single asset from the given exchange. Defaults to binanceus.
 Download the last 30 days of BTCUSDT from binance.us
 `ft download BTCUSDT binanceus`
 
-`ft download SYMBOL --archive ARCHIVE_PATH --start START_DATE --end END_DATE --exchange=EXCHANGE`
+`ft download SYMBOL EXCHANGE --start START_DATE --end END_DATE`
 
 Update the archive. Brings the archive up to date with the latest data for each symbol.
 
 ```ft update_archive```
 
-This update all the existing items in the archive, downloading the latest data for each symbol.
+This updates all the existing items in the archive, downloading the latest data for each symbol.
 
 ## Browse saved backtests
 
 ```bash
 ft backtests list
 ft backtests show --index 1
-ft logs --kind all --tail 200
+ft logs --name demo --tail 200
 ```
 
 ### Persistent logs
@@ -185,7 +187,6 @@ ft logs --kind all --tail 200
 Portfolio activity is persisted as JSONL so it can be tailed with `ft logs` or consumed by external tools.
 
 - Portfolio: `ft_archive/portfolio/<NAME>/portfolio.jsonl`
-- Optional live/stream logs (if present): `ft_archive/live_logs/<RUN_ID>.jsonl`, `ft_archive/stream_logs/<RUN_ID>.jsonl`
 
 ## Changelog
 
@@ -193,7 +194,9 @@ See `docs/CHANGELOG.md`.
 
 ## Release Notes
 
-Version `2.1.0` adds FXMacroData macro/FX context and a productized HMM screener (`ft screen hmm`, MCP `hmm_screen`). See `docs/CHANGELOG.md` for the full change list and `docs/RELEASE.md` for the release checklist.
+Version `2.1.0` adds FXMacroData macro/FX context, a productized HMM screener (`ft screen hmm`, MCP `hmm_screen`), and full-package test coverage with documented metrics in `docs/METRICS.md`.
+
+Upgrading from `2.0.0`: the interactive `ft terminal` UI was removed. Use `ft backtests`, `ft logs --name <NAME>`, and `ft portfolio` instead. See `docs/CHANGELOG.md` for the full change list and `docs/RELEASE.md` for the release checklist.
 
 ## Machine Learning
 
@@ -231,7 +234,7 @@ See `regime_example.yml` for expected config structure.
 
 ### HMM Screener
 
-Rank symbols with a Gaussian HMM + Monte Carlo forecast screen:
+Rank symbols with a Gaussian HMM + Monte Carlo forecast screen. Available in `2.1.0` via `ft screen hmm` (not in PyPI `2.0.0`).
 
 ```bash
 # Archive-first (download candles first)
@@ -248,8 +251,12 @@ See `hmm_screen_example.yml` for filters, horizons, and output paths. Agents can
 
 ## Testing
 
+Install dev dependencies first:
+
 ```bash
+pip install -e ".[dev]"
 python -m pytest
+flake8
 ```
 
 ## Coverage

@@ -5,27 +5,30 @@
   - run_backtest.py, build_data_frame.py, build_summary.py, finta.py
   - cli.py (entrypoint `ft`), archive/ (data download/update helpers)
 - test/: pytest suite (`test_*.py`)
-- saved_backtests/: optional output when using `ft backtest --save`
+- ft_archive/backtests/: optional output when using `ft backtest --save`
 - example_backtest.yml, strategy.yml: reference strategies
 - pyproject.toml: packaging, deps, and console script
 - the virtual env is literally `venv/` use `source venv/bin/activate`
 
 ## Build, Test, and Development Commands
-- Setup (editable): `python -m venv .venv && source .venv/bin/activate && pip install -e .`
+- Setup (editable): `python -m venv venv && source venv/bin/activate && pip install -e ".[dev]"`
 - Run tests: `pytest` (or `python -m pytest`)
 - Coverage: `coverage run -m pytest && coverage report -m`
 - Lint: `flake8` (configured via `.flake8`, max line length 122)
 - CLI help: `ft -h`
 - Quick run: `ft backtest ./strategy.yml [--save] [--plot]`
 - Download data: `ft download BTCUSDT binanceus --start 2024-12-01 --end 2025-01-01`
+- HMM screen: `ft screen hmm hmm_screen_example.yml` (see `docs/RELEASE.md` before tagging)
 
 ## Agent Usage Notes
 - Prefer YAML for strategies and configs (`.yml/.yaml`). JSON is deprecated in examples.
 - Use `ft backtests list` / `ft backtests show --index N` for browsing saved runs.
 - Use `ft evolve evolver_example.yml` for GA runs (config is YAML).
+- Use `ft screen hmm` for multi-asset HMM forecast screening (archive-first or `--live`).
+- MCP server (`python -m fast_trade.mcp_server`) exposes a dedicated tool for every `ft` CLI command; see `docs/FEATURES.md`.
 
 ## Coding Style & Naming Conventions
-- Python 3.8+; 4‑space indentation; prefer type hints where practical.
+- Python 3.10+; 4‑space indentation; prefer type hints where practical.
 - Use snake_case for modules/functions/variables; CapWords for classes.
 - Keep functions small and fast; avoid unnecessary allocations in hot paths.
 - Lint with `flake8` (line length 122; excludes build/dist/test per `.flake8`).
@@ -46,4 +49,4 @@
 
 ## Security & Configuration Tips
 - Do not commit real secrets; use a local `.env` only for development. No API keys are required for archive downloads.
-- Archive path defaults to `./archive` when using the CLI; prefer this in examples.
+- Archive path defaults to `./ft_archive` when using the CLI; prefer this in examples.

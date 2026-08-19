@@ -4,6 +4,26 @@ When contributing to this repository, please first discuss the change you wish t
 
 Please note we have a code of conduct, please follow it in all your interactions with the project.
 
+## Local Development
+
+From the repo root:
+
+```bash
+python -m venv venv
+source venv/bin/activate
+pip install -e ".[dev]"
+```
+
+Run the usual checks before opening a PR:
+
+```bash
+python -m pytest
+flake8
+coverage run -m pytest && coverage report -m
+```
+
+See `docs/RELEASE.md` for the full release checklist and `AGENTS.md` for repository conventions.
+
 ## Pull Request Process
 
 1. New code should be:
@@ -74,7 +94,7 @@ further defined and clarified by project maintainers.
 ### Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported by contacting the project team at [INSERT EMAIL ADDRESS]. All
+reported by contacting the project team at fast_trade@jedm.dev. All
 complaints will be reviewed and investigated and will result in a response that
 is deemed necessary and appropriate to the circumstances. The project team is
 obligated to maintain confidentiality with regard to the reporter of an incident.
