@@ -801,14 +801,7 @@ def validate(
 
 @app.command("logs")
 def logs_cmd(
-    run_id: Optional[str] = typer.Option(None, "--run-id", help="Run ID to open"),
-    index: Optional[int] = typer.Option(None, "--index", help="Nth most recent run (1 = latest)"),
-    kind: str = typer.Option(
-        "all",
-        "--kind",
-        help="Which logs to show: live, stream, or all",
-        show_default=True,
-    ),
+    name: str = typer.Option(..., "--name", help="Portfolio name"),
     follow: bool = typer.Option(
         False,
         "--follow/--no-follow",
@@ -822,30 +815,16 @@ def logs_cmd(
         show_default=True,
     ),
 ):
-    archive_path = os.getenv("ARCHIVE_PATH", "ft_archive")
-    backtests_path = os.path.join(archive_path, "backtests")
-    if not os.path.isdir(backtests_path):
-        console.print("[red]No backtests directory found[/red]")
+    paths = _portfolio_paths(name)
+    read_path = paths["log"]
+    legacy_path = read_path.replace(".jsonl", ".log")
+
+    if not os.path.exists(read_path) and not os.path.exists(legacy_path):
+        console.print(f"[red]No portfolio log found:[/red] {read_path}")
         raise typer.Exit(code=1)
 
-    runs = sorted(os.listdir(backtests_path), reverse=True)
-    runs = [r for r in runs if os.path.isdir(os.path.join(backtests_path, r))]
-    if not runs:
-        console.print("[red]No saved backtests found[/red]")
-        raise typer.Exit(code=1)
-
-    if index is not None:
-        if index < 1 or index > len(runs):
-            console.print("[red]Index out of range[/red]")
-            raise typer.Exit(code=1)
-        run_id = runs[index - 1]
-    elif not run_id:
-        run_id = runs[0]
-
-    kind = (kind or "all").lower()
-    if kind not in ["all", "live", "stream"]:
-        console.print("[red]Invalid kind. Use live, stream, or all.[/red]")
-        raise typer.Exit(code=1)
+    read_path = read_path if os.path.exists(read_path) else legacy_path
+    console.print(Panel.fit(f"Portfolio log — {name}", style="blue"))
 
     def _tail_file(path: str, max_lines: int) -> List[str]:
         if max_lines <= 0 or not os.path.exists(path):
@@ -858,62 +837,27 @@ def logs_cmd(
                 lines.append(line.rstrip("\n"))
         return list(lines)
 
-    log_paths = []
-    if kind in ["all", "live"]:
-        log_paths.append(
-            (
-                "LIVE",
-                os.path.join(archive_path, "live_logs", f"{run_id}.jsonl"),
-                os.path.join(archive_path, "live_logs", f"{run_id}.log"),
-            )
-        )
-    if kind in ["all", "stream"]:
-        log_paths.append(
-            (
-                "STREAM",
-                os.path.join(archive_path, "stream_logs", f"{run_id}.jsonl"),
-                os.path.join(archive_path, "stream_logs", f"{run_id}.log"),
-            )
-        )
-
-    for label, path, legacy_path in log_paths:
-        read_path = path if os.path.exists(path) else legacy_path
-        console.print(Panel.fit(f"{label} log — {run_id}", style="blue"))
-        if not os.path.exists(read_path):
-            console.print(f"[yellow]No log file yet:[/yellow] {path}")
-            continue
-        for line in _tail_file(read_path, tail):
-            console.print(_format_log_line(line))
+    for line in _tail_file(read_path, tail):
+        console.print(_format_log_line(line))
 
     if not follow:
         return
 
     console.print("[cyan]Following logs. Press Ctrl+C to stop.[/cyan]")
-    positions = {}
+    position = None
     while True:
-        any_open = False
-        for label, path, legacy_path in log_paths:
-            read_path = path if os.path.exists(path) else legacy_path
-            if not os.path.exists(read_path):
-                continue
-            any_open = True
-            try:
-                fh = positions.get(read_path)
-                if fh is None or fh.closed:
-                    fh = open(read_path, "r", encoding="utf-8", errors="ignore")
-                    positions[read_path] = fh
-                    fh.seek(0, os.SEEK_END)
-                while True:
-                    line = fh.readline()
-                    if not line:
-                        break
-                    console.print(_format_log_line(line))
-            except Exception:
-                pass
-        if not any_open:
-            time.sleep(0.5)
-        else:
-            time.sleep(0.25)
+        try:
+            if position is None or position.closed:
+                position = open(read_path, "r", encoding="utf-8", errors="ignore")
+                position.seek(0, os.SEEK_END)
+            while True:
+                line = position.readline()
+                if not line:
+                    break
+                console.print(_format_log_line(line))
+        except Exception:
+            pass
+        time.sleep(0.25)
 
 
 @app.command("update_archive")

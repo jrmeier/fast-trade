@@ -166,6 +166,24 @@ def test_migrate_archive_skips_non_dirs(cli_runner, archive_env, tmp_path, monke
 
 # --- helper functions ---
 
+def test_apply_mods_odd_pairs_raises():
+    with pytest.raises(typer.BadParameter):
+        cli_mod._apply_mods({}, ["freq"])
+
+
+def test_format_log_line_variants():
+    assert cli_mod._format_log_line('{"event": {"msg": "hi"}}') == '{"msg": "hi"}'
+    assert cli_mod._format_log_line("[1, 2]") == "[1, 2]"
+    assert cli_mod._format_log_line("plain\n") == "plain"
+
+
+def test_max_datapoint_periods():
+    assert cli_mod._max_datapoint_periods({}) == 0
+    assert cli_mod._max_datapoint_periods(
+        {"datapoints": [{"args": [5, 20]}, {"args": ["x", 30]}]}
+    ) == 30
+
+
 def test_load_backtest_run_date_columns(archive_env, backtest_run, sample_ohlcv):
     run_id, run_dir, _ = backtest_run
     df = sample_ohlcv.head(5).reset_index()
@@ -178,8 +196,17 @@ def test_load_backtest_run_date_columns(archive_env, backtest_run, sample_ohlcv)
     assert trade_df is not None
     assert df_out is not None
 
-def test_load_backtest_summary_yaml_write_failure(archive_env, tmp_path):
+def test_load_backtest_summary_json_migrates_to_yaml(archive_env):
     run_dir = archive_env / "backtests" / "json_only"
+    run_dir.mkdir()
+    (run_dir / "summary.json").write_text(json.dumps({"return_perc": 2}))
+    loaded = cli_mod._load_backtest_summary(str(run_dir))
+    assert loaded["return_perc"] == 2
+    assert (run_dir / "summary.yml").exists()
+
+
+def test_load_backtest_summary_yaml_write_failure(archive_env, tmp_path):
+    run_dir = archive_env / "backtests" / "yaml_fail"
     run_dir.mkdir()
     (run_dir / "summary.json").write_text(json.dumps({"return_perc": 2}))
 
@@ -194,6 +221,13 @@ def test_load_backtest_summary_yaml_write_failure(archive_env, tmp_path):
         loaded = cli_mod._load_backtest_summary(str(run_dir))
     assert loaded["return_perc"] == 2
 
+    run_dir2 = archive_env / "backtests" / "dump_fail"
+    run_dir2.mkdir()
+    (run_dir2 / "summary.json").write_text(json.dumps({"return_perc": 3}))
+    with mock.patch("yaml.safe_dump", side_effect=OSError("disk full")):
+        loaded2 = cli_mod._load_backtest_summary(str(run_dir2))
+    assert loaded2["return_perc"] == 3
+
 def test_load_latest_ohlcv_date_column(archive_env, sample_ohlcv):
     path = archive_env / "coinbase" / "ETH-USD.parquet"
     df = sample_ohlcv.head(10).reset_index()
@@ -201,24 +235,32 @@ def test_load_latest_ohlcv_date_column(archive_env, sample_ohlcv):
     out = cli_mod._load_latest_ohlcv("coinbase", "ETH-USD", 5)
     assert len(out) == 5
 
-def test_logs_empty_runs(cli_runner, archive_env, monkeypatch):
-    for child in (archive_env / "backtests").iterdir():
-        if child.is_dir():
-            import shutil
 
-            shutil.rmtree(child)
-    assert _invoke(cli_runner, ["logs"]).exit_code != 0
+def test_load_latest_ohlcv_rebuilds_corrupt_parquet(archive_env, sample_ohlcv, monkeypatch):
+    path = archive_env / "coinbase" / "BTC-USD.parquet"
+    path.write_text("not parquet")
+    monkeypatch.setattr(
+        "fast_trade.archive.db_helpers._safe_read_parquet",
+        lambda _path: None,
+    )
+    monkeypatch.setattr(
+        "fast_trade.archive.db_helpers.get_kline",
+        lambda *args, **kwargs: sample_ohlcv.head(10),
+    )
+    out = cli_mod._load_latest_ohlcv("coinbase", "BTC-USD", 5)
+    assert len(out) == 5
 
-def test_logs_tail_zero_and_missing_and_follow(cli_runner, archive_env, backtest_run, monkeypatch):
-    run_id, _, _ = backtest_run
-    assert _invoke(cli_runner, ["logs", "--run-id", run_id, "--tail", "0"]).exit_code == 0
+def test_logs_missing_portfolio(cli_runner, archive_env):
+    assert _invoke(cli_runner, ["logs", "--name", "missing"]).exit_code != 0
 
-    missing = _invoke(cli_runner, ["logs", "--run-id", "no_such_run_xyz", "--kind", "stream"])
-    assert missing.exit_code == 0
 
-    live_log = archive_env / "live_logs" / f"{run_id}.jsonl"
-    live_log.parent.mkdir(exist_ok=True)
-    live_log.write_text('{"line":"tail"}\n')
+def test_logs_tail_zero_and_follow(cli_runner, archive_env, monkeypatch):
+    log_dir = archive_env / "portfolio" / "demo"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "portfolio.jsonl"
+    log_path.write_text('{"line":"tail"}\n')
+
+    assert _invoke(cli_runner, ["logs", "--name", "demo", "--tail", "0"]).exit_code == 0
 
     iterations = {"n": 0}
 
@@ -229,7 +271,69 @@ def test_logs_tail_zero_and_missing_and_follow(cli_runner, archive_env, backtest
 
     monkeypatch.setattr(cli_mod.time, "sleep", fake_sleep)
     with pytest.raises(KeyboardInterrupt):
-        cli_mod.logs_cmd(run_id=run_id, index=None, kind="live", follow=True, tail=1)
+        cli_mod.logs_cmd(name="demo", follow=True, tail=1)
+
+
+def test_logs_follow_reads_appended_lines(cli_runner, archive_env, monkeypatch):
+    log_dir = archive_env / "portfolio" / "demo"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "portfolio.jsonl"
+    log_path.write_text("")
+
+    calls = {"n": 0}
+
+    def fake_sleep(_):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            with open(log_path, "a", encoding="utf-8") as fh:
+                fh.write('{"event":{"msg":"follow"}}\n')
+        elif calls["n"] >= 3:
+            raise KeyboardInterrupt()
+
+    monkeypatch.setattr(cli_mod.time, "sleep", fake_sleep)
+    with pytest.raises(KeyboardInterrupt):
+        cli_mod.logs_cmd(name="demo", follow=True, tail=0)
+
+
+def test_logs_follow_read_exception(archive_env, monkeypatch):
+    log_dir = archive_env / "portfolio" / "demo"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "portfolio.jsonl"
+    log_path.write_text("")
+
+    calls = {"n": 0}
+
+    def fake_sleep(_):
+        calls["n"] += 1
+        if calls["n"] >= 2:
+            raise KeyboardInterrupt()
+
+    real_open = open
+
+    class FollowHandle:
+        read_calls = 0
+
+        def __init__(self, path, *args, **kwargs):
+            self._fh = real_open(path, *args, **kwargs)
+            self.closed = False
+
+        def seek(self, *args, **kwargs):
+            return self._fh.seek(*args, **kwargs)
+
+        def readline(self):
+            FollowHandle.read_calls += 1
+            if FollowHandle.read_calls > 1:
+                raise OSError("read fail")
+            return ""
+
+        def close(self):
+            self.closed = True
+            return self._fh.close()
+
+    monkeypatch.setattr(cli_mod.time, "sleep", fake_sleep)
+    with mock.patch("builtins.open", FollowHandle):
+        with pytest.raises(KeyboardInterrupt):
+            cli_mod.logs_cmd(name="demo", follow=True, tail=0)
 
 # --- portfolio ---
 
@@ -341,22 +445,13 @@ def test_render_plot_preview_print_exception(tmp_path):
     ):
         render_plot_preview(str(tmp_path / "x.png"), width=4)
 
-def test_logs_tail_empty_path(cli_runner, archive_env, backtest_run):
-    run_id, _, _ = backtest_run
-    assert _invoke(cli_runner, ["logs", "--run-id", run_id, "--kind", "live", "--tail", "0"]).exit_code == 0
-
-def test_logs_follow_no_files(cli_runner, archive_env, backtest_run, monkeypatch):
-    run_id, _, _ = backtest_run
-    calls = {"n": 0}
-
-    def fake_sleep(_):
-        calls["n"] += 1
-        if calls["n"] >= 2:
-            raise KeyboardInterrupt()
-
-    monkeypatch.setattr(cli_mod.time, "sleep", fake_sleep)
-    with pytest.raises(KeyboardInterrupt):
-        cli_mod.logs_cmd(run_id=run_id, index=None, kind="all", follow=True, tail=0)
+def test_logs_legacy_portfolio_log(cli_runner, archive_env):
+    log_dir = archive_env / "portfolio" / "legacy"
+    log_dir.mkdir(parents=True)
+    (log_dir / "portfolio.log").write_text('{"message":"legacy"}\n')
+    r = _invoke(cli_runner, ["logs", "--name", "legacy", "--tail", "10"])
+    assert r.exit_code == 0
+    assert "legacy" in r.stdout
 
 def test_cli_main_block_runs():
     root = os.path.dirname(os.path.dirname(__file__))
@@ -580,23 +675,6 @@ def test_ftv_name_main_guard():
     with mock.patch.object(ftv, "main") as main_mock:
         exec(fragment, {"__name__": "__main__", "main": main_mock})
         main_mock.assert_called_once()
-
-def test_logs_follow_stream_path(cli_runner, archive_env, backtest_run, monkeypatch):
-    run_id, _, _ = backtest_run
-    stream_log = archive_env / "stream_logs" / f"{run_id}.jsonl"
-    stream_log.parent.mkdir(exist_ok=True)
-    stream_log.write_text('{"line":"stream"}\n')
-
-    calls = {"n": 0}
-
-    def fake_sleep(_):
-        calls["n"] += 1
-        if calls["n"] >= 2:
-            raise KeyboardInterrupt()
-
-    monkeypatch.setattr(cli_mod.time, "sleep", fake_sleep)
-    with pytest.raises(KeyboardInterrupt):
-        cli_mod.logs_cmd(run_id=run_id, index=None, kind="stream", follow=True, tail=1)
 
 def test_portfolio_pid_write_failure(cli_runner, strategy_file, monkeypatch):
     proc = mock.Mock(pid=123)

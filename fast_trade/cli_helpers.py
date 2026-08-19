@@ -265,9 +265,6 @@ def save(result, save_all: bool = False):
         else:
             summary_file.write(json.dumps(result["summary"], indent=2))
 
-    # dataframe
-    # result["df"].to_csv(f"{new_save_dir}/dataframe.csv")
-    # result["trade_df"].to_csv(f"{new_save_dir}/trade_dataframe.csv")
     if save_all:
         result["df"].to_parquet(
             f"{new_save_dir}/dataframe.parquet", index=True
