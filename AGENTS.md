@@ -11,7 +11,7 @@
 - the virtual env is literally `venv/` use `source venv/bin/activate`
 
 ## Build, Test, and Development Commands
-- Setup (editable): `python -m venv .venv && source .venv/bin/activate && pip install -e .`
+- Setup (editable): `python -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]"`
 - Run tests: `pytest` (or `python -m pytest`)
 - Coverage: `coverage run -m pytest && coverage report -m`
 - Lint: `flake8` (configured via `.flake8`, max line length 122)

@@ -2,14 +2,14 @@
 
 ## Unreleased
 
-- Removed the interactive `ft terminal` UI and related live/stream TTY helpers; use `ft backtests` / `ft logs` / `ft portfolio` instead.
-
 ## 2.1.0
 
 ### Release Highlights
 - FXMacroData integration for macro/FX context from catalogues, calendars, announcements, and forex data.
 - New MCP tool `fxmacrodata_macro_context` for agent workflows.
 - Productized HMM multi-asset screener (`ft screen hmm`) with archive-first loading and optional live Coinbase/Hyperliquid fetch.
+- Full-package test coverage with correctness-first backtest checks and documented metric formulas (`docs/METRICS.md`).
+- Removed the interactive `ft terminal` UI and related live/stream TTY helpers; use `ft backtests` / `ft logs` / `ft portfolio` instead.
 
 ### New Features
 - Added `fast_trade.fxmacrodata.FXMacroDataClient` and `build_macro_context(...)`.
@@ -25,11 +25,16 @@
 - Example config: `hmm_screen_example.yml`.
 - `scripts/*_hmm_screener.py` are thin wrappers around the product API.
 
+### Breaking Changes (vs 2.0.0)
+- Removed `ft terminal`, `fast_trade/terminal_ui.py`, and `docs/Terminal.md`.
+- Dropped unused `prompt_toolkit` and `websockets` dependencies that supported the terminal UI.
+- Use `ft backtests`, `ft logs`, and `ft portfolio` for saved-run browsing, log tailing, and paper workflows.
+
 ### Tests
 - `test/test_fxmacrodata.py` (mocked URL construction, env key loading, HTTP/URL/JSON errors, context request shape, partial success).
 - `test/test_hmm_screen.py` (synthetic OHLCV screen/filter/report coverage, MCP smoke).
 - MCP smoke coverage in `test/test_mcp_server.py`.
-- Expanded CLI/terminal coverage to 100%: stream/live helpers, follow views, portfolio passthrough, logs tail/follow, and `_parse_simple_yaml` empty-list items (`test/test_cli_final_coverage.py`, `test/test_cli_coverage_remaining.py`).
+- Expanded CLI coverage to 100%: logs tail/follow, portfolio passthrough, archive helpers, and `_parse_simple_yaml` edge cases (`test/test_cli_coverage_remaining.py` and related CLI suites).
 - Correctness-first suite: golden `run_backtest` e2e, fee equity curve, trailing-stop PnL, action/sim path parity, trade quality, and documented metric formulas in `docs/METRICS.md` (`test/test_run_backtest_e2e.py`).
 - Full-package line coverage gated at 100% via `.coveragerc` `fail_under = 100`.
 
