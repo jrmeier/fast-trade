@@ -1,8 +1,8 @@
 # Fast Trade
 
-[![License: LGPL v3](https://img.shields.io/github/license/jrmeier/fast-trade)](LICENSE)
+[![License: AGPL v3](https://img.shields.io/github/license/jrmeier/fast-trade)](LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/fast-trade.svg?style=flat-square)](https://pypi.org/project/fast-trade/)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/download/releases/3.11.0/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Python application](https://github.com/jrmeier/fast-trade/workflows/Python%20application/badge.svg)](https://github.com/jrmeier/fast-trade/actions)
 
 A library built with backtest portability and performance in mind for trading strategy backtests. There is also an [Archive](#Archive), which can be used to download compatible kline data from Binance (.com or .us) and Coinbase into local parquet datasets.
@@ -27,10 +27,10 @@ git clone git@github.com:<YOUR GIT USERNAME>/fast-trade.git
 cd ./fast-trade
 python -m venv venv
 source venv/bin/activate
-pip install -e .
+pip install -e ".[dev]"
 ```
 
-To generate testing coverage, run
+To generate testing coverage, install the dev extra first, then run:
 
 ```bash
 coverage run -m pytest
@@ -185,7 +185,7 @@ ft logs --kind all --tail 200
 Portfolio activity is persisted as JSONL so it can be tailed with `ft logs` or consumed by external tools.
 
 - Portfolio: `ft_archive/portfolio/<NAME>/portfolio.jsonl`
-- Optional live/stream logs (if present): `ft_archive/live_logs/<RUN_ID>.jsonl`, `ft_archive/stream_logs/<RUN_ID>.jsonl`
+- Legacy live/stream JSONL logs (if present from older runs): `ft_archive/live_logs/<RUN_ID>.jsonl`, `ft_archive/stream_logs/<RUN_ID>.jsonl`
 
 ## Changelog
 
@@ -193,7 +193,9 @@ See `docs/CHANGELOG.md`.
 
 ## Release Notes
 
-Version `2.1.0` adds FXMacroData macro/FX context and a productized HMM screener (`ft screen hmm`, MCP `hmm_screen`). See `docs/CHANGELOG.md` for the full change list and `docs/RELEASE.md` for the release checklist.
+Version `2.1.0` adds FXMacroData macro/FX context, a productized HMM screener (`ft screen hmm`, MCP `hmm_screen`), and full-package test coverage with documented metrics in `docs/METRICS.md`.
+
+Upgrading from `2.0.0`: the interactive `ft terminal` UI was removed. Use `ft backtests`, `ft logs`, and `ft portfolio` instead. See `docs/CHANGELOG.md` for the full change list and `docs/RELEASE.md` for the release checklist.
 
 ## Machine Learning
 
@@ -248,8 +250,12 @@ See `hmm_screen_example.yml` for filters, horizons, and output paths. Agents can
 
 ## Testing
 
+Install dev dependencies first:
+
 ```bash
+pip install -e ".[dev]"
 python -m pytest
+flake8
 ```
 
 ## Coverage

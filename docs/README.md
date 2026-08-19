@@ -4,10 +4,11 @@ Project documentation lives in this directory.
 
 ## Core Docs
 
-- `GETTING_STARTED.md`
-- `CHANGELOG.md`
-- `RELEASE.md`
-- `CONTRIBUTING.md`
+- `GETTING_STARTED.md` — install, first run, and common CLI workflows
+- `CHANGELOG.md` — release history and migration notes
+- `RELEASE.md` — release checklist and publish steps
+- `CONTRIBUTING.md` — local dev setup and PR expectations
+- `METRICS.md` — backtest summary metric definitions
 
 ## Optimization Notes
 

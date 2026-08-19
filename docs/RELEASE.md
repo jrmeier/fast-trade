@@ -43,6 +43,9 @@ Notes:
 Confirm these stay in sync:
 
 - `README.md`
+- `docs/GETTING_STARTED.md`
+- `docs/CONTRIBUTING.md`
+- `docs/README.md`
 - `docs/CHANGELOG.md`
 - `docs/RELEASE.md`
 - `pyproject.toml`

@@ -8,9 +8,9 @@ At a high level, it gives you:
 - local market data management
 - backtests with summaries and saved runs
 - non-interactive backtest browsing via `ft backtests`
-- live signal generation and stream ingestion
+- log tailing via `ft logs`
 - a paper portfolio runner
-- optional ML tooling for optimization and regime analysis
+- optional ML tooling for optimization, regime analysis, and HMM screening
 
 ## What It Is
 
@@ -20,7 +20,7 @@ At a high level, it gives you:
 2. define a strategy in YAML
 3. validate and run backtests
 4. review saved runs with `ft backtests`
-5. optionally run live signals, streams, or a paper portfolio
+5. optionally tail logs with `ft logs` or run a paper portfolio with `ft portfolio`
 
 The project uses pandas-based dataframes internally, parquet storage for archive data, and a CLI-first interface through `ft`.
 
@@ -33,7 +33,7 @@ From the repo root:
 ```bash
 python -m venv venv
 source venv/bin/activate
-pip install -e .
+pip install -e ".[dev]"
 ```
 
 ### Package Install
@@ -178,6 +178,7 @@ ft portfolio stop demo
 ft evolve evolver_example.yml
 ft regime_train regime_example.yml data.csv --out regime_model.pkl
 ft regime_apply regime_model.pkl data.csv --out regime_output.csv
+ft screen hmm hmm_screen_example.yml
 ```
 
 ## Important Files
@@ -185,6 +186,7 @@ ft regime_apply regime_model.pkl data.csv --out regime_output.csv
 - `README.md`: top-level project overview
 - `docs/CHANGELOG.md`: release notes and major changes
 - `docs/RELEASE.md`: release checklist
+- `docs/METRICS.md`: summary metric definitions used by backtests
 - `docs/ACTION_ENGINE_PLAN.md`: action-engine optimization notes
 - `docs/RUN_ANALYSIS_PLAN.md`: simulation-engine optimization notes
 
@@ -192,7 +194,8 @@ ft regime_apply regime_model.pkl data.csv --out regime_output.csv
 
 - Keep strategies in YAML, not JSON.
 - Use `ft_archive/strategies/` as the default strategy location.
-- Use `ft backtests list` / `ft backtests show` to inspect runs, and `ft portfolio` for paper trading.
+- Use `ft backtests list` / `ft backtests show` to inspect runs, `ft logs` to tail JSONL logs, and `ft portfolio` for paper trading.
+- Upgrading from `2.0.0`: `ft terminal` was removed in `2.1.0`; use the CLI commands above instead.
 - Use `python -m pytest` instead of bare `pytest` if you want to guarantee the active environment is used.
 
 ## Troubleshooting
