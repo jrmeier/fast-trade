@@ -25,6 +25,7 @@
 - Use `ft backtests list` / `ft backtests show --index N` for browsing saved runs.
 - Use `ft evolve evolver_example.yml` for GA runs (config is YAML).
 - Use `ft screen hmm` for multi-asset HMM forecast screening (archive-first or `--live`).
+- MCP server (`python -m fast_trade.mcp_server`) exposes a dedicated tool for every `ft` CLI command; see `docs/FEATURES.md`.
 
 ## Coding Style & Naming Conventions
 - Python 3.10+; 4‑space indentation; prefer type hints where practical.
