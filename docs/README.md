@@ -5,9 +5,11 @@ Project documentation lives in this directory.
 ## Core Docs
 
 - `GETTING_STARTED.md`
+- `ROADMAP.md` — strategic direction and near/medium/long-term priorities
 - `CHANGELOG.md`
 - `RELEASE.md`
 - `CONTRIBUTING.md`
+- `METRICS.md`
 
 ## Optimization Notes
 
