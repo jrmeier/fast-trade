@@ -5,7 +5,7 @@
   - run_backtest.py, build_data_frame.py, build_summary.py, finta.py
   - cli.py (entrypoint `ft`), archive/ (data download/update helpers)
 - test/: pytest suite (`test_*.py`)
-- saved_backtests/: optional output when using `ft backtest --save`
+- ft_archive/backtests/: optional output when using `ft backtest --save`
 - example_backtest.yml, strategy.yml: reference strategies
 - pyproject.toml: packaging, deps, and console script
 - the virtual env is literally `venv/` use `source venv/bin/activate`

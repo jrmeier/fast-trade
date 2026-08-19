@@ -132,14 +132,14 @@ This will download the last month of data for BTCUSD from binance.us and store i
 
 `ft download BTCUSD binanceus`
 
-This will backtest a file with a strategy. By default, it will only show a summary of the backtest. However, if you want to save the results, add the `--save` flag and it will go the `saved_backtests/` directory.
+This will backtest a file with a strategy. By default, it will only show a summary of the backtest. Add `--save` to write the run under `ft_archive/backtests/`. Use `--all` to also persist the dataframe and trade log as parquet.
 
 `ft backtest ./strategy.yml`
 
 You can validate a backtest before you run it. This doesn't help with the data, but does help with the logic.
 `ft validate strategy.yml`
 
-### Backteset Modifiers
+### Backtest Modifiers
 
 Modifying the `freq`
 
@@ -150,15 +150,15 @@ Modifying the `freq` and the `trailing_stop_loss`
 `ft backtest ./strategy.yml --mods freq 1H trailing_stop_loss .05`
 
 Saving a test result
-This generates creates the `saved_backtest` directory (if it doesn't exist), then inside of there, is another directory with a timestamp, with a chart, the backtest file, the summary, and the raw dataframe as a csv.
+`--save` creates a timestamped directory under `ft_archive/backtests/` with the strategy summary and a plot. `--all` also writes `dataframe.parquet` and `trade_log.parquet`.
 `ft backtest ./strategy.yml --save`
 
 ### Archive
 You can download data directly from the CoinbaseAPI and BinanceAPI without registering for an API key.
 
-Get a list of assets available for download from the given exchange. Defaults to binanceus.
+Get a list of assets available for download from the given exchange. Defaults to local archive symbols.
 
-`ft assets --exchange=EXCHANGE`
+`ft assets --exchange EXCHANGE`
 
 Download a single asset from the given exchange. Defaults to binanceus.
 `ft download SYMBOL EXCHANGE`
@@ -166,13 +166,13 @@ Download a single asset from the given exchange. Defaults to binanceus.
 Download the last 30 days of BTCUSDT from binance.us
 `ft download BTCUSDT binanceus`
 
-`ft download SYMBOL --archive ARCHIVE_PATH --start START_DATE --end END_DATE --exchange=EXCHANGE`
+`ft download SYMBOL EXCHANGE --start START_DATE --end END_DATE`
 
 Update the archive. Brings the archive up to date with the latest data for each symbol.
 
 ```ft update_archive```
 
-This update all the existing items in the archive, downloading the latest data for each symbol.
+This updates all the existing items in the archive, downloading the latest data for each symbol.
 
 ## Browse saved backtests
 
@@ -196,7 +196,7 @@ See `docs/CHANGELOG.md`.
 
 Version `2.1.0` adds FXMacroData macro/FX context, a productized HMM screener (`ft screen hmm`, MCP `hmm_screen`), and full-package test coverage with documented metrics in `docs/METRICS.md`.
 
-Upgrading from `2.0.0`: the interactive `ft terminal` UI was removed. Use `ft backtests`, `ft logs`, and `ft portfolio` instead. See `docs/CHANGELOG.md` for the full change list and `docs/RELEASE.md` for the release checklist.
+Upgrading from `2.0.0`: the interactive `ft terminal` UI was removed. Use `ft backtests`, `ft logs --name <NAME>`, and `ft portfolio` instead. See `docs/CHANGELOG.md` for the full change list and `docs/RELEASE.md` for the release checklist.
 
 ## Machine Learning
 

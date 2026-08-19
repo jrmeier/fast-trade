@@ -9,7 +9,7 @@
 - New MCP tool `fxmacrodata_macro_context` for agent workflows.
 - Productized HMM multi-asset screener (`ft screen hmm`) with archive-first loading and optional live Coinbase/Hyperliquid fetch.
 - Full-package test coverage with correctness-first backtest checks and documented metric formulas (`docs/METRICS.md`).
-- Removed the interactive `ft terminal` UI and related live/stream TTY helpers; use `ft backtests` / `ft logs` / `ft portfolio` instead.
+- Removed the interactive `ft terminal` UI and related live/stream TTY helpers; use `ft backtests` / `ft logs --name <NAME>` / `ft portfolio` instead.
 
 ### New Features
 - Added `fast_trade.fxmacrodata.FXMacroDataClient` and `build_macro_context(...)`.
@@ -30,6 +30,8 @@
 - Dropped unused `prompt_toolkit` and `websockets` dependencies that supported the terminal UI.
 - `ft logs` is portfolio-only (`--name <NAME>`); it no longer reads legacy `live_logs/` or `stream_logs/` from the terminal UI era.
 - Use `ft backtests`, `ft logs --name <NAME>`, and `ft portfolio` for saved-run browsing, log tailing, and paper workflows.
+- Saved backtests live under `ft_archive/backtests/` (not the old `saved_backtests/` directory).
+- Dropped unused leftover files from the live/terminal era: `Live.plan.md`, standalone `genes.yml`, and unused `MANIFEST.INI`.
 
 ### Tests
 - `test/test_fxmacrodata.py` (mocked URL construction, env key loading, HTTP/URL/JSON errors, context request shape, partial success).

@@ -7,7 +7,7 @@ Current surface area for `fast-trade` `2.1.0`. Use this table to see what exists
 | Download archive data | `ft download` | `download` | stable | Binance / Coinbase |
 | List assets | `ft assets` | `assets`, `list_assets` | stable | `list_assets` returns a plain list helper |
 | Run backtest | `ft backtest` | `backtest` | stable | |
-| Browse saved backtests | `ft backtests` | `backtests` | stable | Replaces interactive `ft terminal` browsing |
+| Browse saved backtests | `ft backtests` | `backtests` | stable | |
 | Migrate saved backtests | `ft migrate_backtests` | `migrate_backtests` | stable | sqlite/json → parquet/yml |
 | Migrate archive sqlite | `ft migrate_archive` | `migrate_archive` | stable | |
 | Validate strategy | `ft validate` | `validate` | stable | |
@@ -23,7 +23,6 @@ Current surface area for `fast-trade` `2.1.0`. Use this table to see what exists
 | FXMacroData context | — | `fxmacrodata_macro_context` | 2.1.0 | API helper, no dedicated CLI |
 | List strategy files | — | `list_strategies` | stable | Helper over `ft_archive/strategies/` |
 | Escape hatch | any `ft ...` | `ft_command`, `ft_command_str` | stable | Raw CLI passthrough |
-| Interactive terminal | `ft terminal` | — | removed in 2.1.0 | Use `backtests` / `logs` / `portfolio` |
 
 ## MCP-only helpers
 

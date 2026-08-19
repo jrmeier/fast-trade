@@ -208,14 +208,12 @@ See `hmm_screen_example.yml` for filters, horizons, and output paths. Agents can
 - `docs/METRICS.md`: summary metric definitions used by backtests
 - `docs/FEATURES.md`: CLI ↔ MCP feature matrix
 - `hmm_screen_example.yml`: example config for `ft screen hmm`
-- `docs/ACTION_ENGINE_PLAN.md`: action-engine optimization notes
-- `docs/RUN_ANALYSIS_PLAN.md`: simulation-engine optimization notes
 
 ## Tips
 
 - Keep strategies in YAML, not JSON.
 - Use `ft_archive/strategies/` as the default strategy location.
-- Use `ft backtests list` / `ft backtests show` to inspect runs, `ft logs` to tail JSONL logs, and `ft portfolio` for paper trading.
+- Use `ft backtests list` / `ft backtests show` to inspect runs, `ft logs --name <NAME>` to tail portfolio JSONL logs, and `ft portfolio` for paper trading.
 - Upgrading from `2.0.0`: `ft terminal` was removed in `2.1.0`; use the CLI commands above instead.
 - Use `python -m pytest` instead of bare `pytest` if you want to guarantee the active environment is used.
 

@@ -5,5 +5,3 @@ from .run_backtest import run_backtest
 from .transformers_map import transformers_map
 from .validate_backtest import validate_backtest
 from .fxmacrodata import FXMacroDataClient, build_macro_context
-
-# from .calculate_perc_missing import calculate_perc_missing

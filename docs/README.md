@@ -11,11 +11,6 @@ Project documentation lives in this directory.
 - `METRICS.md` — backtest summary metric definitions
 - `FEATURES.md` — CLI ↔ MCP feature matrix
 
-## Optimization Notes
-
-- `ACTION_ENGINE_PLAN.md`
-- `RUN_ANALYSIS_PLAN.md`
-
 ## Reference Docs
 
 - `FINTA_README.md`
