@@ -178,8 +178,27 @@ ft portfolio stop demo
 ft evolve evolver_example.yml
 ft regime_train regime_example.yml data.csv --out regime_model.pkl
 ft regime_apply regime_model.pkl data.csv --out regime_output.csv
+```
+
+### HMM Screener
+
+Rank symbols with a Gaussian HMM + Monte Carlo forecast screen. This ships in `2.1.0` as `ft screen hmm` (not available in PyPI `2.0.0`).
+
+Archive-first example:
+
+```bash
+ft download BTC-USD coinbase --start 2024-01-01
 ft screen hmm hmm_screen_example.yml
 ```
+
+Live fetch example:
+
+```bash
+ft screen hmm --exchange coinbase --symbol BTC-USD --symbol ETH-USD --live
+ft screen hmm --exchange hyperliquid --symbol BTC --live --json-out ft_archive/screens/hl.json
+```
+
+See `hmm_screen_example.yml` for filters, horizons, and output paths. Agents can call the MCP tool `hmm_screen`.
 
 ## Important Files
 
@@ -187,6 +206,7 @@ ft screen hmm hmm_screen_example.yml
 - `docs/CHANGELOG.md`: release notes and major changes
 - `docs/RELEASE.md`: release checklist
 - `docs/METRICS.md`: summary metric definitions used by backtests
+- `hmm_screen_example.yml`: example config for `ft screen hmm`
 - `docs/ACTION_ENGINE_PLAN.md`: action-engine optimization notes
 - `docs/RUN_ANALYSIS_PLAN.md`: simulation-engine optimization notes
 

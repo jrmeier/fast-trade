@@ -233,7 +233,7 @@ See `regime_example.yml` for expected config structure.
 
 ### HMM Screener
 
-Rank symbols with a Gaussian HMM + Monte Carlo forecast screen:
+Rank symbols with a Gaussian HMM + Monte Carlo forecast screen. Available in `2.1.0` via `ft screen hmm` (not in PyPI `2.0.0`).
 
 ```bash
 # Archive-first (download candles first)

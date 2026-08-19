@@ -74,14 +74,23 @@ Use this summary for GitHub or PyPI:
 1. Run the pre-release checklist.
 2. Review `git diff --stat` and `git status`.
 3. Confirm `docs/CHANGELOG.md` and `README.md` reflect the final state.
-4. Create the release commit and push it.
-5. Tag the release as `v2.1.0`.
-6. Publish the package and attach release notes.
+4. Merge the release-prep PR and checkout `master`.
+5. Create the release commit if needed, then tag and push:
+
+```bash
+git tag -a v2.1.0 -m "Release 2.1.0"
+git push origin v2.1.0
+```
+
+6. Create the GitHub release from tag `v2.1.0` (this triggers the PyPI publish workflow).
+7. Attach release notes from `docs/CHANGELOG.md` section **2.1.0**.
 
 ## Post-Release Checks
 
-- install from the published artifact into a clean environment
-- run `ft --help`
+After the GitHub release publishes to PyPI:
+
+- install from the published artifact into a clean environment: `pip install fast-trade==2.1.0`
+- run `ft --help` and confirm `ft screen hmm --help` is present
 - run `ft backtests --help`
 - run `ft portfolio --help`
 - verify PyPI metadata renders `README.md` correctly
