@@ -23,13 +23,13 @@ def test_list_strategies(tmp_path, monkeypatch):
 
 def test_tail_log(tmp_path, monkeypatch):
     archive = tmp_path / "ft_archive"
-    live_dir = archive / "live_logs"
-    live_dir.mkdir(parents=True)
-    log_path = live_dir / "run1.jsonl"
+    log_dir = archive / "portfolio" / "demo"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "portfolio.jsonl"
     log_path.write_text('{"message": "a"}\n{"message": "b"}\n{"message": "c"}\n', encoding="utf-8")
     monkeypatch.setenv("ARCHIVE_PATH", str(archive))
 
-    res = mcp_server.tail_log("live", "run1", lines=2)
+    res = mcp_server.tail_log("demo", lines=2)
     assert res == ["b", "c"]
 
 
@@ -163,17 +163,13 @@ def test_logs_builds_cli_args(monkeypatch):
         return {"returncode": 0, "stdout": "", "stderr": "", "command": " ".join(cli_args)}
 
     monkeypatch.setattr(mcp_server, "_run_ft_cli", fake_run)
-    mcp_server.logs(run_id="run1", index=2, kind="live", follow=True, tail=50)
+    mcp_server.logs(name="demo", follow=True, tail=50)
     assert captured["args"] == [
         "logs",
-        "--kind",
-        "live",
+        "--name",
+        "demo",
         "--tail",
         "50",
-        "--run-id",
-        "run1",
-        "--index",
-        "2",
         "--follow",
     ]
 
@@ -244,8 +240,8 @@ def test_cli_wrapper_optional_args(monkeypatch):
     assert "--md-out" in captured[7]
 
     captured.clear()
-    mcp_server.logs(follow=False)
-    assert captured[0][-1] == "--no-follow"
+    mcp_server.logs(name="demo", follow=False)
+    assert captured[0] == ["logs", "--name", "demo", "--tail", "200", "--no-follow"]
 
 
 def test_backtest_builds_cli_args(monkeypatch):
@@ -305,25 +301,17 @@ def test_ft_command_forwards(monkeypatch):
     assert mcp_server.ft_command(["-h"])["stdout"] == "ok"
 
 
-@pytest.mark.parametrize(
-    "kind,subdir,filename,legacy_name",
-    [
-        ("live", "live_logs", "run1.jsonl", "run1.log"),
-        ("stream", "stream_logs", "run1.jsonl", "run1.log"),
-        ("portfolio", "portfolio/demo", "portfolio.jsonl", "portfolio.log"),
-    ],
-)
-def test_tail_log_formats(tmp_path, monkeypatch, kind, subdir, filename, legacy_name):
+def test_tail_log_formats(tmp_path, monkeypatch):
     archive = tmp_path / "ft_archive"
-    log_dir = archive / subdir
+    log_dir = archive / "portfolio" / "demo"
     log_dir.mkdir(parents=True)
-    log_path = log_dir / filename
+    log_path = log_dir / "portfolio.jsonl"
     log_path.write_text(
         '{"line": "line-msg"}\n{"message": "message-msg"}\n{"event": {"x": 1}}\nplain\n',
         encoding="utf-8",
     )
     monkeypatch.setenv("ARCHIVE_PATH", str(archive))
-    res = mcp_server.tail_log(kind, "demo" if kind == "portfolio" else "run1", lines=10)
+    res = mcp_server.tail_log("demo", lines=10)
     assert "line-msg" in res
     assert "message-msg" in res
     assert '"x": 1' in res[-2] or '"x": 1' in res[-1]
@@ -332,25 +320,24 @@ def test_tail_log_formats(tmp_path, monkeypatch, kind, subdir, filename, legacy_
 
 def test_tail_log_json_payload_fallback(tmp_path, monkeypatch):
     archive = tmp_path / "ft_archive"
-    live_dir = archive / "live_logs"
-    live_dir.mkdir(parents=True)
-    log_path = live_dir / "run1.jsonl"
+    log_dir = archive / "portfolio" / "demo"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "portfolio.jsonl"
     log_path.write_text('{"foo": 1}\n', encoding="utf-8")
     monkeypatch.setenv("ARCHIVE_PATH", str(archive))
-    res = mcp_server.tail_log("live", "run1", lines=1)
+    res = mcp_server.tail_log("demo", lines=1)
     assert '"foo": 1' in res[0]
 
 
 def test_tail_log_legacy_and_missing(tmp_path, monkeypatch):
     archive = tmp_path / "ft_archive"
-    live_dir = archive / "live_logs"
-    live_dir.mkdir(parents=True)
-    legacy = live_dir / "run1.log"
+    log_dir = archive / "portfolio" / "demo"
+    log_dir.mkdir(parents=True)
+    legacy = log_dir / "portfolio.log"
     legacy.write_text("legacy-line\n", encoding="utf-8")
     monkeypatch.setenv("ARCHIVE_PATH", str(archive))
-    assert mcp_server.tail_log("live", "run1") == ["legacy-line"]
-    assert mcp_server.tail_log("live", "missing")[0].startswith("Log not found:")
-    assert mcp_server.tail_log("unknown", "x") == ["Unknown kind: unknown"]
+    assert mcp_server.tail_log("demo") == ["legacy-line"]
+    assert mcp_server.tail_log("missing")[0].startswith("Log not found:")
 
 
 def test_version_resource(tmp_path, monkeypatch):

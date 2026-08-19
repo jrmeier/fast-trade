@@ -28,7 +28,8 @@
 ### Breaking Changes (vs 2.0.0)
 - Removed `ft terminal`, `fast_trade/terminal_ui.py`, and `docs/Terminal.md`.
 - Dropped unused `prompt_toolkit` and `websockets` dependencies that supported the terminal UI.
-- Use `ft backtests`, `ft logs`, and `ft portfolio` for saved-run browsing, log tailing, and paper workflows.
+- `ft logs` is portfolio-only (`--name <NAME>`); it no longer reads legacy `live_logs/` or `stream_logs/` from the terminal UI era.
+- Use `ft backtests`, `ft logs --name <NAME>`, and `ft portfolio` for saved-run browsing, log tailing, and paper workflows.
 
 ### Tests
 - `test/test_fxmacrodata.py` (mocked URL construction, env key loading, HTTP/URL/JSON errors, context request shape, partial success).

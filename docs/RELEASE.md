@@ -11,7 +11,7 @@ This project is prepared for the `2.1.0` release.
 - README notes for API host and env-based auth
 - Productized HMM multi-asset screener (`ft screen hmm`, MCP `hmm_screen`, archive-first + optional live adapters)
 - Full-package test coverage with correctness-first backtest checks and documented metrics (`docs/METRICS.md`)
-- Removal of the interactive `ft terminal` UI (breaking vs 2.0.0); use `ft backtests` / `ft logs` / `ft portfolio` instead
+- Removal of the interactive `ft terminal` UI (breaking vs 2.0.0); use `ft backtests`, `ft logs --name <NAME>`, and `ft portfolio` instead
 
 ## Pre-Release Checklist
 
@@ -67,7 +67,7 @@ Use this summary for GitHub or PyPI:
 - Exposed `fxmacrodata_macro_context` and `hmm_screen` on the MCP server for agent use.
 - Productized HMM multi-asset screening via `ft screen hmm` with archive-first loading and optional live fetch.
 - Expanded test coverage to 100% line coverage across `fast_trade` with correctness-first backtest regression checks.
-- Removed the interactive `ft terminal` UI; browse saved runs with `ft backtests` and tail logs with `ft logs`.
+- Removed the interactive `ft terminal` UI; browse saved runs with `ft backtests` and tail portfolio logs with `ft logs --name <NAME>`.
 
 ## Release Steps
 

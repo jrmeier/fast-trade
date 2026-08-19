@@ -248,29 +248,23 @@ def test_validate_command(cli_runner, strategy_file, monkeypatch):
     assert bad.exit_code != 0
 
 
-def test_logs_command(cli_runner, archive_env, backtest_run):
-    run_id, _, _ = backtest_run
-    live_dir = archive_env / "live_logs"
-    live_dir.mkdir(exist_ok=True)
-    (live_dir / f"{run_id}.jsonl").write_text('{"line":"live msg"}\n')
-    stream_dir = archive_env / "stream_logs"
-    stream_dir.mkdir(exist_ok=True)
-    (stream_dir / f"{run_id}.log").write_text("legacy stream\n")
+def test_logs_command(cli_runner, archive_env):
+    log_dir = archive_env / "portfolio" / "demo"
+    log_dir.mkdir(parents=True)
+    (log_dir / "portfolio.jsonl").write_text('{"message":"portfolio msg"}\n')
 
-    r = _invoke(cli_runner, ["logs", "--run-id", run_id, "--kind", "all", "--tail", "10"])
+    r = _invoke(cli_runner, ["logs", "--name", "demo", "--tail", "10"])
     assert r.exit_code == 0
+    assert "portfolio msg" in r.stdout
 
-    r2 = _invoke(cli_runner, ["logs", "--index", "1", "--kind", "live"])
-    assert r2.exit_code == 0
-
-    bad = _invoke(cli_runner, ["logs", "--kind", "bad"])
-    assert bad.exit_code != 0
+    missing = _invoke(cli_runner, ["logs", "--name", "missing"])
+    assert missing.exit_code != 0
 
 
-def test_logs_follow_interrupt(cli_runner, archive_env, backtest_run, monkeypatch):
-    run_id, _, _ = backtest_run
-    log_path = archive_env / "live_logs" / f"{run_id}.jsonl"
-    log_path.parent.mkdir(exist_ok=True)
+def test_logs_follow_interrupt(cli_runner, archive_env, monkeypatch):
+    log_dir = archive_env / "portfolio" / "demo"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "portfolio.jsonl"
     log_path.write_text('{"message":"one"}\n')
 
     iterations = {"n": 0}
@@ -282,7 +276,7 @@ def test_logs_follow_interrupt(cli_runner, archive_env, backtest_run, monkeypatc
 
     monkeypatch.setattr(cli_mod.time, "sleep", fake_sleep)
     with pytest.raises(KeyboardInterrupt):
-        cli_mod.logs_cmd(run_id=run_id, index=None, kind="live", follow=True, tail=5)
+        cli_mod.logs_cmd(name="demo", follow=True, tail=5)
 
 
 def test_update_archive(cli_runner, monkeypatch):

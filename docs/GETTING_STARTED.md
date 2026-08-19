@@ -136,7 +136,7 @@ ft backtest strategy.yml --save --mods freq 1H trailing_stop_loss 0.02
 ```bash
 ft backtests list
 ft backtests show --index 1
-ft logs --kind all --tail 200
+ft logs --name demo --tail 200
 ```
 
 ## Common Commands
@@ -161,7 +161,7 @@ ft backtests list
 ### Logs
 
 ```bash
-ft logs --kind all --tail 200
+ft logs --name demo --tail 200
 ```
 
 ### Paper Portfolio

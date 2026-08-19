@@ -206,18 +206,12 @@ def validate(strategy_path: str, mods: Optional[List[str]] = None) -> dict:
 
 
 def logs(
-    run_id: Optional[str] = None,
-    index: Optional[int] = None,
-    kind: str = "all",
+    name: str,
     follow: bool = False,
     tail: int = 200,
 ) -> dict:
-    """Tail saved run logs via `ft logs`."""
-    args = ["logs", "--kind", kind, "--tail", str(tail)]
-    if run_id:
-        args += ["--run-id", run_id]
-    if index is not None:
-        args += ["--index", str(index)]
+    """Tail portfolio logs via `ft logs`."""
+    args = ["logs", "--name", name, "--tail", str(tail)]
     if follow:
         args.append("--follow")
     else:
@@ -328,20 +322,11 @@ def screen_hmm(
     return _run_ft_cli(*args)
 
 
-def tail_log(kind: str, identifier: str, lines: int = 200) -> List[str]:
-    """Tail a log file. kind = live|stream|portfolio."""
+def tail_log(name: str, lines: int = 200) -> List[str]:
+    """Tail a portfolio JSONL log."""
     archive_path = os.getenv("ARCHIVE_PATH", "ft_archive")
-    if kind == "live":
-        path = os.path.join(archive_path, "live_logs", f"{identifier}.jsonl")
-        legacy = os.path.join(archive_path, "live_logs", f"{identifier}.log")
-    elif kind == "stream":
-        path = os.path.join(archive_path, "stream_logs", f"{identifier}.jsonl")
-        legacy = os.path.join(archive_path, "stream_logs", f"{identifier}.log")
-    elif kind == "portfolio":
-        path = os.path.join(archive_path, "portfolio", identifier, "portfolio.jsonl")
-        legacy = os.path.join(archive_path, "portfolio", identifier, "portfolio.log")
-    else:
-        return [f"Unknown kind: {kind}"]
+    path = os.path.join(archive_path, "portfolio", name, "portfolio.jsonl")
+    legacy = os.path.join(archive_path, "portfolio", name, "portfolio.log")
     read_path = path if os.path.exists(path) else legacy
     if not os.path.exists(read_path):
         return [f"Log not found: {path}"]

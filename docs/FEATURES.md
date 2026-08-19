@@ -11,7 +11,7 @@ Current surface area for `fast-trade` `2.1.0`. Use this table to see what exists
 | Migrate saved backtests | `ft migrate_backtests` | `migrate_backtests` | stable | sqlite/json → parquet/yml |
 | Migrate archive sqlite | `ft migrate_archive` | `migrate_archive` | stable | |
 | Validate strategy | `ft validate` | `validate` | stable | |
-| Tail run logs | `ft logs` | `logs`, `tail_log` | stable | `tail_log` reads JSONL directly |
+| Tail portfolio logs | `ft logs --name <NAME>` | `logs`, `tail_log` | stable | Portfolio JSONL only; `tail_log` reads directly |
 | Update archive | `ft update_archive` | `update_archive` | stable | |
 | GA evolver | `ft evolve` | `evolve` | 2.0.0 | |
 | Regime train | `ft regime_train` | `regime_train` | 2.0.0 | |

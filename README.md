@@ -179,7 +179,7 @@ This update all the existing items in the archive, downloading the latest data f
 ```bash
 ft backtests list
 ft backtests show --index 1
-ft logs --kind all --tail 200
+ft logs --name demo --tail 200
 ```
 
 ### Persistent logs
@@ -187,7 +187,6 @@ ft logs --kind all --tail 200
 Portfolio activity is persisted as JSONL so it can be tailed with `ft logs` or consumed by external tools.
 
 - Portfolio: `ft_archive/portfolio/<NAME>/portfolio.jsonl`
-- Legacy live/stream JSONL logs (if present from older runs): `ft_archive/live_logs/<RUN_ID>.jsonl`, `ft_archive/stream_logs/<RUN_ID>.jsonl`
 
 ## Changelog
 
