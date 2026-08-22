@@ -1,0 +1,26 @@
+# Example strategy shape for classifier signals.
+# The ``ml_signal`` column must already exist on the dataframe
+# (see examples/ml_classifier_backtest.py / fast_trade.ml.classifier).
+#
+# This file is documentation for the enter/exit pattern; the Python helper
+# builds an equivalent strategy dict at runtime.
+
+any_enter: []
+any_exit: []
+freq: 1h
+comission: 0.01
+symbol: BTCUSDT
+exchange: binanceus
+datapoints:
+  - name: ml_signal
+    transformer: column
+    args:
+      - ml_signal
+enter:
+  - [ml_signal, "=", 1]
+exit:
+  - [ml_signal, "=", 0]
+exit_on_end: true
+# Required by validate_backtest; the example script sets these from data.
+start: null
+stop: null
