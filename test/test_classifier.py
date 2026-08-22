@@ -114,3 +114,56 @@ def test_attach_ml_signal_fills_missing():
     out = attach_ml_signal(df, signal)
     assert out["ml_signal"].iloc[:3].tolist() == [1, 0, 1]
     assert (out["ml_signal"].iloc[3:] == 0).all()
+
+
+def test_feature_and_label_validation_errors():
+    df = _synthetic_ohlcv(rows=80)
+    with pytest.raises(ValueError, match="missing required columns"):
+        build_classifier_features(df.drop(columns=["volume"]))
+    with pytest.raises(ValueError, match="horizon"):
+        label_forward_return(df["close"], horizon=0)
+    with pytest.raises(ValueError, match="train_frac"):
+        fit_return_classifier(df, train_frac=1.5)
+    with pytest.raises(ValueError, match="at least 40"):
+        fit_return_classifier(_synthetic_ohlcv(rows=30), threshold=0.0)
+    with pytest.raises(ValueError, match="Unknown feature"):
+        fit_return_classifier(df, feature_columns=["not_a_feature"], threshold=0.0)
+
+
+def test_fit_rejects_empty_usable_and_single_class(monkeypatch):
+    df = _synthetic_ohlcv(rows=80)
+
+    def _all_nan_features(_df):
+        cols = list(build_classifier_features(_df).columns)
+        return pd.DataFrame(np.nan, index=_df.index, columns=cols)
+
+    monkeypatch.setattr(
+        "fast_trade.ml.classifier.build_classifier_features", _all_nan_features
+    )
+    with pytest.raises(ValueError, match="No usable rows"):
+        fit_return_classifier(df, threshold=0.0)
+
+    monkeypatch.undo()
+    # Huge threshold → all zeros in training labels on this synthetic path.
+    with pytest.raises(ValueError, match="both classes"):
+        fit_return_classifier(df, horizon=5, threshold=10.0, train_frac=0.7)
+
+
+def test_run_classifier_backtest_all_and_strategy_override():
+    df = _synthetic_ohlcv(rows=500)
+    with pytest.raises(ValueError, match="backtest_on"):
+        run_classifier_backtest(df, backtest_on="train", threshold=0.0)
+
+    result = run_classifier_backtest(
+        df,
+        horizon=5,
+        threshold=0.0,
+        train_frac=0.7,
+        backtest_on="all",
+        strategy={"name": "custom_ml", "comission": 0.0},
+        strategy_overrides={"freq": "1h"},
+        random_state=2,
+    )
+    assert result.extras["backtest_on"] == "all"
+    assert result.strategy["name"] == "custom_ml"
+    assert len(result.df) >= result.fit.test_rows
