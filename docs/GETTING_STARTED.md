@@ -10,7 +10,7 @@ At a high level, it gives you:
 - non-interactive backtest browsing via `ft backtests`
 - log tailing via `ft logs`
 - a paper portfolio runner
-- optional ML tooling for optimization, regime analysis, and HMM screening
+- optional ML tooling for optimization, regime analysis, HMM screening, and a classifier → `ml_signal` example
 
 ## What It Is
 
@@ -200,6 +200,17 @@ ft screen hmm --exchange hyperliquid --symbol BTC --live --json-out ft_archive/s
 
 See `hmm_screen_example.yml` for filters, horizons, and output paths. Agents can call the MCP tool `hmm_screen`.
 
+### Classifier signal example
+
+Train a simple sklearn classifier on forward returns, attach an `ml_signal` column, and backtest it with the existing enter/exit engine:
+
+```bash
+python examples/ml_classifier_backtest.py --synthetic
+python examples/ml_classifier_backtest.py --symbol BTCUSDT --exchange binanceus
+```
+
+Helpers live in `fast_trade/ml/classifier.py`. The strategy shape is documented in `examples/ml_classifier_strategy.yml` (uses the `column` datapoint transformer for precomputed signals).
+
 ## Important Files
 
 - `README.md`: top-level project overview
@@ -208,6 +219,8 @@ See `hmm_screen_example.yml` for filters, horizons, and output paths. Agents can
 - `docs/METRICS.md`: summary metric definitions used by backtests
 - `docs/FEATURES.md`: CLI ↔ MCP feature matrix
 - `hmm_screen_example.yml`: example config for `ft screen hmm`
+- `examples/ml_classifier_backtest.py`: classifier → `ml_signal` → backtest demo
+- `examples/ml_classifier_strategy.yml`: enter/exit pattern for classifier signals
 
 ## Tips
 

@@ -1,10 +1,29 @@
+import pandas as pd
+
 from .finta import TA
 
 """
 These are all the datapoints the can be used in a backtest as a "transformer".
 Any function can be implimented as an transformer.
 """
+
+
+def COLUMN(df: pd.DataFrame, column: str) -> pd.Series:
+    """Expose a precomputed dataframe column as a named datapoint.
+
+    Useful for ML signals (or any external series) that are attached before
+    ``run_backtest`` / ``prepare_df``.
+    """
+    if column not in df.columns:
+        raise ValueError(
+            f"Column '{column}' not found in dataframe. "
+            "Attach it before running the backtest."
+        )
+    return df[column]
+
+
 transformers_map = {
+    "column": COLUMN,
     "sma": TA.SMA,
     "smm": TA.SMM,
     "ssma": TA.SSMA,
