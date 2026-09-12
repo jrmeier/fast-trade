@@ -1,5 +1,7 @@
 # Run Analysis Optimization Plan
 
+> **Historical note (3.0.0):** Written against the pre-Polars pandas wrapper. The library is now Polars-native; `apply_logic_to_df()` still feeds a pure-array kernel, but frame IO is Polars. Keep the progress log for context; do not treat older pandas wording as current API.
+
 This file tracks the next optimization pass for `fast_trade/run_analysis.py`, centered on `apply_logic_to_df()`.
 
 ## Baseline Profile
@@ -22,11 +24,11 @@ Primary hotspots from `cProfile`:
 - `convert_aux_to_base()` cumulative time: about `0.27s`
 - built-in `round()` time: about `0.25s`
 - `convert_base_to_aux()` is much smaller
-- pandas column assignment cost is minor relative to the loop itself
+- dataframe column assignment cost is minor relative to the loop itself
 
 ## Interpretation
 
-This is now mostly a Python math loop problem, not a pandas problem.
+This is now mostly a Python math loop problem, not a dataframe-library problem.
 
 The current simulation loop spends most of its time on:
 
@@ -76,6 +78,7 @@ Use `scripts/profile_backtest_hotspots.py` to rerun comparable hotspot profiles.
 - `2026-03-11`: First implementation pass completed in `apply_logic_to_df()`. The loop now uses local rolling state, precomputed enter/exit masks, inline transaction math, and a vectorized post-pass for `adj_account_value`.
 - `2026-03-11`: `test/test_run_analysis.py` passed after the refactor.
 - `2026-03-11`: Representative simulation benchmark improved from about `0.48s` mean to about `0.18s` mean on the `1Min` BTCUSDT case, roughly a `2.7x` speedup for `apply_logic_to_df()`.
-- `2026-03-11`: Phase 2 implemented. The simulation loop is now extracted into a dedicated pure-array kernel inside `run_analysis.py`, and `apply_logic_to_df()` acts as the stable pandas wrapper.
+- `2026-03-11`: Phase 2 implemented. The simulation loop is now extracted into a dedicated pure-array kernel inside `run_analysis.py`, and `apply_logic_to_df()` acts as the stable dataframe wrapper (pandas at the time; Polars as of `3.0.0`).
 - `2026-03-11`: After extraction, the representative simulation benchmark measured about `0.21s` mean. This is slightly slower than the fully inlined version, but still materially better than the original `0.48s` baseline while leaving the code in a cleaner state for a future JIT pass.
 - `2026-03-11`: Full verification completed after Phase 2: `python -m pytest` passed (`137 passed`) and `flake8` passed.
+- `2026-09-12`: Library migrated to Polars-native frames (`3.0.0`); simulation kernel remains numpy-oriented behind the Polars wrapper.

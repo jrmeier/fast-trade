@@ -10,12 +10,13 @@ Three layers that mostly work well together:
 
 | Layer | What exists | Maturity |
 |---|---|---|
-| **Core engine** | YAML strategies → indicators → enter/exit logic → rich summary metrics | Strong; recently optimized (~3x on hot paths) |
+| **Core engine** | YAML strategies → Polars indicators → enter/exit logic → rich summary metrics | Strong; Polars-native in `3.0.0` |
 | **Data + CLI** | Archive download (Binance/Coinbase), `ft backtest`, saved runs, logs | Solid |
 | **Research tooling** | Evolver (GA), regime models, HMM screener, FXMacroData, MCP server | Growing, uneven |
 
 Recent history reinforces a specific bias:
 
+- **3.0.0** migrated the library from pandas to Polars-native dataframes (breaking).
 - **2.1.0** added agent-facing tools (MCP, HMM screen, macro context).
 - **Terminal UI was removed** — a deliberate simplification toward headless CLI + agents.
 - **`Live.plan.md` exists but `fast_trade/live/` does not** — live execution is planned, not shipped.
@@ -106,9 +107,9 @@ Avoid becoming “yet another AutoML trading framework.” The edge is **speed +
 
 ## Concrete Roadmap
 
-### Near term (stabilize 2.1, sharpen the loop)
+### Near term (stabilize 3.0, sharpen the loop)
 
-1. Ship 2.1.0 (release prep)
+1. Ship 3.0.0 (Polars-native release prep)
 2. Document an end-to-end “research workflow” (screen → backtest → evolve → compare)
 3. Add batch backtest + summary ranking CLI
 4. Extend MCP with evolve and backtest-comparison tools

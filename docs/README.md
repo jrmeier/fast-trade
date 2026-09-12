@@ -2,6 +2,8 @@
 
 Project documentation lives in this directory.
 
+Library dataframes are Polars (`pl.DataFrame` with a `date` column) as of `3.0.0`.
+
 ## Core Docs
 
 - `GETTING_STARTED.md` — install, first run, and common CLI workflows
@@ -14,5 +16,5 @@ Project documentation lives in this directory.
 
 ## Reference Docs
 
-- `FINTA_README.md`
+- `FINTA_README.md` — Polars-native FinTA indicator fork
 - `TRANSFORMER_README.md`
