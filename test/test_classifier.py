@@ -243,3 +243,30 @@ def test_run_classifier_backtest_all_and_strategy_override():
     assert result.extras["signal_threshold"] == 0.45
     assert result.strategy["name"] == "custom_ml"
     assert len(result.df) >= result.fit.test_rows
+
+def test_time_split_purge_validation_errors():
+    idx = pd.date_range("2024-01-01", periods=50, freq="1h", tz="UTC")
+    with pytest.raises(ValueError, match="purge_bars"):
+        _time_split_index(idx, 0.7, purge_bars=-1)
+    with pytest.raises(ValueError, match="Not enough training rows after purge"):
+        _time_split_index(idx, 0.7, purge_bars=25)
+
+
+def test_resolve_backtest_freq_requires_explicit_when_uninferable(monkeypatch):
+    df = _synthetic_ohlcv(rows=80)
+    monkeypatch.setattr("fast_trade.ml.classifier.infer_frequency", lambda _df: None)
+    with pytest.raises(ValueError, match="Could not infer"):
+        resolve_backtest_freq(df, {})
+
+
+def test_predict_ml_signal_falls_back_without_predict_proba():
+    class _NoProba:
+        def predict(self, x):
+            return np.ones(len(x), dtype=int)
+
+    df = _synthetic_ohlcv(rows=60)
+    features = build_classifier_features(df).dropna()
+    cols = list(features.columns)
+    signal = predict_ml_signal(_NoProba(), features, cols, threshold=0.5)
+    assert (signal == 1).all()
+
