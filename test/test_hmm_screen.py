@@ -70,7 +70,7 @@ def test_empty_helpers_and_money():
 def test_make_features_and_fit_hmm_forecast():
     df = _synthetic_ohlcv()
     features = make_features(df)
-    assert list(features.columns) == ["ret", "vol", "range", "trend", "drawdown"]
+    assert features.columns == ["date", "ret", "vol", "range", "trend", "drawdown"]
     result = fit_hmm_forecast(
         "BTC-USD",
         df,

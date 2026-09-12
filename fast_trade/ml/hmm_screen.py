@@ -16,6 +16,7 @@ from sklearn.preprocessing import StandardScaler
 
 
 DEFAULT_HORIZONS = (7, 30, 60)
+FEATURE_COLUMNS = ("ret", "vol", "range", "trend", "drawdown")
 
 
 def utc_now() -> dt.datetime:
@@ -70,6 +71,7 @@ def _finite(expr: pl.Expr) -> pl.Expr:
 def make_features(df: pl.DataFrame) -> pl.DataFrame:
     ret = pl.col("close").pct_change()
     return df.select(
+        pl.col("date"),
         _finite(ret).alias("ret"),
         _finite(ret.rolling_std(window_size=20)).alias("vol"),
         _finite((pl.col("high") - pl.col("low")) / pl.col("close")).alias("range"),
@@ -163,7 +165,7 @@ def fit_hmm_forecast(
     features = make_features(df)
     returns = features["ret"]
     scaler = StandardScaler()
-    x = scaler.fit_transform(features.to_numpy())
+    x = scaler.fit_transform(features.select(FEATURE_COLUMNS).to_numpy())
     model = GaussianHMM(
         n_components=n_states,
         covariance_type="diag",

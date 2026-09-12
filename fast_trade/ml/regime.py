@@ -12,6 +12,9 @@ except Exception:  # pragma: no cover
     GaussianHMM = None
 
 
+FEATURE_COLUMNS = ("ret", "vol", "range", "trend", "volume_z")
+
+
 @dataclass
 class RegimeModel:
     model: object
@@ -81,6 +84,7 @@ def _compute_features(df: pl.DataFrame, cfg: dict) -> pl.DataFrame:
     volume_mean = pl.col("volume").rolling_mean(volume_window)
     volume_std = pl.col("volume").rolling_std(volume_window)
     return working.select(
+        pl.col("date"),
         _finite(pl.col("_ret")).alias("ret"),
         _finite(pl.col("_ret").rolling_std(window)).alias("vol"),
         _finite((pl.col("high") - pl.col("low")) / pl.col("close")).alias("range"),
@@ -130,14 +134,15 @@ def train_regime_model(df: pl.DataFrame, config: dict) -> RegimeModel:
 
     df = _ensure_freq(df.clone(), freq)
     features = _compute_features(df, cfg)
-    x = features.to_numpy()
+    x = features.select(FEATURE_COLUMNS).to_numpy()
 
     model = GaussianHMM(n_components=n_states, covariance_type="diag", n_iter=cfg.get("n_iter", 100))
     model.fit(x)
 
     states = model.predict(x)
     state_stats = (
-        features.with_columns(pl.Series("state", states))
+        features.select(FEATURE_COLUMNS)
+        .with_columns(pl.Series("state", states))
         .group_by("state")
         .mean()
         .sort("state")
@@ -154,7 +159,7 @@ def apply_regime_model(df: pl.DataFrame, model: RegimeModel) -> pl.DataFrame:
     freq = cfg.get("freq", "1H")
     df = _ensure_freq(df.clone(), freq)
     features = _compute_features(df, cfg)
-    x = features.to_numpy()
+    x = features.select(FEATURE_COLUMNS).to_numpy()
 
     states = model.model.predict(x)
     probs = model.model.predict_proba(x)
