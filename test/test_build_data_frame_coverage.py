@@ -4,6 +4,7 @@ import datetime
 from unittest import mock
 
 import pandas as pd
+import polars as pl
 import pytest
 
 from fast_trade.build_data_frame import (
@@ -13,6 +14,7 @@ from fast_trade.build_data_frame import (
     build_data_frame,
     detect_time_unit,
     infer_frequency,
+    parse_date_bound,
     standardize_df,
 )
 from fast_trade.validate_backtest import (
@@ -20,6 +22,11 @@ from fast_trade.validate_backtest import (
     validate_backtest,
     validate_backtest_with_df,
 )
+
+
+def _ohlcv_df():
+    """The csv fixture, date column still holding epoch seconds."""
+    return pl.read_csv("./test/ohlcv_data.csv.txt")
 
 
 def test_transformer_error_str():
@@ -34,32 +41,42 @@ def test_build_data_frame_empty_raises():
 
 
 def test_prepare_df_invalid_chart_period():
-    df = pd.read_csv("./test/ohlcv_data.csv.txt")
-    df.index = pd.to_datetime(df["date"], unit="s")
     bt = {"chart_period": "not_a_freq", "datapoints": []}
-    with mock.patch("fast_trade.build_data_frame.infer_frequency", return_value=None):
-        with pytest.raises(ValueError, match="Invalid chart period"):
-            from fast_trade.build_data_frame import prepare_df
-            prepare_df(df, bt)
+    with pytest.raises(ValueError, match="Invalid chart period"):
+        from fast_trade.build_data_frame import prepare_df
+
+        prepare_df(_ohlcv_df(), bt)
+
+
+def test_prepare_df_uses_chart_period():
+    from fast_trade.build_data_frame import prepare_df
+
+    bt = {"chart_period": "3Min", "datapoints": []}
+    out = prepare_df(_ohlcv_df(), bt)
+
+    assert infer_frequency(out) == "3Min"
 
 
 def test_apply_charting_no_date_column_raises():
-    df = pd.DataFrame({"open": [1], "close": [1]})
+    df = pl.DataFrame({"open": [1.0], "close": [1.0]})
     with pytest.raises(Exception, match="date column"):
         apply_charting_to_df(df, "1Min", "", "")
 
 
-def test_apply_charting_index_without_date_column():
-    df = pd.read_csv("./test/ohlcv_data.csv.txt")
-    df = df.set_index("date")
-    # index is numeric epoch seconds, not datetime yet
-    out = apply_charting_to_df(df, "1Min", "", "")
-    assert isinstance(out.index, pd.DatetimeIndex)
+def test_apply_charting_converts_epoch_date_column():
+    # date column is numeric epoch seconds, not datetime yet
+    out = apply_charting_to_df(_ohlcv_df(), "1Min", "", "")
+    assert isinstance(out.schema["date"], pl.Datetime)
+
+
+def test_apply_transformers_requires_date_column():
+    df = pl.DataFrame({"close": [1.0, 2.0]})
+    with pytest.raises(Exception, match="date column"):
+        apply_transformers_to_dataframe(df, [])
 
 
 def test_apply_transformers_invalid_and_error():
-    df = pd.read_csv("./test/ohlcv_data.csv.txt")
-    df.index = pd.to_datetime(df["date"], unit="s")
+    df = _ohlcv_df()
     with pytest.raises(ValueError, match="not a valid transformer"):
         apply_transformers_to_dataframe(df, [{"transformer": "nope", "name": "x", "args": []}])
 
@@ -72,7 +89,7 @@ def test_apply_transformers_invalid_and_error():
 
 
 def test_standardize_df_iso_dates_and_infer_frequency_branches():
-    df = pd.DataFrame(
+    df = pl.DataFrame(
         {
             "date": ["2024-01-01 00:00:00", "2024-01-01 00:01:00"],
             "open": [1, 2],
@@ -84,34 +101,88 @@ def test_standardize_df_iso_dates_and_infer_frequency_branches():
         }
     )
     out = standardize_df(df)
-    assert isinstance(out.index, pd.DatetimeIndex)
+    assert isinstance(out.schema["date"], pl.Datetime)
+    assert out.columns == ["date", "open", "high", "low", "close", "volume"]
+    assert out.schema["open"] == pl.Float64
 
+    base = datetime.datetime(2024, 1, 1)
     for delta, expected in [
-        (pd.Timedelta(seconds=15), "15S"),
-        (pd.Timedelta(minutes=7), "7Min"),
-        (pd.Timedelta(hours=6), "6H"),
-        (pd.Timedelta(days=2), "2D"),
+        (datetime.timedelta(seconds=15), "15S"),
+        (datetime.timedelta(minutes=7), "7Min"),
+        (datetime.timedelta(hours=6), "6H"),
+        (datetime.timedelta(days=2), "2D"),
     ]:
-        base = pd.Timestamp("2024-01-01")
-        idx = pd.DatetimeIndex(
-            [base, base + delta, base + delta * 2]
-        )
-        frame = pd.DataFrame(
-            {"open": [1, 2, 3], "high": [2, 3, 4], "low": [0, 1, 2],
-             "close": [1, 2, 3], "volume": [1, 2, 3]},
-            index=idx,
+        frame = pl.DataFrame(
+            {
+                "date": [base, base + delta, base + delta * 2],
+                "open": [1, 2, 3],
+                "high": [2, 3, 4],
+                "low": [0, 1, 2],
+                "close": [1, 2, 3],
+                "volume": [1, 2, 3],
+            }
         )
         assert infer_frequency(frame) == expected
 
-    idx = pd.date_range("2024-01-01", periods=3, freq="h")
-    frame = pd.DataFrame(
-        {"open": [1, 2, 3], "high": [2, 3, 4], "low": [0, 1, 2],
-         "close": [1, 2, 3], "volume": [1, 2, 3]},
-        index=idx,
-    )
-    assert infer_frequency(frame) == frame.index.freq
+    single = pl.DataFrame({"date": [base], "close": [1]})
+    assert infer_frequency(single) is None
+
+    with pytest.raises(ValueError):
+        infer_frequency(pl.DataFrame({"close": [1, 2, 3]}))
 
     assert detect_time_unit("not-a-ts") is None
+
+
+def test_standardize_df_dedupes_and_requires_date():
+    base = datetime.datetime(2024, 1, 1)
+    df = pl.DataFrame(
+        {
+            "date": [base, base, base + datetime.timedelta(minutes=1)],
+            "open": [1.0, 9.0, 2.0],
+            "high": [1.0, 9.0, 2.0],
+            "low": [1.0, 9.0, 2.0],
+            "close": [1.0, 9.0, 2.0],
+            "volume": [1.0, 9.0, 2.0],
+        }
+    )
+    out = standardize_df(df)
+    assert out.height == 2
+    # the first row wins for duplicated dates
+    assert out.get_column("close")[0] == 1.0
+
+    with pytest.raises(Exception, match="date column"):
+        standardize_df(pl.DataFrame({"close": [1.0]}))
+
+
+def test_parse_date_bound_variants():
+    assert parse_date_bound("") is None
+    assert parse_date_bound(None) is None
+    assert parse_date_bound("2024-03-04") == datetime.datetime(2024, 3, 4)
+    assert parse_date_bound("2024-03-04", upper=True) == datetime.datetime(
+        2024, 3, 4, 23, 59, 59, 999999
+    )
+    assert parse_date_bound("2024-03", upper=True) == datetime.datetime(
+        2024, 3, 31, 23, 59, 59, 999999
+    )
+    assert parse_date_bound("2024-12", upper=True) == datetime.datetime(
+        2024, 12, 31, 23, 59, 59, 999999
+    )
+    assert parse_date_bound("2024", upper=True) == datetime.datetime(
+        2024, 12, 31, 23, 59, 59, 999999
+    )
+    assert parse_date_bound("2024") == datetime.datetime(2024, 1, 1)
+    assert parse_date_bound(1523938200) == datetime.datetime(2018, 4, 17, 4, 10)
+    assert parse_date_bound("1523938200") == datetime.datetime(2018, 4, 17, 4, 10)
+    assert parse_date_bound(1523938200000) == datetime.datetime(2018, 4, 17, 4, 10)
+    assert parse_date_bound(datetime.date(2024, 3, 4)) == datetime.datetime(2024, 3, 4)
+    assert parse_date_bound(datetime.date(2024, 3, 4), upper=True) == datetime.datetime(
+        2024, 3, 4, 23, 59, 59, 999999
+    )
+    assert parse_date_bound("2024/03/04") == datetime.datetime(2024, 3, 4)
+    assert parse_date_bound("2024-03-04 05:06") == datetime.datetime(2024, 3, 4, 5, 6)
+
+    with pytest.raises(ValueError, match="Could not parse date"):
+        parse_date_bound("not a date")
 
 
 def test_validate_backtest_deprecated_and_lot_size_and_logic_edges():

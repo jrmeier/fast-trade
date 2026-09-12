@@ -2,7 +2,7 @@ import datetime
 import typing
 import time
 
-import pandas as pd
+import polars as pl
 
 from .binance_api import get_binance_klines
 from .coinbase_api import get_product_candles
@@ -37,7 +37,7 @@ def update_kline(
     if end_date > now:
         end_date = now.replace(second=0, microsecond=0)
 
-    klines = pd.DataFrame()
+    klines = pl.DataFrame()
     curr_date = start_date
 
     def status_update(status_obj):
