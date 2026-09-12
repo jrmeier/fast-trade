@@ -35,6 +35,22 @@ def _to_polars(df: Union[pd.DataFrame, pl.DataFrame]) -> Tuple[pl.DataFrame, Any
     raise TypeError(f"Expected pandas or polars DataFrame, got {type(df)}")
 
 
+def _as_pl_series(values: Any, name: str = "") -> pl.Series:
+    """Normalize values to a Polars Series, converting float NaN to null for ewm parity."""
+    if isinstance(values, pl.Expr):
+        raise TypeError("Expected Series/array, got polars Expr")
+    if isinstance(values, pl.Series):
+        s = values
+    elif isinstance(values, pd.Series):
+        s = pl.Series(name or (values.name or ""), values.to_numpy(dtype=float, copy=True))
+    else:
+        s = pl.Series(name, values)
+    # Pandas ewm treats leading NaN like missing; Polars needs null (not NaN)
+    if s.dtype in (pl.Float32, pl.Float64):
+        s = s.fill_nan(None)
+    return s
+
+
 def _series_out(
     values: Any,
     name: Optional[str],
@@ -42,6 +58,8 @@ def _series_out(
     was_pandas: bool,
 ) -> Union[pd.Series, pl.Series]:
     """Convert computed values to pandas or polars Series matching input type."""
+    if isinstance(values, pl.Expr):
+        raise TypeError("Expected Series/array, got polars Expr")
     if isinstance(values, pl.Series):
         data = values.to_numpy()
         n = len(values)
@@ -103,6 +121,13 @@ def _to_np(series: Any) -> np.ndarray:
     return np.asarray(series, dtype=float)
 
 
+def _window_np(x: Any) -> np.ndarray:
+    """Convert rolling_map window (polars Series) to float ndarray."""
+    if isinstance(x, pl.Series):
+        return x.to_numpy()
+    return np.asarray(x, dtype=float)
+
+
 def _ewm_mean(
     series: Any,
     *,
@@ -113,7 +138,7 @@ def _ewm_mean(
     min_periods: int = 1,
 ) -> pl.Series:
     """EMA matching pandas ewm(...).mean() with ignore_nulls=False."""
-    s = series if isinstance(series, pl.Series) else pl.Series(series)
+    s = _as_pl_series(series)
     kwargs = {
         "adjust": adjust,
         "ignore_nulls": False,
@@ -129,19 +154,19 @@ def _ewm_mean(
 
 
 def _rolling_mean(series: Any, period: int, min_periods: Optional[int] = None) -> pl.Series:
-    s = series if isinstance(series, pl.Series) else pl.Series(series)
+    s = _as_pl_series(series)
     mp = period if min_periods is None else min_periods
     return s.rolling_mean(window_size=period, min_samples=mp)
 
 
 def _rolling_min(series: Any, period: int, min_periods: Optional[int] = None) -> pl.Series:
-    s = series if isinstance(series, pl.Series) else pl.Series(series)
+    s = _as_pl_series(series)
     mp = period if min_periods is None else min_periods
     return s.rolling_min(window_size=period, min_samples=mp)
 
 
 def _rolling_max(series: Any, period: int, min_periods: Optional[int] = None) -> pl.Series:
-    s = series if isinstance(series, pl.Series) else pl.Series(series)
+    s = _as_pl_series(series)
     mp = period if min_periods is None else min_periods
     return s.rolling_max(window_size=period, min_samples=mp)
 
@@ -149,41 +174,42 @@ def _rolling_max(series: Any, period: int, min_periods: Optional[int] = None) ->
 def _rolling_std(
     series: Any, period: int, min_periods: Optional[int] = None, ddof: int = 1
 ) -> pl.Series:
-    s = series if isinstance(series, pl.Series) else pl.Series(series)
+    s = _as_pl_series(series)
     mp = period if min_periods is None else min_periods
     return s.rolling_std(window_size=period, min_samples=mp, ddof=ddof)
 
 
 def _rolling_sum(series: Any, period: int, min_periods: Optional[int] = None) -> pl.Series:
-    s = series if isinstance(series, pl.Series) else pl.Series(series)
+    s = _as_pl_series(series)
     mp = period if min_periods is None else min_periods
     return s.rolling_sum(window_size=period, min_samples=mp)
 
 
 def _rolling_median(series: Any, period: int, min_periods: Optional[int] = None) -> pl.Series:
-    s = series if isinstance(series, pl.Series) else pl.Series(series)
+    s = _as_pl_series(series)
     mp = period if min_periods is None else min_periods
     return s.rolling_median(window_size=period, min_samples=mp)
 
 
 def _shift(series: Any, n: int = 1) -> pl.Series:
-    s = series if isinstance(series, pl.Series) else pl.Series(series)
+    s = _as_pl_series(series)
     return s.shift(n)
 
 
 def _diff(series: Any, n: int = 1) -> pl.Series:
-    s = series if isinstance(series, pl.Series) else pl.Series(series)
+    s = _as_pl_series(series)
     return s.diff(n)
 
 
 def _wma(series: Any, period: int) -> pl.Series:
     """Weighted moving average matching pandas rolling.apply with linear weights."""
-    s = series if isinstance(series, pl.Series) else pl.Series(series)
+    s = _as_pl_series(series)
     weights = np.arange(1, period + 1, dtype=float)
     d = (period * (period + 1)) / 2.0
 
-    def _compute(x: np.ndarray) -> float:
-        return float((weights * x).sum() / d)
+    def _compute(x) -> float:
+        arr = _window_np(x)
+        return float((weights * arr).sum() / d)
 
     return s.rolling_map(_compute, window_size=period, min_samples=period)
 
@@ -823,13 +849,11 @@ class TA:
         RSI can also be used to identify the general trend."""
         pl_df, index, was_pandas = _to_polars(ohlc)
         delta = _diff(_col(pl_df, column))
-        up = delta.clip(lower_bound=0)
-        # pandas: down[down > 0] = 0; then down.abs() — negatives stay, positives zeroed
-        down = pl.Series(
-            np.where(_to_np(delta) > 0, 0.0, _to_np(delta))
-        )
+        d = _to_np(delta)
+        up = np.where(np.isnan(d), np.nan, np.where(d < 0, 0.0, d))
+        down = np.where(np.isnan(d), np.nan, np.where(d > 0, 0.0, d))
         _gain = _ewm_mean(up, alpha=1.0 / period, adjust=adjust)
-        _loss = _ewm_mean(down.abs(), alpha=1.0 / period, adjust=adjust)
+        _loss = _ewm_mean(np.abs(down), alpha=1.0 / period, adjust=adjust)
         rs = _gain / _loss
         result = 100 - (100 / (1 + rs))
         return _series_out(result, "{0} period RSI".format(period), index, was_pandas)
@@ -912,10 +936,13 @@ class TA:
         high = _col(pl_df, "high")
         low = _col(pl_df, "low")
         close = _col(pl_df, "close")
-        tr1 = (high - low).abs()
-        tr2 = (high - _shift(close)).abs()
-        tr3 = (_shift(close) - low).abs()
-        tr = pl.max_horizontal(tr1, tr2, tr3)
+        tr1 = _to_np((high - low).abs())
+        tr2 = _to_np((high - _shift(close)).abs())
+        tr3 = _to_np((_shift(close) - low).abs())
+        # pandas DataFrame.max(axis=1) skips NaN (skipna=True)
+        stacked = np.vstack([tr1, tr2, tr3])
+        with np.errstate(all="ignore"):
+            tr = np.nanmax(stacked, axis=0)
         return _series_out(tr, "TR", index, was_pandas)
 
     @classmethod
@@ -1736,8 +1763,9 @@ class TA:
         tp = cls.TP(pl_df)
         tp_mean = _rolling_mean(tp, period, min_periods=0)
 
-        def _mad(x: np.ndarray) -> float:
-            return float(np.mean(np.abs(x - np.mean(x))))
+        def _mad(x) -> float:
+            arr = _window_np(x)
+            return float(np.mean(np.abs(arr - np.mean(arr))))
 
         mad = tp.rolling_map(_mad, window_size=period, min_samples=1)
         # pandas min_periods=0 still needs at least 1 sample for apply
@@ -1805,10 +1833,10 @@ class TA:
         pl_df, index, was_pandas = _to_polars(ohlc)
         delta = _diff(_col(pl_df, column))
         d = _to_np(delta)
-        up = np.where(d < 0, 0.0, d)
-        down = np.where(d > 0, 0.0, d)
-        _gain = _ewm_mean(pl.Series(up), com=period, adjust=adjust)
-        _loss = _ewm_mean(pl.Series(down), com=period, adjust=adjust).abs()
+        up = np.where(np.isnan(d), np.nan, np.where(d < 0, 0.0, d))
+        down = np.where(np.isnan(d), np.nan, np.where(d > 0, 0.0, d))
+        _gain = _ewm_mean(up, com=period, adjust=adjust)
+        _loss = _ewm_mean(down, com=period, adjust=adjust).abs()
         result = factor * ((_gain - _loss) / (_gain + _loss))
         return _series_out(result, "CMO", index, was_pandas)
 
@@ -2379,11 +2407,12 @@ class TA:
         pl_df, index, was_pandas = _to_polars(ohlc)
 
         def calculate_lr_point(values):
-            if len(values) < 2:
-                return values[-1] if len(values) > 0 else np.nan
+            arr = _window_np(values)
+            if len(arr) < 2:
+                return arr[-1] if len(arr) > 0 else np.nan
 
-            x = np.arange(len(values))
-            y = values
+            x = np.arange(len(arr))
+            y = arr
 
             n = len(x)
             x_mean = np.mean(x)
