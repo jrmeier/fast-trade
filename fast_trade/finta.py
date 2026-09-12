@@ -2255,10 +2255,8 @@ class TA:
         :param str column: column to look at
         :return Series: rolling max
         """
-        pl_df = ohlc
-        if column not in pl_df.columns:
-            raise LookupError(column)
-        result = _rolling_max(_col(pl_df, column), periods)
+        # Column presence is enforced by the class-level inputvalidator.
+        result = _rolling_max(_col(ohlc, column), periods)
         return _series_out(result, None)
 
     @classmethod
@@ -2271,10 +2269,8 @@ class TA:
         :param str column: column to look at
         :return Series: rolling min
         """
-        pl_df = ohlc
-        if column not in pl_df.columns:
-            raise LookupError(column)
-        result = _rolling_min(_col(pl_df, column), periods)
+        # Column presence is enforced by the class-level inputvalidator.
+        result = _rolling_min(_col(ohlc, column), periods)
         return _series_out(result, None)
 
     @classmethod
