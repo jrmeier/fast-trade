@@ -21,6 +21,7 @@ Current surface area for `fast-trade` `2.1.0`. Use this table to see what exists
 | Paper portfolio stop | `ft portfolio stop` | `portfolio_stop` | 2.0.0 | |
 | HMM forecast screen | `ft screen hmm` | `screen_hmm`, `hmm_screen` | 2.1.0 | `screen_hmm` wraps CLI; `hmm_screen` returns JSON |
 | Classifier → `ml_signal` example | `examples/ml_classifier_backtest.py` | — | 2.1.x | Library helpers in `fast_trade.ml.classifier`; uses `column` datapoint |
+| Walk-forward ML vs baselines | `examples/ml_walk_forward.py` | — | 2.1.x | `fast_trade.ml.walk_forward`; rolling OOS folds vs buy&hold / RSI / random |
 | FXMacroData context | — | `fxmacrodata_macro_context` | 2.1.0 | API helper, no dedicated CLI |
 | List strategy files | — | `list_strategies` | stable | Helper over `ft_archive/strategies/` |
 | Escape hatch | any `ft ...` | `ft_command`, `ft_command_str` | stable | Raw CLI passthrough |

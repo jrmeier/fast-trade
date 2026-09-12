@@ -212,6 +212,18 @@ python examples/ml_classifier_backtest.py --synthetic --signal-threshold 0.55
 
 Helpers live in `fast_trade/ml/classifier.py`. The strategy shape is documented in `examples/ml_classifier_strategy.yml` (uses the `column` datapoint transformer for precomputed signals). Training applies a purge gap of `horizon` bars so holdout metrics stay out-of-sample; strategy `freq` must match the dataframe bar size unless you opt into resampling.
 
+### Walk-forward evaluation
+
+Judge whether the classifier beats simple baselines on rolling out-of-sample windows (buy & hold, RSI, random entry):
+
+```bash
+python examples/ml_walk_forward.py --synthetic
+python examples/ml_walk_forward.py --symbol BTCUSDT --exchange binanceus \
+  --start 2024-01-01 --stop 2025-01-01 --train-size 400 --test-size 100
+```
+
+API: `fast_trade.ml.walk_forward.walk_forward_evaluate`. Each fold trains only on the train window, predicts `ml_signal` on the test window, then backtests that holdout. Treat this as research scaffolding — require stable OOS AUC and baseline wins before trusting signals.
+
 ## Important Files
 
 - `README.md`: top-level project overview
@@ -222,6 +234,7 @@ Helpers live in `fast_trade/ml/classifier.py`. The strategy shape is documented 
 - `hmm_screen_example.yml`: example config for `ft screen hmm`
 - `examples/ml_classifier_backtest.py`: classifier → `ml_signal` → backtest demo
 - `examples/ml_classifier_strategy.yml`: enter/exit pattern for classifier signals
+- `examples/ml_walk_forward.py`: walk-forward folds vs buy&hold / RSI / random
 
 ## Tips
 
