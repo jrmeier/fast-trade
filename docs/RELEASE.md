@@ -71,6 +71,7 @@ Use this summary for GitHub or PyPI:
 - Removed pandas from package dependencies.
 - OHLC data uses an explicit `date` column; strategy YAML inputs are unchanged.
 - Fixed parallel/chunked backtests to use spawn pools under Polars.
+- **Speed:** ~0.58s for a 1-year BTCUSDT 1m EMA-cross+RSI backtest; FinTA suite ~1.9× vs pandas (ATR ~5×, WMA ~100×, OBV ~3×).
 
 ## Release Steps
 
