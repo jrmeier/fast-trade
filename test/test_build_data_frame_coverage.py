@@ -3,7 +3,6 @@
 import datetime
 from unittest import mock
 
-import pandas as pd
 import polars as pl
 import pytest
 
@@ -221,14 +220,13 @@ def test_validate_backtest_with_df_raises():
         "exit": [["close", "<", "sma_short"]],
         "start": "",
     }
-    df = pd.DataFrame()
+    df = pl.DataFrame()
     with pytest.raises(Exception):
         validate_backtest_with_df(bt, df)
 
-    df = pd.read_csv("./test/ohlcv_data.csv.txt")
-    df.index = pd.to_datetime(df["date"], unit="s")
+    df = pl.read_csv("./test/ohlcv_data.csv.txt")
     with pytest.raises(Exception, match="Datapoint"):
         validate_backtest_with_df(bt, df)
 
-    df["sma_short"] = 1.0
+    df = df.with_columns(pl.lit(1.0).alias("sma_short"))
     validate_backtest_with_df(bt, df)  # no raise when column exists

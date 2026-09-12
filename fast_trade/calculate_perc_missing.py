@@ -40,9 +40,8 @@ def calculate_perc_missing(
     total_actual = df.height
 
     total_missing = total_possible - total_actual
+    if total_missing < 0:
+        return [0.0, 0]
 
-    # Calculate percentage
     perc_missing = (total_missing / total_possible) * 100 if total_possible > 0 else 0.0
-    perc_missing = round(perc_missing, 2)
-
-    return [perc_missing, 0 if total_missing < 0 else total_missing]
+    return [round(perc_missing, 2), total_missing]
