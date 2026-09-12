@@ -85,6 +85,6 @@ def test_ensure_freq_and_compute_features():
     df = _ohlcv(100)
     cfg = {"vol_window": 5, "trend_window": 5, "volume_window": 5}
     features = regime._compute_features(df, cfg)
-    assert list(features.columns) == ["ret", "vol", "range", "trend", "volume_z"]
+    assert features.columns == ["date", "ret", "vol", "range", "trend", "volume_z"]
     resampled = regime._ensure_freq(df, "1D")
     assert len(resampled) < len(df)
