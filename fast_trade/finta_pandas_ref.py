@@ -1,202 +1,8 @@
 from functools import wraps
-from typing import Any, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
-import polars as pl
 from pandas import DataFrame, Series
-
-
-def _is_pandas(obj: Any) -> bool:
-    return isinstance(obj, (pd.DataFrame, pd.Series))
-
-
-def _is_polars(obj: Any) -> bool:
-    return isinstance(obj, (pl.DataFrame, pl.Series))
-
-
-def _is_dataframe(obj: Any) -> bool:
-    return isinstance(obj, (pd.DataFrame, pl.DataFrame))
-
-
-def _is_series_like(obj: Any) -> bool:
-    return isinstance(obj, (pd.Series, pl.Series))
-
-
-def _to_polars(df: Union[pd.DataFrame, pl.DataFrame]) -> Tuple[pl.DataFrame, Any, bool]:
-    """Convert OHLC input to Polars. Returns (pl_df, index_or_None, was_pandas)."""
-    if isinstance(df, pl.DataFrame):
-        return df, None, False
-    if isinstance(df, pd.DataFrame):
-        if len(df) == 0:
-            cols = {c: pl.Series(c, [], dtype=pl.Float64) for c in df.columns}
-            return pl.DataFrame(cols), df.index, True
-        return pl.from_pandas(df.reset_index(drop=True)), df.index, True
-    raise TypeError(f"Expected pandas or polars DataFrame, got {type(df)}")
-
-
-def _series_out(
-    values: Any,
-    name: Optional[str],
-    index: Any,
-    was_pandas: bool,
-) -> Union[pd.Series, pl.Series]:
-    """Convert computed values to pandas or polars Series matching input type."""
-    if isinstance(values, pl.Series):
-        data = values.to_numpy()
-        n = len(values)
-    elif isinstance(values, pd.Series):
-        data = values.to_numpy()
-        n = len(values)
-    else:
-        data = np.asarray(values, dtype=float)
-        n = len(data)
-
-    if was_pandas:
-        if index is not None and n == len(index):
-            return pd.Series(data, index=index, name=name)
-        return pd.Series(data, name=name)
-    s = pl.Series(name if name is not None else "", data)
-    if name is not None:
-        s = s.alias(name)
-    return s
-
-
-def _frame_out(
-    data: Any,
-    index: Any,
-    was_pandas: bool,
-) -> Union[pd.DataFrame, pl.DataFrame]:
-    """Convert computed columns to pandas or polars DataFrame matching input type."""
-    if isinstance(data, dict):
-        pl_df = pl.DataFrame(data)
-    elif isinstance(data, pl.DataFrame):
-        pl_df = data
-    elif isinstance(data, pd.DataFrame):
-        if was_pandas:
-            if index is not None and len(data) == len(index):
-                out = data.copy()
-                out.index = index
-                return out
-            return data
-        return pl.from_pandas(data.reset_index(drop=True))
-    else:
-        pl_df = pl.DataFrame(data)
-
-    if was_pandas:
-        pdf = pl_df.to_pandas()
-        if index is not None and len(pdf) == len(index):
-            pdf.index = index
-        return pdf
-    return pl_df
-
-
-def _col(df: pl.DataFrame, name: str) -> pl.Series:
-    return df.get_column(name)
-
-
-def _to_np(series: Any) -> np.ndarray:
-    if isinstance(series, pl.Series):
-        return series.to_numpy()
-    if isinstance(series, pd.Series):
-        return series.to_numpy(dtype=float, copy=True)
-    return np.asarray(series, dtype=float)
-
-
-def _ewm_mean(
-    series: Any,
-    *,
-    span: Optional[float] = None,
-    alpha: Optional[float] = None,
-    com: Optional[float] = None,
-    adjust: bool = True,
-    min_periods: int = 1,
-) -> pl.Series:
-    """EMA matching pandas ewm(...).mean() with ignore_nulls=False."""
-    s = series if isinstance(series, pl.Series) else pl.Series(series)
-    kwargs = {
-        "adjust": adjust,
-        "ignore_nulls": False,
-        "min_samples": min_periods,
-    }
-    if alpha is not None:
-        return s.ewm_mean(alpha=alpha, **kwargs)
-    if com is not None:
-        return s.ewm_mean(com=com, **kwargs)
-    if span is not None:
-        return s.ewm_mean(span=span, **kwargs)
-    raise ValueError("span, alpha, or com required")
-
-
-def _rolling_mean(series: Any, period: int, min_periods: Optional[int] = None) -> pl.Series:
-    s = series if isinstance(series, pl.Series) else pl.Series(series)
-    mp = period if min_periods is None else min_periods
-    return s.rolling_mean(window_size=period, min_samples=mp)
-
-
-def _rolling_min(series: Any, period: int, min_periods: Optional[int] = None) -> pl.Series:
-    s = series if isinstance(series, pl.Series) else pl.Series(series)
-    mp = period if min_periods is None else min_periods
-    return s.rolling_min(window_size=period, min_samples=mp)
-
-
-def _rolling_max(series: Any, period: int, min_periods: Optional[int] = None) -> pl.Series:
-    s = series if isinstance(series, pl.Series) else pl.Series(series)
-    mp = period if min_periods is None else min_periods
-    return s.rolling_max(window_size=period, min_samples=mp)
-
-
-def _rolling_std(
-    series: Any, period: int, min_periods: Optional[int] = None, ddof: int = 1
-) -> pl.Series:
-    s = series if isinstance(series, pl.Series) else pl.Series(series)
-    mp = period if min_periods is None else min_periods
-    return s.rolling_std(window_size=period, min_samples=mp, ddof=ddof)
-
-
-def _rolling_sum(series: Any, period: int, min_periods: Optional[int] = None) -> pl.Series:
-    s = series if isinstance(series, pl.Series) else pl.Series(series)
-    mp = period if min_periods is None else min_periods
-    return s.rolling_sum(window_size=period, min_samples=mp)
-
-
-def _rolling_median(series: Any, period: int, min_periods: Optional[int] = None) -> pl.Series:
-    s = series if isinstance(series, pl.Series) else pl.Series(series)
-    mp = period if min_periods is None else min_periods
-    return s.rolling_median(window_size=period, min_samples=mp)
-
-
-def _shift(series: Any, n: int = 1) -> pl.Series:
-    s = series if isinstance(series, pl.Series) else pl.Series(series)
-    return s.shift(n)
-
-
-def _diff(series: Any, n: int = 1) -> pl.Series:
-    s = series if isinstance(series, pl.Series) else pl.Series(series)
-    return s.diff(n)
-
-
-def _wma(series: Any, period: int) -> pl.Series:
-    """Weighted moving average matching pandas rolling.apply with linear weights."""
-    s = series if isinstance(series, pl.Series) else pl.Series(series)
-    weights = np.arange(1, period + 1, dtype=float)
-    d = (period * (period + 1)) / 2.0
-
-    def _compute(x: np.ndarray) -> float:
-        return float((weights * x).sum() / d)
-
-    return s.rolling_map(_compute, window_size=period, min_samples=period)
-
-
-def _ensure_ma(MA: Any, length: int) -> Optional[np.ndarray]:
-    """Normalize optional MA override to numpy values, or None to use default."""
-    if MA is None:
-        return None
-    if isinstance(MA, pd.Series):
-        return MA.to_numpy(dtype=float, copy=True)
-    if isinstance(MA, pl.Series):
-        return MA.to_numpy()
-    return None
 
 
 def inputvalidator(input_="ohlc"):
@@ -205,15 +11,9 @@ def inputvalidator(input_="ohlc"):
         def wrap(*args, **kwargs):
 
             args = list(args)
-            i = 0 if _is_dataframe(args[0]) else 1
+            i = 0 if isinstance(args[0], pd.DataFrame) else 1
 
-            df = args[i]
-            if isinstance(df, pd.DataFrame):
-                args[i] = df.rename(columns={c: c.lower() for c in df.columns})
-            elif isinstance(df, pl.DataFrame):
-                args[i] = df.rename({c: c.lower() for c in df.columns})
-            else:
-                raise TypeError("Expected pandas or polars DataFrame")
+            args[i] = args[i].rename(columns={c: c.lower() for c in args[i].columns})
 
             inputs = {
                 "o": "open",
@@ -226,9 +26,8 @@ def inputvalidator(input_="ohlc"):
             if inputs["c"] != "close":
                 kwargs["column"] = inputs["c"]
 
-            cols = set(args[i].columns)
             for l in input_:
-                if inputs[l] not in cols:
+                if inputs[l] not in args[i].columns:
                     raise LookupError(
                         'Must have a dataframe column named "{0}"'.format(inputs[l])
                     )
@@ -262,9 +61,11 @@ class TA:
         Simple moving average - rolling mean in pandas lingo. Also known as 'MA'.
         The simple moving average (SMA) is the most basic of the moving averages used for trading.
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        result = _rolling_mean(_col(pl_df, column), period)
-        return _series_out(result, "{0} period SMA".format(period), index, was_pandas)
+
+        return pd.Series(
+            ohlc[column].rolling(window=period).mean(),
+            name="{0} period SMA".format(period),
+        )
 
     @classmethod
     def SMM(cls, ohlc: DataFrame, period: int = 9, column: str = "close") -> Series:
@@ -272,9 +73,11 @@ class TA:
         Simple moving median, an alternative to moving average. SMA, when used to estimate the underlying trend in a time series,
         is susceptible to rare events such as rapid shocks or other anomalies. A more robust estimate of the trend is the simple moving median over n time periods.
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        result = _rolling_median(_col(pl_df, column), period)
-        return _series_out(result, "{0} period SMM".format(period), index, was_pandas)
+
+        return pd.Series(
+            ohlc[column].rolling(window=period).median(),
+            name="{0} period SMM".format(period),
+        )
 
     @classmethod
     def SSMA(
@@ -292,11 +95,13 @@ class TA:
         :param column: open/close/high/low column of the DataFrame
         :return: result Series
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        result = _ewm_mean(
-            _col(pl_df, column), alpha=1.0 / period, min_periods=0, adjust=adjust
+
+        return pd.Series(
+            ohlc[column]
+            .ewm(ignore_na=False, alpha=1.0 / period, min_periods=0, adjust=adjust)
+            .mean(),
+            name="{0} period SSMA".format(period),
         )
-        return _series_out(result, "{0} period SSMA".format(period), index, was_pandas)
 
     @classmethod
     def EMA(
@@ -311,9 +116,11 @@ class TA:
         When the market is in a strong and sustained uptrend, the EMA indicator line will also show an uptrend and vice-versa for a down trend.
         EMAs are commonly used in conjunction with other indicators to confirm significant market moves and to gauge their validity.
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        result = _ewm_mean(_col(pl_df, column), span=period, adjust=adjust)
-        return _series_out(result, "{0} period EMA".format(period), index, was_pandas)
+
+        return pd.Series(
+            ohlc[column].ewm(span=period, adjust=adjust).mean(),
+            name="{0} period EMA".format(period),
+        )
 
     @classmethod
     def DEMA(
@@ -331,11 +138,13 @@ class TA:
         Because EMA(EMA) is used in the calculation, DEMA needs 2 * period -1 samples to start producing values in contrast to the period
         samples needed by a regular EMA
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        # Match pandas ref: EMA uses default column "close" (column arg unused)
-        ema = cls.EMA(pl_df, period, adjust=adjust)
-        dema = 2 * ema - _ewm_mean(ema, span=period, adjust=adjust)
-        return _series_out(dema, "{0} period DEMA".format(period), index, was_pandas)
+
+        DEMA = (
+            2 * cls.EMA(ohlc, period)
+            - cls.EMA(ohlc, period).ewm(span=period, adjust=adjust).mean()
+        )
+
+        return pd.Series(DEMA, name="{0} period DEMA".format(period))
 
     @classmethod
     def TEMA(cls, ohlc: DataFrame, period: int = 9, adjust: bool = True) -> Series:
@@ -348,12 +157,23 @@ class TA:
         Because EMA(EMA(EMA)) is used in the calculation, TEMA needs 3 * period - 2 samples to start producing values in contrast to the period samples
         needed by a regular EMA.
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        ema = cls.EMA(pl_df, period, adjust=adjust)
-        ema2 = _ewm_mean(ema, span=period, adjust=adjust)
-        ema3 = _ewm_mean(ema2, span=period, adjust=adjust)
-        tema = 3 * ema - 3 * ema2 + ema3
-        return _series_out(tema, "{0} period TEMA".format(period), index, was_pandas)
+
+        triple_ema = 3 * cls.EMA(ohlc, period)
+        ema_ema_ema = (
+            cls.EMA(ohlc, period)
+            .ewm(ignore_na=False, span=period, adjust=adjust)
+            .mean()
+            .ewm(ignore_na=False, span=period, adjust=adjust)
+            .mean()
+        )
+
+        TEMA = (
+            triple_ema
+            - 3 * cls.EMA(ohlc, period).ewm(span=period, adjust=adjust).mean()
+            + ema_ema_ema
+        )
+
+        return pd.Series(TEMA, name="{0} period TEMA".format(period))
 
     @classmethod
     def TRIMA(cls, ohlc: DataFrame, period: int = 18) -> Series:
@@ -363,10 +183,10 @@ class TA:
         The calculations double-smooth the data using a window width that is one-half the length of the series.
         source: https://www.thebalance.com/triangular-moving-average-tma-description-and-uses-1031203
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        sma = cls.SMA(pl_df, period)
-        result = _rolling_sum(sma, period) / period
-        return _series_out(result, "{0} period TRIMA".format(period), index, was_pandas)
+
+        SMA = cls.SMA(ohlc, period).rolling(window=period).sum()
+
+        return pd.Series(SMA / period, name="{0} period TRIMA".format(period))
 
     @classmethod
     def TRIX(
@@ -385,15 +205,15 @@ class TA:
         The TRIX was developed by Jack K. Hutson, publisher of Technical Analysis of Stocks & Commodities magazine,
         and was introduced in Volume 1, Number 5 of that magazine.
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        data = _col(pl_df, column)
+
+        data = ohlc[column]
 
         def _ema(data, period, adjust):
-            return _ewm_mean(data, span=period, adjust=adjust)
+            return pd.Series(data.ewm(span=period, adjust=adjust).mean())
 
         m = _ema(_ema(_ema(data, period, adjust), period, adjust), period, adjust)
-        result = 100 * (_diff(m) / m)
-        return _series_out(result, "{0} period TRIX".format(period), index, was_pandas)
+
+        return pd.Series(100 * (m.diff() / m), name="{0} period TRIX".format(period))
 
     @classmethod
     def LWMA(cls, ohlc: DataFrame, period: int, column: str = "close") -> Series:
@@ -408,15 +228,14 @@ class TA:
         """
         Volume Adjusted Moving Average
         """
-        pl_df, index, was_pandas = _to_polars(ohlcv)
-        vp = _col(pl_df, "volume") * _col(pl_df, column)
-        volsum = _rolling_mean(_col(pl_df, "volume"), period)
-        vol_ratio = vp / volsum
-        cum_sum = _rolling_sum(vol_ratio * _col(pl_df, column), period)
-        cum_div = _rolling_sum(vol_ratio, period)
-        return _series_out(
-            cum_sum / cum_div, "{0} period VAMA".format(period), index, was_pandas
-        )
+
+        vp = ohlcv["volume"] * ohlcv[column]
+        volsum = ohlcv["volume"].rolling(window=period).mean()
+        volRatio = pd.Series(vp / volsum, name="VAMA")
+        cumSum = (volRatio * ohlcv[column]).rolling(window=period).sum()
+        cumDiv = volRatio.rolling(window=period).sum()
+
+        return pd.Series(cumSum / cumDiv, name="{0} period VAMA".format(period))
 
     @classmethod
     @inputvalidator(input_="ohlcv")
@@ -432,18 +251,18 @@ class TA:
         In EMA the smoothing factor is a constant value F=2/(period+1);
         in Vidya the smoothing factor is variable and depends on bar-to-bar price movements.
         """
+
         raise NotImplementedError
 
     @classmethod
     def ER(cls, ohlc: DataFrame, period: int = 10, column: str = "close") -> Series:
         """The Kaufman Efficiency indicator is an oscillator indicator that oscillates between +100 and -100, where zero is the center point.
         +100 is upward forex trending market and -100 is downwards trending markets."""
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        change = _diff(_col(pl_df, column), period).abs()
-        volatility = _rolling_sum(_diff(_col(pl_df, column)).abs(), period)
-        return _series_out(
-            change / volatility, "{0} period ER".format(period), index, was_pandas
-        )
+
+        change = ohlc[column].diff(period).abs()
+        volatility = ohlc[column].diff().abs().rolling(window=period).sum()
+
+        return pd.Series(change / volatility, name="{0} period ER".format(period))
 
     @classmethod
     def KAMA(
@@ -458,36 +277,35 @@ class TA:
         """Developed by Perry Kaufman, Kaufman's Adaptive Moving Average (KAMA) is a moving average designed to account for market noise or volatility.
         Its main advantage is that it takes into consideration not just the direction, but the market volatility as well.
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        er_s = cls.ER(pl_df, er, column=column)
+
+        er = cls.ER(ohlc, er)
         fast_alpha = 2 / (ema_fast + 1)
         slow_alpha = 2 / (ema_slow + 1)
-        sc = (er_s * (fast_alpha - slow_alpha) + slow_alpha) ** 2
-        sma = _rolling_mean(_col(pl_df, column), period)
-        price = _col(pl_df, column)
+        sc = pd.Series(
+            (er * (fast_alpha - slow_alpha) + slow_alpha) ** 2,
+            name="smoothing_constant",
+        )  # smoothing constant
 
-        sc_arr = _to_np(sc)
-        sma_arr = _to_np(sma)
-        price_arr = _to_np(price)
-        sma_shift = np.roll(sma_arr, 1)
-        sma_shift[0] = np.nan
-
+        sma = pd.Series(
+            ohlc[column].rolling(period).mean(), name="SMA"
+        )  # first KAMA is SMA
         kama = []
-        for i in range(len(price_arr)):
-            s_val = sc_arr[i]
-            ma_val = sma_shift[i]
-            price_val = price_arr[i]
+        # Current KAMA = Prior KAMA + smoothing_constant * (Price - Prior KAMA)
+        for s, ma, price in zip(
+            sc.items(), sma.shift().items(), ohlc[column].items()
+        ):
             try:
-                kama.append(kama[-1] + s_val * (price_val - kama[-1]))
+                kama.append(kama[-1] + s[1] * (price[1] - kama[-1]))
             except (IndexError, TypeError):
-                if ma_val == ma_val:  # not NaN
-                    kama.append(ma_val + s_val * (price_val - ma_val))
+                if pd.notnull(ma[1]):
+                    kama.append(ma[1] + s[1] * (price[1] - ma[1]))
                 else:
                     kama.append(None)
 
-        return _series_out(
-            kama, "{0} period KAMA.".format(period), index, was_pandas
-        )
+        sma["KAMA"] = pd.Series(
+            kama, index=sma.index, name="{0} period KAMA.".format(period)
+        )  # apply the kama list to existing index
+        return sma["KAMA"]
 
     @classmethod
     def ZLEMA(
@@ -501,13 +319,20 @@ class TA:
         ZLEMA is a kind of Exponential moving average but its main idea is to eliminate the lag arising from the very nature of the moving averages
         and other trend following indicators. As it follows price closer, it also provides better price averaging and responds better to price swings.
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
+
         lag = (period - 1) / 2
-        # pandas Series.diff(lag) truncates lag to int
-        lag_n = int(lag)
-        ema = _col(pl_df, column) + _diff(_col(pl_df, column), lag_n)
-        zlema = _ewm_mean(ema, span=period, adjust=adjust)
-        return _series_out(zlema, "{0} period ZLEMA".format(period), index, was_pandas)
+
+        ema = pd.Series(
+            (ohlc[column] + (ohlc[column].diff(lag))),
+            name="{0} period ZLEMA.".format(period),
+        )
+
+        zlema = pd.Series(
+            ema.ewm(span=period, adjust=adjust).mean(),
+            name="{0} period ZLEMA".format(period),
+        )
+
+        return zlema
 
     @classmethod
     def WMA(cls, ohlc: DataFrame, period: int = 9, column: str = "close") -> Series:
@@ -517,9 +342,20 @@ class TA:
 
         :period: Specifies the number of Periods used for WMA calculation
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        wma = _wma(_col(pl_df, column), period)
-        return _series_out(wma, "{0} period WMA.".format(period), index, was_pandas)
+
+        d = (period * (period + 1)) / 2  # denominator
+        weights = np.arange(1, period + 1)
+
+        def linear(w):
+            def _compute(x):
+                return (w * x).sum() / d
+
+            return _compute
+
+        _close = ohlc[column].rolling(period, min_periods=period)
+        wma = _close.apply(linear(weights), raw=True)
+
+        return pd.Series(wma, name="{0} period WMA.".format(period))
 
     @classmethod
     def HMA(cls, ohlc: DataFrame, period: int = 16) -> Series:
@@ -531,19 +367,18 @@ class TA:
         It is used especially for middle-term and long-term trading.
         :period: Specifies the number of Periods used for WMA calculation
         """
+
         import math
 
-        pl_df, index, was_pandas = _to_polars(ohlc)
         half_length = int(period / 2)
         sqrt_length = int(math.sqrt(period))
 
-        wmaf = cls.WMA(pl_df, period=half_length)
-        wmas = cls.WMA(pl_df, period=period)
-        deltawma = 2 * wmaf - wmas
-        # Build temp frame with deltawma column for WMA
-        tmp = pl_df.with_columns(deltawma.alias("deltawma"))
-        hma = cls.WMA(tmp, column="deltawma", period=sqrt_length)
-        return _series_out(hma, "{0} period HMA.".format(period), index, was_pandas)
+        wmaf = cls.WMA(ohlc, period=half_length)
+        wmas = cls.WMA(ohlc, period=period)
+        ohlc["deltawma"] = 2 * wmaf - wmas
+        hma = cls.WMA(ohlc, column="deltawma", period=sqrt_length)
+
+        return pd.Series(hma, name="{0} period HMA.".format(period))
 
     @classmethod
     @inputvalidator(input_="ohlcv")
@@ -554,25 +389,27 @@ class TA:
 
         :period: Specifies the number of Periods used for eVWMA calculation
         """
-        pl_df, index, was_pandas = _to_polars(ohlcv)
-        vol_sum = _rolling_sum(_col(pl_df, "volume"), period)
-        x = (vol_sum - _col(pl_df, "volume")) / vol_sum
-        y = (_col(pl_df, "volume") * _col(pl_df, "close")) / vol_sum
 
-        x_arr = _to_np(x.fill_null(0))
-        y_arr = _to_np(y)
-        # Match pandas: fillna(0) on x only
-        x_arr = np.nan_to_num(x_arr, nan=0.0)
+        vol_sum = (
+            ohlcv["volume"].rolling(window=period).sum()
+        )  # floating shares in last N periods
+
+        x = (vol_sum - ohlcv["volume"]) / vol_sum
+        y = (ohlcv["volume"] * ohlcv["close"]) / vol_sum
 
         evwma = [0]
-        for xv, yv in zip(x_arr, y_arr):
-            if xv == 0 or yv == 0 or (isinstance(yv, float) and yv != yv):
+
+        #  evwma = (evma[-1] * (vol_sum - volume)/vol_sum) + (volume * price / vol_sum)
+        for x, y in zip(x.fillna(0).items(), y.items()):
+            if x[1] == 0 or y[1] == 0:
                 evwma.append(0)
             else:
-                evwma.append(evwma[-1] * xv + yv)
+                evwma.append(evwma[-1] * x[1] + y[1])
 
-        return _series_out(
-            evwma[1:], "{0} period EVWMA.".format(period), index, was_pandas
+        return pd.Series(
+            evwma[1:],
+            index=ohlcv.index,
+            name="{0} period EVWMA.".format(period),
         )
 
     @classmethod
@@ -583,11 +420,11 @@ class TA:
         VWAP is calculated by adding up the dollars traded for every transaction (price multiplied by number of shares traded) and then dividing
         by the total shares traded for the day.
         """
-        pl_df, index, was_pandas = _to_polars(ohlcv)
-        tp = cls.TP(pl_df)
-        vol = _col(pl_df, "volume")
-        result = (vol * tp).cum_sum() / vol.cum_sum()
-        return _series_out(result, "VWAP.", index, was_pandas)
+
+        return pd.Series(
+            ((ohlcv["volume"] * cls.TP(ohlcv)).cumsum()) / ohlcv["volume"].cumsum(),
+            name="VWAP.",
+        )
 
     @classmethod
     def SMMA(
@@ -598,15 +435,29 @@ class TA:
         adjust: bool = True,
     ) -> Series:
         """The SMMA (Smoothed Moving Average) gives recent prices an equal weighting to historic prices."""
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        result = _ewm_mean(_col(pl_df, column), alpha=1 / period, adjust=adjust)
-        return _series_out(result, "SMMA", index, was_pandas)
+
+        return pd.Series(
+            ohlc[column].ewm(alpha=1 / period, adjust=adjust).mean(), name="SMMA"
+        )
 
     @classmethod
     def ALMA(
         cls, ohlc: DataFrame, period: int = 9, sigma: int = 6, offset: int = 0.85
     ) -> Series:
         """Arnaud Legoux Moving Average."""
+
+        """dataWindow = _.last(data, period)
+        size = _.size(dataWindow)
+        m = offset * (size - 1)
+        s = size / sigma
+        sum = 0
+        norm = 0
+        for i in [size-1..0] by -1
+        coeff = Math.exp(-1 * (i - m) * (i - m) / 2 * s * s)
+        sum = sum + dataWindow[i] * coeff
+        norm = norm + coeff
+        return sum / norm"""
+
         raise NotImplementedError
 
     @classmethod
@@ -623,39 +474,36 @@ class TA:
         :period: Specifies the number of periods used for FRANA calculation
         :batch: Specifies the size of batches used for FRAMA calculation
         """
+
         assert period % 2 == 0, print("FRAMA period must be even")
 
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        c = _col(pl_df, "close")
+        c = ohlc.close.copy()
         window = batch * 2
 
-        hh = _rolling_max(c, batch)
-        ll = _rolling_min(c, batch)
-        n1 = (hh - ll) / batch
-        n2 = _shift(n1, batch)
+        hh = c.rolling(batch).max()
+        ll = c.rolling(batch).min()
 
-        hh2 = _rolling_max(c, window)
-        ll2 = _rolling_min(c, window)
+        n1 = (hh - ll) / batch
+        n2 = n1.shift(batch)
+
+        hh2 = c.rolling(window).max()
+        ll2 = c.rolling(window).min()
         n3 = (hh2 - ll2) / window
 
-        n1_a = _to_np(n1)
-        n2_a = _to_np(n2)
-        n3_a = _to_np(n3)
-        with np.errstate(divide="ignore", invalid="ignore"):
-            D = (np.log(n1_a + n2_a) - np.log(n3_a)) / np.log(2)
-            alp = np.clip(np.exp(-4.6 * (D - 1)), 0.01, 1)
+        # calculate fractal dimension
+        D = (np.log(n1 + n2) - np.log(n3)) / np.log(2)
+        alp = np.clip(np.exp(-4.6 * (D - 1)), 0.01, 1)
 
-        filt = _to_np(c).copy()
-        for i, x in enumerate(alp):
+        filt = c.to_numpy().copy()
+        alp_arr = alp.to_numpy()
+        for i, x in enumerate(alp_arr):
             cl = filt[i]
             if i < window:
                 continue
-            if x != x:  # NaN alpha
-                continue
             filt[i] = cl * x + (1 - x) * filt[i - 1]
 
-        return _series_out(
-            filt, "{0} period FRAMA.".format(period), index, was_pandas
+        return pd.Series(
+            filt, index=ohlc.index, name="{0} period FRAMA.".format(period)
         )
 
     @classmethod
@@ -681,14 +529,20 @@ class TA:
         A bullish crossover occurs when the MACD turns up and crosses above the signal line.
         A bearish crossover occurs when the MACD turns down and crosses below the signal line.
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        ema_fast = _ewm_mean(_col(pl_df, column), span=period_fast, adjust=adjust)
-        ema_slow = _ewm_mean(_col(pl_df, column), span=period_slow, adjust=adjust)
-        macd = ema_fast - ema_slow
-        macd_signal = _ewm_mean(macd, span=signal, adjust=adjust)
-        return _frame_out(
-            {"MACD": macd, "SIGNAL": macd_signal}, index, was_pandas
+
+        EMA_fast = pd.Series(
+            ohlc[column].ewm(ignore_na=False, span=period_fast, adjust=adjust).mean(),
+            name="EMA_fast",
         )
+        EMA_slow = pd.Series(
+            ohlc[column].ewm(ignore_na=False, span=period_slow, adjust=adjust).mean(),
+            name="EMA_slow",
+        )
+        MACD = pd.Series(EMA_fast - EMA_slow, name="MACD")
+        MACD_signal = pd.Series(
+            MACD.ewm(ignore_na=False, span=signal, adjust=adjust).mean(), name="SIGNAL"
+        )
+        return pd.concat([MACD, MACD_signal], axis=1)
 
     @classmethod
     def PPO(
@@ -706,15 +560,22 @@ class TA:
         As with MACD, the PPO reflects the convergence and divergence of two moving averages.
         While MACD measures the absolute difference between two moving averages, PPO makes this a relative value by dividing the difference by the slower moving average
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        ema_fast = _ewm_mean(_col(pl_df, column), span=period_fast, adjust=adjust)
-        ema_slow = _ewm_mean(_col(pl_df, column), span=period_slow, adjust=adjust)
-        ppo = ((ema_fast - ema_slow) / ema_slow) * 100
-        ppo_signal = _ewm_mean(ppo, span=signal, adjust=adjust)
-        ppo_histo = ppo - ppo_signal
-        return _frame_out(
-            {"PPO": ppo, "SIGNAL": ppo_signal, "HISTO": ppo_histo}, index, was_pandas
+
+        EMA_fast = pd.Series(
+            ohlc[column].ewm(ignore_na=False, span=period_fast, adjust=adjust).mean(),
+            name="EMA_fast",
         )
+        EMA_slow = pd.Series(
+            ohlc[column].ewm(ignore_na=False, span=period_slow, adjust=adjust).mean(),
+            name="EMA_slow",
+        )
+        PPO = pd.Series(((EMA_fast - EMA_slow) / EMA_slow) * 100, name="PPO")
+        PPO_signal = pd.Series(
+            PPO.ewm(ignore_na=False, span=signal, adjust=adjust).mean(), name="SIGNAL"
+        )
+        PPO_histo = pd.Series(PPO - PPO_signal, name="HISTO")
+
+        return pd.concat([PPO, PPO_signal, PPO_histo], axis=1)
 
     @classmethod
     @inputvalidator(input_="ohlcv")
@@ -730,17 +591,34 @@ class TA:
         """ "Volume-Weighted MACD" is an indicator that shows how a volume-weighted moving average can be used to calculate moving average convergence/divergence (MACD).
         This technique was first used by Buff Dormeier, CMT, and has been written about since at least 2002.
         """
-        pl_df, index, was_pandas = _to_polars(ohlcv)
-        vp = _col(pl_df, "volume") * _col(pl_df, column)
-        _fast = _ewm_mean(vp, span=period_fast, adjust=adjust) / _ewm_mean(
-            _col(pl_df, "volume"), span=period_fast, adjust=adjust
+
+        vp = ohlcv["volume"] * ohlcv[column]
+        _fast = pd.Series(
+            (vp.ewm(ignore_na=False, span=period_fast, adjust=adjust).mean())
+            / (
+                ohlcv["volume"]
+                .ewm(ignore_na=False, span=period_fast, adjust=adjust)
+                .mean()
+            ),
+            name="_fast",
         )
-        _slow = _ewm_mean(vp, span=period_slow, adjust=adjust) / _ewm_mean(
-            _col(pl_df, "volume"), span=period_slow, adjust=adjust
+
+        _slow = pd.Series(
+            (vp.ewm(ignore_na=False, span=period_slow, adjust=adjust).mean())
+            / (
+                ohlcv["volume"]
+                .ewm(ignore_na=False, span=period_slow, adjust=adjust)
+                .mean()
+            ),
+            name="_slow",
         )
-        macd = _fast - _slow
-        macd_signal = _ewm_mean(macd, span=signal, adjust=adjust)
-        return _frame_out({"MACD": macd, "SIGNAL": macd_signal}, index, was_pandas)
+
+        MACD = pd.Series(_fast - _slow, name="MACD")
+        MACD_signal = pd.Series(
+            MACD.ewm(ignore_na=False, span=signal, adjust=adjust).mean(), name="SIGNAL"
+        )
+
+        return pd.concat([MACD, MACD_signal], axis=1)
 
     @classmethod
     @inputvalidator(input_="ohlcv")
@@ -760,22 +638,25 @@ class TA:
         :period_fast: Specifies the number of Periods used for the fast EVWMA calculation
         :signal: Specifies the number of Periods used for the signal calculation
         """
-        pl_df, index, was_pandas = _to_polars(ohlcv)
-        evwma_slow = cls.EVWMA(pl_df, period_slow)
-        evwma_fast = cls.EVWMA(pl_df, period_fast)
-        macd = evwma_fast - evwma_slow
-        macd_signal = _ewm_mean(macd, span=signal, adjust=adjust)
-        return _frame_out({"MACD": macd, "SIGNAL": macd_signal}, index, was_pandas)
+
+        evwma_slow = cls.EVWMA(ohlcv, period_slow)
+
+        evwma_fast = cls.EVWMA(ohlcv, period_fast)
+
+        MACD = pd.Series(evwma_fast - evwma_slow, name="MACD")
+        MACD_signal = pd.Series(
+            MACD.ewm(ignore_na=False, span=signal, adjust=adjust).mean(), name="SIGNAL"
+        )
+
+        return pd.concat([MACD, MACD_signal], axis=1)
 
     @classmethod
     def MOM(cls, ohlc: DataFrame, period: int = 10, column: str = "close") -> Series:
         """Market momentum is measured by continually taking price differences for a fixed time interval.
         To construct a 10-day momentum line, simply subtract the closing price 10 days ago from the last closing price.
         This positive or negative value is then plotted around a zero line."""
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        return _series_out(
-            _diff(_col(pl_df, column), period), "MOM".format(period), index, was_pandas
-        )
+
+        return pd.Series(ohlc[column].diff(period), name="MOM".format(period))
 
     @classmethod
     def ROC(cls, ohlc: DataFrame, period: int = 12, column: str = "close") -> Series:
@@ -783,10 +664,10 @@ class TA:
         is a pure momentum oscillator that measures the percent change in price from one period to the next.
         The ROC calculation compares the current price with the price "n" periods ago.
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        col = _col(pl_df, column)
-        result = (_diff(col, period) / _shift(col, period)) * 100
-        return _series_out(result, "ROC", index, was_pandas)
+
+        return pd.Series(
+            (ohlc[column].diff(period) / ohlc[column].shift(period)) * 100, name="ROC"
+        )
 
     @classmethod
     def VBM(
@@ -801,13 +682,14 @@ class TA:
         The average true range indicator (ATR) is used to compute historical volatility.
         VBM(n,v) = (Close — Close n periods ago) / ATR(v periods)
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        col = _col(pl_df, column)
-        # Preserve pandas-ref quirk: diff - shift (not just diff)
-        result = (_diff(col, roc_period) - _shift(col, roc_period)) / cls.ATR(
-            pl_df, atr_period
+
+        return pd.Series(
+            (
+                (ohlc[column].diff(roc_period) - ohlc[column].shift(roc_period))
+                / cls.ATR(ohlc, atr_period)
+            ),
+            name="VBM",
         )
-        return _series_out(result, "VBM", index, was_pandas)
 
     @classmethod
     def RSI(
@@ -821,18 +703,21 @@ class TA:
         RSI oscillates between zero and 100. Traditionally, and according to Wilder, RSI is considered overbought when above 70 and oversold when below 30.
         Signals can also be generated by looking for divergences, failure swings and centerline crossovers.
         RSI can also be used to identify the general trend."""
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        delta = _diff(_col(pl_df, column))
-        up = delta.clip(lower_bound=0)
-        # pandas: down[down > 0] = 0; then down.abs() — negatives stay, positives zeroed
-        down = pl.Series(
-            np.where(_to_np(delta) > 0, 0.0, _to_np(delta))
-        )
-        _gain = _ewm_mean(up, alpha=1.0 / period, adjust=adjust)
-        _loss = _ewm_mean(down.abs(), alpha=1.0 / period, adjust=adjust)
-        rs = _gain / _loss
-        result = 100 - (100 / (1 + rs))
-        return _series_out(result, "{0} period RSI".format(period), index, was_pandas)
+
+        # get the price diff
+        delta = ohlc[column].diff()
+
+        # positive gains (up) and negative gains (down) Series
+        up, down = delta.copy(), delta.copy()
+        up[up < 0] = 0
+        down[down > 0] = 0
+
+        # EMAs of ups and downs
+        _gain = up.ewm(alpha=1.0 / period, adjust=adjust).mean()
+        _loss = down.abs().ewm(alpha=1.0 / period, adjust=adjust).mean()
+
+        RS = _gain / _loss
+        return pd.Series(100 - (100 / (1 + RS)), name="{0} period RSI".format(period))
 
     @classmethod
     def IFT_RSI(
@@ -846,11 +731,26 @@ class TA:
         Suggested method to use any IFT indicator is to buy when the indicator crosses over –0.5 or crosses over +0.5
         if it has not previously crossed over –0.5 and to sell short when the indicators crosses under +0.5 or crosses under –0.5
         if it has not previously crossed under +0.5."""
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        v1 = 0.1 * (cls.RSI(pl_df, rsi_period, column=column) - 50)
-        v2 = _wma(v1, wma_period)
-        ift = (v2**2 - 1) / (v2**2 + 1)
-        return _series_out(ift, "IFT_RSI", index, was_pandas)
+
+        # v1 = .1 * (rsi - 50)
+        v1 = pd.Series(0.1 * (cls.RSI(ohlc, rsi_period) - 50), name="v1")
+
+        # v2 = WMA(wma_period) of v1
+        d = (wma_period * (wma_period + 1)) / 2  # denominator
+        weights = np.arange(1, wma_period + 1)
+
+        def linear(w):
+            def _compute(x):
+                return (w * x).sum() / d
+
+            return _compute
+
+        _wma = v1.rolling(wma_period, min_periods=wma_period)
+        v2 = _wma.apply(linear(weights), raw=True)
+
+        ift = pd.Series(((v2**2 - 1) / (v2**2 + 1)), name="IFT_RSI")
+
+        return ift
 
     @classmethod
     def SWI(cls, ohlc: DataFrame, period: int = 16) -> Series:
@@ -869,38 +769,29 @@ class TA:
         oscillates between 0 and 100.
         https://www.investopedia.com/terms/d/dynamicmomentumindex.asp
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        close = _col(pl_df, column)
-        sd = _rolling_std(close, 5)
-        asd = _rolling_mean(sd, 10)
-        v = sd / asd
-        t_arr = _to_np(v)
-        t_vals = np.zeros(len(t_arr), dtype=int)
-        for i, val in enumerate(t_arr):
-            if val != val:  # NaN
-                t_vals[i] = 0
-            else:
-                rounded = int(round(14 / val)) if val != 0 else 0
-                t_vals[i] = int(min(max(rounded, 5), 30))
 
-        # Match pandas: periods from 14..len-1, RSI on subset
-        results = []
-        out_index = []
-        n = len(pl_df)
-        for idx in range(14, n):
-            time = t_vals[idx]
-            if (idx - time) < 0:
-                subset = pl_df.slice(0, idx)
-            else:
-                subset = pl_df.slice(idx - time, time)
-            rsi = cls.RSI(subset, period=time, column=column, adjust=adjust)
-            results.append(_to_np(rsi)[-1])
-            if was_pandas and index is not None:
-                out_index.append(index[idx])
+        def _get_time(close):
+            # Value available from 14th period
+            sd = close.rolling(5).std()
+            asd = sd.rolling(10).mean()
+            v = sd / asd
+            t = 14 / v.round()
+            t[t.isna()] = 0
+            t = t.map(lambda x: int(min(max(x, 5), 30)))
+            return t
 
-        if was_pandas:
-            return pd.Series(results, index=out_index if out_index else None)
-        return pl.Series(results)
+        def _dmi(index):
+            time = t.iloc[index]
+            if (index - time) < 0:
+                subset = ohlc.iloc[0:index]
+            else:
+                subset = ohlc.iloc[(index - time) : index]
+            return cls.RSI(subset, period=time, adjust=adjust).values[-1]
+
+        dates = Series(ohlc.index)
+        periods = Series(range(14, len(dates)), index=ohlc.index[14:].values)
+        t = _get_time(ohlc[column])
+        return periods.map(lambda x: _dmi(x))
 
     @classmethod
     def TR(cls, ohlc: DataFrame) -> Series:
@@ -908,23 +799,32 @@ class TA:
         Most recent period's high minus the most recent period's low.
         Absolute value of the most recent period's high minus the previous close.
         Absolute value of the most recent period's low minus the previous close."""
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        high = _col(pl_df, "high")
-        low = _col(pl_df, "low")
-        close = _col(pl_df, "close")
-        tr1 = (high - low).abs()
-        tr2 = (high - _shift(close)).abs()
-        tr3 = (_shift(close) - low).abs()
-        tr = pl.max_horizontal(tr1, tr2, tr3)
-        return _series_out(tr, "TR", index, was_pandas)
+
+        TR1 = pd.Series(ohlc["high"] - ohlc["low"]).abs()  # True Range = High less Low
+
+        TR2 = pd.Series(
+            ohlc["high"] - ohlc["close"].shift()
+        ).abs()  # True Range = High less Previous Close
+
+        TR3 = pd.Series(
+            ohlc["close"].shift() - ohlc["low"]
+        ).abs()  # True Range = Previous Close less Low
+
+        _TR = pd.concat([TR1, TR2, TR3], axis=1)
+
+        _TR["TR"] = _TR.max(axis=1)
+
+        return pd.Series(_TR["TR"], name="TR")
 
     @classmethod
     def ATR(cls, ohlc: DataFrame, period: int = 14) -> Series:
         """Average True Range is moving average of True Range."""
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        tr = cls.TR(pl_df)
-        result = _rolling_mean(tr, period)
-        return _series_out(result, "{0} period ATR".format(period), index, was_pandas)
+
+        TR = cls.TR(ohlc)
+        return pd.Series(
+            TR.rolling(center=False, window=period).mean(),
+            name="{0} period ATR".format(period),
+        )
 
     @classmethod
     def SAR(cls, ohlc: DataFrame, af: int = 0.02, amax: int = 0.2) -> Series:
@@ -932,16 +832,13 @@ class TA:
         SAR trails price as the trend extends over time. The indicator is below prices when prices are rising and above prices when prices are falling.
         In this regard, the indicator stops and reverses when the price trend reverses and breaks above or below the indicator.
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        high = _to_np(_col(pl_df, "high"))
-        low = _to_np(_col(pl_df, "low"))
+        high, low = ohlc.high.values, ohlc.low.values
 
+        # Starting values
         sig0, xpt0, af0 = True, high[0], af
-        hl_std = float(np.nanstd(high - low, ddof=1)) if len(high) > 1 else 0.0
-        # pandas (ohlc.high - ohlc.low).std() uses ddof=1
-        _sar = [low[0] - hl_std]
+        _sar = [low[0] - (ohlc.high - ohlc.low).std()]
 
-        for i in range(1, len(pl_df)):
+        for i in range(1, len(ohlc)):
             sig1, xpt1, af1 = sig0, xpt0, af0
 
             lmin = min(low[i - 1], low[i])
@@ -970,7 +867,7 @@ class TA:
 
             _sar.append(sari)
 
-        return _series_out(_sar, None, index, was_pandas)
+        return pd.Series(_sar, index=ohlc.index)
 
     @classmethod
     def PSAR(cls, ohlc: DataFrame, iaf: int = 0.02, maxaf: int = 0.2) -> DataFrame:
@@ -981,11 +878,11 @@ class TA:
         https://www.investopedia.com/terms/p/parabolicindicator.asp
         https://virtualizedfrog.wordpress.com/2014/12/09/parabolic-sar-implementation-in-python/
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        length = len(pl_df)
-        high = _to_np(_col(pl_df, "high"))
-        low = _to_np(_col(pl_df, "low"))
-        close = _to_np(_col(pl_df, "close"))
+
+        length = len(ohlc)
+        high = ohlc.high.values
+        low = ohlc.low.values
+        close = ohlc.close.values
         psar = close.copy()
         psarbull = [None] * length
         psarbear = [None] * length
@@ -1040,14 +937,11 @@ class TA:
             else:
                 psarbear[i] = psar[i]
 
-        # Preserve pandas-ref swap quirk: both columns get bull list values
-        bear_col = psarbull
-        bull_col = psarbull
-        return _frame_out(
-            {"psar": psar, "psarbull": bull_col, "psarbear": bear_col},
-            index,
-            was_pandas,
-        )
+        psar = pd.Series(psar, name="psar", index=ohlc.index)
+        psarbear = pd.Series(psarbull, name="psarbear", index=ohlc.index)
+        psarbull = pd.Series(psarbear, name="psarbull", index=ohlc.index)
+
+        return pd.concat([psar, psarbull, psarbear], axis=1)
 
     @classmethod
     def BBANDS(
@@ -1066,20 +960,18 @@ class TA:
         This method allows input of some other form of moving average like EMA or KAMA around which BBAND will be formed.
         Pass desired moving average as <MA> argument. For example BBANDS(MA=TA.KAMA(20)).
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        std = _rolling_std(_col(pl_df, column), period)
-        ma_vals = _ensure_ma(MA, len(pl_df))
-        if ma_vals is None:
-            middle = cls.SMA(pl_df, period, column=column)
+
+        std = ohlc[column].rolling(window=period).std()
+
+        if not isinstance(MA, pd.core.series.Series):
+            middle_band = pd.Series(cls.SMA(ohlc, period), name="BB_MIDDLE")
         else:
-            middle = pl.Series(ma_vals)
-        upper = middle + (std_multiplier * std)
-        lower = middle - (std_multiplier * std)
-        return _frame_out(
-            {"BB_UPPER": upper, "BB_MIDDLE": middle, "BB_LOWER": lower},
-            index,
-            was_pandas,
-        )
+            middle_band = pd.Series(MA, name="BB_MIDDLE")
+
+        upper_bb = pd.Series(middle_band + (std_multiplier * std), name="BB_UPPER")
+        lower_bb = pd.Series(middle_band - (std_multiplier * std), name="BB_LOWER")
+
+        return pd.concat([upper_bb, middle_band, lower_bb], axis=1)
 
     @classmethod
     def MOBO(
@@ -1094,26 +986,21 @@ class TA:
         If the price breaks out of the MOBO band it can signify a trend move or price spike
         Contains 42% of price movements(noise) within bands.
         """
-        # Preserve pandas-ref: hardcoded period=10, std_multiplier=0.8 via TA.BBANDS
-        return TA.BBANDS(ohlc, period=10, std_multiplier=0.8, column=column)
+
+        BB = TA.BBANDS(ohlc, period=10, std_multiplier=0.8, column=column)
+        return BB
 
     @classmethod
     def BBWIDTH(
         cls, ohlc: DataFrame, period: int = 20, MA: Series = None, column: str = "close"
     ) -> Series:
         """Bandwidth tells how wide the Bollinger Bands are on a normalized basis."""
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        bb = TA.BBANDS(pl_df, period, MA, column)
-        if isinstance(bb, pd.DataFrame):
-            result = (bb["BB_UPPER"] - bb["BB_LOWER"]) / bb["BB_MIDDLE"]
-            return _series_out(
-                result, "{0} period BBWITH".format(period), index, was_pandas
-            )
-        result = (bb.get_column("BB_UPPER") - bb.get_column("BB_LOWER")) / bb.get_column(
-            "BB_MIDDLE"
-        )
-        return _series_out(
-            result, "{0} period BBWITH".format(period), index, was_pandas
+
+        BB = TA.BBANDS(ohlc, period, MA, column)
+
+        return pd.Series(
+            (BB["BB_UPPER"] - BB["BB_LOWER"]) / BB["BB_MIDDLE"],
+            name="{0} period BBWITH".format(period),
         )
 
     @classmethod
@@ -1124,17 +1011,14 @@ class TA:
         %b (pronounced 'percent b') is derived from the formula for Stochastics and shows where price is in relation to the bands.
         %b equals 1 at the upper band and 0 at the lower band.
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        bb = TA.BBANDS(pl_df, period, MA, column)
-        close = _col(pl_df, "close")
-        if isinstance(bb, pl.DataFrame):
-            lower = bb.get_column("BB_LOWER")
-            upper = bb.get_column("BB_UPPER")
-        else:
-            lower = pl.Series(bb["BB_LOWER"].to_numpy())
-            upper = pl.Series(bb["BB_UPPER"].to_numpy())
-        percent_b = (close - lower) / (upper - lower)
-        return _series_out(percent_b, "%b", index, was_pandas)
+
+        BB = TA.BBANDS(ohlc, period, MA, column)
+        percent_b = pd.Series(
+            (ohlc["close"] - BB["BB_LOWER"]) / (BB["BB_UPPER"] - BB["BB_LOWER"]),
+            name="%b",
+        )
+
+        return percent_b
 
     @classmethod
     def KC(
@@ -1153,16 +1037,18 @@ class TA:
         Keltner Channels are a trend following indicator used to identify reversals with channel breakouts and channel direction.
         Channels can also be used to identify overbought and oversold levels when the trend is flat.
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        ma_vals = _ensure_ma(MA, len(pl_df))
-        if ma_vals is None:
-            middle = cls.EMA(pl_df, period)
+
+        if not isinstance(MA, pd.core.series.Series):
+            middle = pd.Series(cls.EMA(ohlc, period), name="KC_MIDDLE")
         else:
-            middle = pl.Series(ma_vals)
-        atr = cls.ATR(pl_df, atr_period)
-        up = middle + (kc_mult * atr)
-        down = middle - (kc_mult * atr)
-        return _frame_out({"KC_UPPER": up, "KC_LOWER": down}, index, was_pandas)
+            middle = pd.Series(MA, name="KC_MIDDLE")
+
+        up = pd.Series(middle + (kc_mult * cls.ATR(ohlc, atr_period)), name="KC_UPPER")
+        down = pd.Series(
+            middle - (kc_mult * cls.ATR(ohlc, atr_period)), name="KC_LOWER"
+        )
+
+        return pd.concat([up, down], axis=1)
 
     @classmethod
     def DO(
@@ -1170,13 +1056,16 @@ class TA:
     ) -> DataFrame:
         """Donchian Channel, a moving average indicator developed by Richard Donchian.
         It plots the highest high and lowest low over the last period time intervals."""
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        upper = _rolling_max(_col(pl_df, "high"), upper_period)
-        lower = _rolling_min(_col(pl_df, "low"), lower_period)
-        middle = (upper + lower) / 2
-        return _frame_out(
-            {"LOWER": lower, "MIDDLE": middle, "UPPER": upper}, index, was_pandas
+
+        upper = pd.Series(
+            ohlc["high"].rolling(center=False, window=upper_period).max(), name="UPPER"
         )
+        lower = pd.Series(
+            ohlc["low"].rolling(center=False, window=lower_period).min(), name="LOWER"
+        )
+        middle = pd.Series((upper + lower) / 2, name="MIDDLE")
+
+        return pd.concat([lower, middle, upper], axis=1)
 
     @classmethod
     def DMI(cls, ohlc: DataFrame, period: int = 14, adjust: bool = True) -> DataFrame:
@@ -1189,23 +1078,43 @@ class TA:
 
         :period: Specifies the number of Periods used for DMI calculation
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        up_move = _diff(_col(pl_df, "high"))
-        down_move = -_diff(_col(pl_df, "low"))
-        up_a = _to_np(up_move)
-        down_a = _to_np(down_move)
-        plus = np.where((up_a > down_a) & (up_a > 0), up_a, 0.0)
-        minus = np.where((down_a > up_a) & (down_a > 0), down_a, 0.0)
-        atr = cls.ATR(pl_df, period)
-        diplus = 100 * _ewm_mean(
-            pl.Series(plus) / atr, alpha=1 / period, adjust=adjust
+
+        ohlc["up_move"] = ohlc["high"].diff()
+        ohlc["down_move"] = -ohlc["low"].diff()
+
+        # positive Dmi
+        def _dmp(row):
+            if row["up_move"] > row["down_move"] and row["up_move"] > 0:
+                return row["up_move"]
+            else:
+                return 0
+
+        # negative Dmi
+        def _dmn(row):
+            if row["down_move"] > row["up_move"] and row["down_move"] > 0:
+                return row["down_move"]
+            else:
+                return 0
+
+        ohlc["plus"] = ohlc.apply(_dmp, axis=1)
+        ohlc["minus"] = ohlc.apply(_dmn, axis=1)
+
+        diplus = pd.Series(
+            100
+            * (ohlc["plus"] / cls.ATR(ohlc, period))
+            .ewm(alpha=1 / period, adjust=adjust)
+            .mean(),
+            name="DI_PLUS",
         )
-        diminus = 100 * _ewm_mean(
-            pl.Series(minus) / atr, alpha=1 / period, adjust=adjust
+        diminus = pd.Series(
+            100
+            * (ohlc["minus"] / cls.ATR(ohlc, period))
+            .ewm(alpha=1 / period, adjust=adjust)
+            .mean(),
+            name="DI_MINUS",
         )
-        return _frame_out(
-            {"DI_PLUS": diplus, "DI_MINUS": diminus}, index, was_pandas
-        )
+
+        return pd.concat([diplus, diminus], axis=1)
 
     @classmethod
     def ADX(cls, ohlc: DataFrame, period: int = 14, adjust: bool = True) -> Series:
@@ -1213,17 +1122,17 @@ class TA:
         only trend strength. Generally, A.D.X. readings below 20 indicate trend weakness,
         and readings above 40 indicate trend strength. An extremely strong trend is indicated by readings above 50
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        dmi = cls.DMI(pl_df, period, adjust=adjust)
-        di_plus = dmi.get_column("DI_PLUS") if isinstance(dmi, pl.DataFrame) else pl.Series(dmi["DI_PLUS"].to_numpy())
-        di_minus = dmi.get_column("DI_MINUS") if isinstance(dmi, pl.DataFrame) else pl.Series(dmi["DI_MINUS"].to_numpy())
-        result = 100 * _ewm_mean(
-            (di_plus - di_minus).abs() / (di_plus + di_minus),
-            alpha=1 / period,
-            adjust=adjust,
-        )
-        return _series_out(
-            result, "{0} period ADX.".format(period), index, was_pandas
+
+        dmi = cls.DMI(ohlc, period)
+        return pd.Series(
+            100
+            * (
+                abs(dmi["DI_PLUS"] - dmi["DI_MINUS"])
+                / (dmi["DI_PLUS"] + dmi["DI_MINUS"])
+            )
+            .ewm(alpha=1 / period, adjust=adjust)
+            .mean(),
+            name="{0} period ADX.".format(period),
         )
 
     @classmethod
@@ -1235,33 +1144,34 @@ class TA:
         This means you'll have to use the previous day's range for today's pivot points.
         Or, last week's range if you want to calculate weekly pivot points or, last month's range for monthly pivot points and so on.
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        df = pl_df.select([_shift(_col(pl_df, c)).alias(c) for c in pl_df.columns])
-        pivot = cls.TP(df)
-        high = _col(df, "high")
-        low = _col(df, "low")
-        s1 = (pivot * 2) - high
-        s2 = pivot - (high - low)
-        s3 = low - (2 * (high - pivot))
-        s4 = low - (3 * (high - pivot))
-        r1 = (pivot * 2) - low
-        r2 = pivot + (high - low)
-        r3 = high + (2 * (pivot - low))
-        r4 = high + (3 * (pivot - low))
-        return _frame_out(
-            {
-                "pivot": pivot,
-                "s1": s1,
-                "s2": s2,
-                "s3": s3,
-                "s4": s4,
-                "r1": r1,
-                "r2": r2,
-                "r3": r3,
-                "r4": r4,
-            },
-            index,
-            was_pandas,
+
+        df = ohlc.shift()  # pivot is calculated of the previous trading session
+
+        pivot = pd.Series(cls.TP(df), name="pivot")  # pivot is basically a lagging TP
+
+        s1 = (pivot * 2) - df["high"]
+        s2 = pivot - (df["high"] - df["low"])
+        s3 = df["low"] - (2 * (df["high"] - pivot))
+        s4 = df["low"] - (3 * (df["high"] - pivot))
+
+        r1 = (pivot * 2) - df["low"]
+        r2 = pivot + (df["high"] - df["low"])
+        r3 = df["high"] + (2 * (pivot - df["low"]))
+        r4 = df["high"] + (3 * (pivot - df["low"]))
+
+        return pd.concat(
+            [
+                pivot,
+                pd.Series(s1, name="s1"),
+                pd.Series(s2, name="s2"),
+                pd.Series(s3, name="s3"),
+                pd.Series(s4, name="s4"),
+                pd.Series(r1, name="r1"),
+                pd.Series(r2, name="r2"),
+                pd.Series(r3, name="r3"),
+                pd.Series(r4, name="r4"),
+            ],
+            axis=1,
         )
 
     @classmethod
@@ -1271,34 +1181,33 @@ class TA:
         then multiply the previous day's range with its corresponding Fibonacci level.
         Most traders use the 38.2%, 61.8% and 100% retracements in their calculations.
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        df = pl_df.select([_shift(_col(pl_df, c)).alias(c) for c in pl_df.columns])
-        pp = cls.TP(df)
-        high = _col(df, "high")
-        low = _col(df, "low")
-        rng = high - low
-        r4 = pp + (rng * 1.382)
-        r3 = pp + (rng * 1)
-        r2 = pp + (rng * 0.618)
-        r1 = pp + (rng * 0.382)
-        s1 = pp - (rng * 0.382)
-        s2 = pp - (rng * 0.618)
-        s3 = pp - (rng * 1)
-        s4 = pp - (rng * 1.382)
-        return _frame_out(
-            {
-                "pivot": pp,
-                "s1": s1,
-                "s2": s2,
-                "s3": s3,
-                "s4": s4,
-                "r1": r1,
-                "r2": r2,
-                "r3": r3,
-                "r4": r4,
-            },
-            index,
-            was_pandas,
+
+        df = ohlc.shift()
+        pp = pd.Series(cls.TP(df), name="pivot")  # classic pivot
+
+        r4 = pp + ((df["high"] - df["low"]) * 1.382)
+        r3 = pp + ((df["high"] - df["low"]) * 1)
+        r2 = pp + ((df["high"] - df["low"]) * 0.618)
+        r1 = pp + ((df["high"] - df["low"]) * 0.382)
+
+        s1 = pp - ((df["high"] - df["low"]) * 0.382)
+        s2 = pp - ((df["high"] - df["low"]) * 0.618)
+        s3 = pp - ((df["high"] - df["low"]) * 1)
+        s4 = pp - ((df["high"] - df["low"]) * 1.382)
+
+        return pd.concat(
+            [
+                pp,
+                pd.Series(s1, name="s1"),
+                pd.Series(s2, name="s2"),
+                pd.Series(s3, name="s3"),
+                pd.Series(s4, name="s4"),
+                pd.Series(r1, name="r1"),
+                pd.Series(r2, name="r2"),
+                pd.Series(r3, name="r3"),
+                pd.Series(r4, name="r4"),
+            ],
+            axis=1,
         )
 
     @classmethod
@@ -1309,23 +1218,26 @@ class TA:
         The sensitivity of the oscillator to market movements is reducible by adjusting that time
         period or by taking a moving average of the result.
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        highest_high = _rolling_max(_col(pl_df, "high"), period)
-        lowest_low = _rolling_min(_col(pl_df, "low"), period)
-        stoch = (_col(pl_df, "close") - lowest_low) / (highest_high - lowest_low) * 100
-        return _series_out(
-            stoch, "{0} period STOCH %K".format(period), index, was_pandas
+
+        highest_high = ohlc["high"].rolling(center=False, window=period).max()
+        lowest_low = ohlc["low"].rolling(center=False, window=period).min()
+
+        STOCH = pd.Series(
+            (ohlc["close"] - lowest_low) / (highest_high - lowest_low) * 100,
+            name="{0} period STOCH %K".format(period),
         )
+
+        return STOCH
 
     @classmethod
     def STOCHD(cls, ohlc: DataFrame, period: int = 3, stoch_period: int = 14) -> Series:
         """Stochastic oscillator %D
         STOCH%D is a 3 period simple moving average of %K.
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        result = _rolling_mean(cls.STOCH(pl_df, stoch_period), period)
-        return _series_out(
-            result, "{0} period STOCH %D.".format(period), index, was_pandas
+
+        return pd.Series(
+            cls.STOCH(ohlc, stoch_period).rolling(center=False, window=period).mean(),
+            name="{0} period STOCH %D.".format(period),
         )
 
     @classmethod
@@ -1335,18 +1247,13 @@ class TA:
         """StochRSI is an oscillator that measures the level of RSI relative to its high-low range over a set time period.
         StochRSI applies the Stochastics formula to RSI values, instead of price values. This makes it an indicator of an indicator.
         The result is an oscillator that fluctuates between 0 and 1."""
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        rsi = cls.RSI(pl_df, rsi_period)
-        # Preserve quirk: global min/max of entire RSI series
-        rsi_min = float(rsi.min())
-        rsi_max = float(rsi.max())
-        scaled = (rsi - rsi_min) / (rsi_max - rsi_min)
-        result = _rolling_mean(scaled, stoch_period)
-        return _series_out(
-            result,
-            "{0} period stochastic RSI.".format(rsi_period),
-            index,
-            was_pandas,
+
+        rsi = cls.RSI(ohlc, rsi_period)
+        return pd.Series(
+            ((rsi - rsi.min()) / (rsi.max() - rsi.min()))
+            .rolling(window=stoch_period)
+            .mean(),
+            name="{0} period stochastic RSI.".format(rsi_period),
         )
 
     @classmethod
@@ -1357,11 +1264,16 @@ class TA:
         of its recent trading range.
         The oscillator is on a negative scale, from −100 (lowest) up to 0 (highest).
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        highest_high = _rolling_max(_col(pl_df, "high"), period)
-        lowest_low = _rolling_min(_col(pl_df, "low"), period)
-        wr = (highest_high - _col(pl_df, "close")) / (highest_high - lowest_low)
-        return _series_out(wr * -100, "{0} Williams %R".format(period), index, was_pandas)
+
+        highest_high = ohlc["high"].rolling(center=False, window=period).max()
+        lowest_low = ohlc["low"].rolling(center=False, window=period).min()
+
+        WR = pd.Series(
+            (highest_high - ohlc["close"]) / (highest_high - lowest_low),
+            name="{0} Williams %R".format(period),
+        )
+
+        return WR * -100
 
     @classmethod
     def UO(cls, ohlc: DataFrame, column: str = "close") -> Series:
@@ -1370,17 +1282,19 @@ class TA:
         Many momentum oscillators surge at the beginning of a strong advance and then form bearish divergence as the advance continues.
         This is because they are stuck with one time frame. The Ultimate Oscillator attempts to correct this fault by incorporating longer
         time frames into the basic formula."""
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        low = _to_np(_col(pl_df, "low"))
-        prev_close = _to_np(_shift(_col(pl_df, "close")))
-        k = np.minimum(low, prev_close)
-        bp = _col(pl_df, column) - pl.Series(k)
-        tr = cls.TR(pl_df)
-        average7 = _rolling_sum(bp, 7) / _rolling_sum(tr, 7)
-        average14 = _rolling_sum(bp, 14) / _rolling_sum(tr, 14)
-        average28 = _rolling_sum(bp, 28) / _rolling_sum(tr, 28)
-        result = (100 * ((4 * average7) + (2 * average14) + average28)) / (4 + 2 + 1)
-        return _series_out(result, None, index, was_pandas)
+
+        k = []  # current low or past close
+        for row, _row in zip(ohlc.itertuples(), ohlc.shift(1).itertuples()):
+            k.append(min(row.low, _row.close))
+        bp = pd.Series(ohlc[column] - k, name="bp")  # Buying pressure
+
+        Average7 = bp.rolling(window=7).sum() / cls.TR(ohlc).rolling(window=7).sum()
+        Average14 = bp.rolling(window=14).sum() / cls.TR(ohlc).rolling(window=14).sum()
+        Average28 = bp.rolling(window=28).sum() / cls.TR(ohlc).rolling(window=28).sum()
+
+        return pd.Series(
+            (100 * ((4 * Average7) + (2 * Average14) + Average28)) / (4 + 2 + 1)
+        )
 
     @classmethod
     def AO(cls, ohlc: DataFrame, slow_period: int = 34, fast_period: int = 5) -> Series:
@@ -1388,11 +1302,17 @@ class TA:
         Awesome Oscillator is an indicator used to measure market momentum. AO calculates the difference of a 34 Period and 5 Period Simple Moving Averages.
         The Simple Moving Averages that are used are not calculated using closing price but rather each bar's midpoints.
         AO is generally used to affirm trends or to anticipate possible reversals."""
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        mid = (_col(pl_df, "high") + _col(pl_df, "low")) / 2
-        slow = _rolling_mean(mid, slow_period)
-        fast = _rolling_mean(mid, fast_period)
-        return _series_out(fast - slow, "AO", index, was_pandas)
+
+        slow = pd.Series(
+            ((ohlc["high"] + ohlc["low"]) / 2).rolling(window=slow_period).mean(),
+            name="slow_AO",
+        )
+        fast = pd.Series(
+            ((ohlc["high"] + ohlc["low"]) / 2).rolling(window=fast_period).mean(),
+            name="fast_AO",
+        )
+
+        return pd.Series(fast - slow, name="AO")
 
     @classmethod
     def MI(cls, ohlc: DataFrame, period: int = 9, adjust: bool = True) -> Series:
@@ -1400,21 +1320,21 @@ class TA:
         In this sense, the Mass Index is a volatility indicator that does not have a directional bias.
         Instead, the Mass Index identifies range bulges that can foreshadow a reversal of the current trend.
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        _range = _col(pl_df, "high") - _col(pl_df, "low")
-        ema9 = _ewm_mean(_range, span=period, adjust=adjust)
-        dema9 = _ewm_mean(ema9, span=period, adjust=adjust)
-        mass = ema9 / dema9
-        return _series_out(_rolling_sum(mass, 25), "Mass Index", index, was_pandas)
+
+        _range = pd.Series(ohlc["high"] - ohlc["low"], name="range")
+        EMA9 = _range.ewm(span=period, ignore_na=False, adjust=adjust).mean()
+        DEMA9 = EMA9.ewm(span=period, ignore_na=False, adjust=adjust).mean()
+        mass = EMA9 / DEMA9
+
+        return pd.Series(mass.rolling(window=25).sum(), name="Mass Index")
 
     @classmethod
     def BOP(cls, ohlc: DataFrame) -> Series:
         """Balance Of Power indicator"""
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        result = (_col(pl_df, "close") - _col(pl_df, "open")) / (
-            _col(pl_df, "high") - _col(pl_df, "low")
+
+        return pd.Series(
+            (ohlc.close - ohlc.open) / (ohlc.high - ohlc.low), name="Balance Of Power"
         )
-        return _series_out(result, "Balance Of Power", index, was_pandas)
 
     @classmethod
     def VORTEX(cls, ohlc: DataFrame, period: int = 14) -> DataFrame:
@@ -1425,15 +1345,18 @@ class TA:
         distance between the current low and the prior high designates negative trend movement.
         Strongly positive or negative trend movements will show a longer length between the two numbers while
         weaker positive or negative trend movement will show a shorter length."""
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        vmp = (_col(pl_df, "high") - _shift(_col(pl_df, "low"))).abs()
-        vmm = (_col(pl_df, "low") - _shift(_col(pl_df, "high"))).abs()
-        vmpx = _rolling_sum(vmp, period)
-        vmmx = _rolling_sum(vmm, period)
-        tr = _rolling_sum(cls.TR(pl_df), period)
-        vip = (vmpx / tr).interpolate()
-        vim = (vmmx / tr).interpolate()
-        return _frame_out({"VIm": vim, "VIp": vip}, index, was_pandas)
+
+        VMP = pd.Series((ohlc["high"] - ohlc["low"].shift()).abs())
+        VMM = pd.Series((ohlc["low"] - ohlc["high"].shift()).abs())
+
+        VMPx = VMP.rolling(window=period).sum()
+        VMMx = VMM.rolling(window=period).sum()
+        TR = cls.TR(ohlc).rolling(window=period).sum()
+
+        VIp = pd.Series(VMPx / TR, name="VIp").interpolate(method="index")
+        VIm = pd.Series(VMMx / TR, name="VIm").interpolate(method="index")
+
+        return pd.concat([VIm, VIp], axis=1)
 
     @classmethod
     def KST(
@@ -1443,14 +1366,16 @@ class TA:
         KST measures price momentum for four different price cycles. It can be used just like any momentum oscillator.
         Chartists can look for divergences, overbought/oversold readings, signal line crossovers and centerline crossovers.
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        r1s = _rolling_mean(cls.ROC(pl_df, r1), 10)
-        r2s = _rolling_mean(cls.ROC(pl_df, r2), 10)
-        r3s = _rolling_mean(cls.ROC(pl_df, r3), 10)
-        r4s = _rolling_mean(cls.ROC(pl_df, r4), 15)
-        k = (r1s * 1) + (r2s * 2) + (r3s * 3) + (r4s * 4)
-        signal = _rolling_mean(k, 10)
-        return _frame_out({"KST": k, "signal": signal}, index, was_pandas)
+
+        r1 = cls.ROC(ohlc, r1).rolling(window=10).mean()
+        r2 = cls.ROC(ohlc, r2).rolling(window=10).mean()
+        r3 = cls.ROC(ohlc, r3).rolling(window=10).mean()
+        r4 = cls.ROC(ohlc, r4).rolling(window=15).mean()
+
+        k = pd.Series((r1 * 1) + (r2 * 2) + (r3 * 3) + (r4 * 4), name="KST")
+        signal = pd.Series(k.rolling(window=10).mean(), name="signal")
+
+        return pd.concat([k, signal], axis=1)
 
     @classmethod
     def TSI(
@@ -1463,23 +1388,42 @@ class TA:
         adjust: bool = True,
     ) -> DataFrame:
         """True Strength Index (TSI) is a momentum oscillator based on a double smoothing of price changes."""
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        momentum = _diff(_col(pl_df, column))
-        _ema25 = _ewm_mean(momentum, span=long, min_periods=long - 1, adjust=adjust)
-        _dema13 = _ewm_mean(_ema25, span=short, min_periods=short - 1, adjust=adjust)
-        absmomentum = _diff(_col(pl_df, column)).abs()
-        _aema25 = _ewm_mean(absmomentum, span=long, min_periods=long - 1, adjust=adjust)
-        _adema13 = _ewm_mean(_aema25, span=short, min_periods=short - 1, adjust=adjust)
-        tsi = (_dema13 / _adema13) * 100
-        sig = _ewm_mean(tsi, span=signal, min_periods=signal - 1, adjust=adjust)
-        return _frame_out({"TSI": tsi, "signal": sig}, index, was_pandas)
+
+        # Double smoother price change
+        momentum = pd.Series(ohlc[column].diff())  # 1 period momentum
+        _EMA25 = pd.Series(
+            momentum.ewm(span=long, min_periods=long - 1, adjust=adjust).mean(),
+            name="_price change EMA25",
+        )
+        _DEMA13 = pd.Series(
+            _EMA25.ewm(span=short, min_periods=short - 1, adjust=adjust).mean(),
+            name="_price change double smoothed DEMA13",
+        )
+
+        # Double smoothed absolute price change
+        absmomentum = pd.Series(ohlc[column].diff().abs())
+        _aEMA25 = pd.Series(
+            absmomentum.ewm(span=long, min_periods=long - 1, adjust=adjust).mean(),
+            name="_abs_price_change EMA25",
+        )
+        _aDEMA13 = pd.Series(
+            _aEMA25.ewm(span=short, min_periods=short - 1, adjust=adjust).mean(),
+            name="_abs_price_change double smoothed DEMA13",
+        )
+
+        TSI = pd.Series((_DEMA13 / _aDEMA13) * 100, name="TSI")
+        signal = pd.Series(
+            TSI.ewm(span=signal, min_periods=signal - 1, adjust=adjust).mean(),
+            name="signal",
+        )
+
+        return pd.concat([TSI, signal], axis=1)
 
     @classmethod
     def TP(cls, ohlc: DataFrame) -> Series:
         """Typical Price refers to the arithmetic average of the high, low, and closing prices for a given period."""
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        result = (_col(pl_df, "high") + _col(pl_df, "low") + _col(pl_df, "close")) / 3
-        return _series_out(result, "TP", index, was_pandas)
+
+        return pd.Series((ohlc["high"] + ohlc["low"] + ohlc["close"]) / 3, name="TP")
 
     @classmethod
     @inputvalidator(input_="ohlcv")
@@ -1489,13 +1433,14 @@ class TA:
         and their uses are different as well. Whereas the advance/decline line can provide insight into market movements,
         the accumulation/distribution line is of use to traders looking to measure buy/sell pressure on a security or confirm the strength of a trend.
         """
-        pl_df, index, was_pandas = _to_polars(ohlcv)
-        mfm = (
-            (_col(pl_df, "close") - _col(pl_df, "low"))
-            - (_col(pl_df, "high") - _col(pl_df, "close"))
-        ) / (_col(pl_df, "high") - _col(pl_df, "low"))
-        mfv = mfm * _col(pl_df, "volume")
-        return _series_out(mfv.cum_sum(), None, index, was_pandas)
+
+        MFM = pd.Series(
+            ((ohlcv["close"] - ohlcv["low"]) - (ohlcv["high"] - ohlcv["close"]))
+            / (ohlcv["high"] - ohlcv["low"]),
+            name="MFM",
+        )  # Money flow multiplier
+        MFV = pd.Series(MFM * ohlcv["volume"], name="MFV")
+        return MFV.cumsum()
 
     @classmethod
     @inputvalidator(input_="ohlcv")
@@ -1504,12 +1449,11 @@ class TA:
         line of the moving average convergence divergence (MACD). The Chaikin oscillator is calculated by subtracting a 10-day exponential moving average (EMA)
         of the accumulation/distribution line from a three-day EMA of the accumulation/distribution line, and highlights the momentum implied by the
         accumulation/distribution line."""
-        pl_df, index, was_pandas = _to_polars(ohlcv)
-        adl = cls.ADL(pl_df)
-        result = _ewm_mean(adl, span=3, min_periods=2, adjust=adjust) - _ewm_mean(
-            adl, span=10, min_periods=9, adjust=adjust
+
+        return pd.Series(
+            cls.ADL(ohlcv).ewm(span=3, min_periods=2, adjust=adjust).mean()
+            - cls.ADL(ohlcv).ewm(span=10, min_periods=9, adjust=adjust).mean()
         )
-        return _series_out(result, None, index, was_pandas)
 
     @classmethod
     @inputvalidator(input_="ohlcv")
@@ -1520,19 +1464,35 @@ class TA:
         The money flow indicator is one of the more reliable indicators of overbought and oversold conditions, perhaps partly because
         it uses the higher readings of 80 and 20 as compared to the RSI's overbought/oversold readings of 70 and 30
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        tp = cls.TP(pl_df)
-        rmf = tp * _col(pl_df, "volume")
-        delta = _diff(tp)
-        d = _to_np(delta)
-        r = _to_np(rmf)
-        pos = np.where(d > 0, r, 0.0)
-        neg = np.where(d < 0, r, 0.0)
-        mfratio = _rolling_sum(pl.Series(pos), period) / _rolling_sum(
-            pl.Series(neg), period
+
+        tp = cls.TP(ohlc)
+        rmf = pd.Series(tp * ohlc["volume"], name="rmf")  # Real Money Flow
+        _mf = pd.concat([tp, rmf], axis=1)
+        _mf["delta"] = _mf["TP"].diff()
+
+        def pos(row):
+            if row["delta"] > 0:
+                return row["rmf"]
+            else:
+                return 0
+
+        def neg(row):
+            if row["delta"] < 0:
+                return row["rmf"]
+            else:
+                return 0
+
+        _mf["neg"] = _mf.apply(neg, axis=1)
+        _mf["pos"] = _mf.apply(pos, axis=1)
+
+        mfratio = pd.Series(
+            _mf["pos"].rolling(window=period).sum()
+            / _mf["neg"].rolling(window=period).sum()
         )
-        result = 100 - (100 / (1 + mfratio))
-        return _series_out(result, "{0} period MFI".format(period), index, was_pandas)
+
+        return pd.Series(
+            100 - (100 / (1 + mfratio)), name="{0} period MFI".format(period)
+        )
 
     @classmethod
     @inputvalidator(input_="ohlcv")
@@ -1548,43 +1508,21 @@ class TA:
         :param pd.DataFrame ohlc: 'open, high, low, close' pandas DataFrame
         :return pd.Series: result is pandas.Series
         """
-        # Work on a mutable pandas copy when input is pandas to preserve mutate semantics
-        if isinstance(ohlcv, pd.DataFrame):
-            work = ohlcv.copy()
-            index = work.index
-            was_pandas = True
-            close = work[column]
-            volume = work["volume"]
-            work["OBV"] = np.nan
-            neg_change = close < close.shift(1)
-            pos_change = close >= close.shift(1)
-            no_change = close == close.shift(1)
-            if pos_change.any():
-                work.loc[pos_change, "OBV"] = volume
-            if neg_change.any():
-                work.loc[neg_change, "OBV"] = -volume
-            if no_change.any():
-                work.loc[no_change, "OBV"] = work["OBV"].shift(1)
-            # Also mutate caller's frame like original when same object — tests pass copy
-            ohlcv["OBV"] = work["OBV"]
-            return pd.Series(work["OBV"].cumsum(), name="OBV", index=index)
 
-        pl_df, index, was_pandas = _to_polars(ohlcv)
-        close = _to_np(_col(pl_df, column))
-        volume = _to_np(_col(pl_df, "volume"))
-        prev = np.roll(close, 1)
-        prev[0] = np.nan
-        obv = np.full(len(close), np.nan)
-        pos_change = close >= prev
-        neg_change = close < prev
-        no_change = close == prev
-        obv[pos_change] = volume[pos_change]
-        obv[neg_change] = -volume[neg_change]
-        # no_change overwrites with previous OBV (still nan before cumsum for equals that were also pos)
-        for i in range(len(obv)):
-            if no_change[i]:
-                obv[i] = obv[i - 1] if i > 0 else np.nan
-        return _series_out(np.cumsum(obv), "OBV", index, was_pandas)
+        ohlcv["OBV"] = np.nan
+
+        neg_change = ohlcv[column] < ohlcv[column].shift(1)
+        pos_change = ohlcv[column] >= ohlcv[column].shift(1)
+        no_change = ohlcv[column] == ohlcv[column].shift(1)
+
+        if pos_change.any():
+            ohlcv.loc[pos_change, "OBV"] = ohlcv["volume"]
+        if neg_change.any():
+            ohlcv.loc[neg_change, "OBV"] = -ohlcv["volume"]
+        if no_change.any():
+            ohlcv.loc[no_change, "OBV"] = ohlcv["OBV"].shift(1)
+
+        return pd.Series(ohlcv["OBV"].cumsum(), name="OBV")
 
     @classmethod
     @inputvalidator(input_="ohlcv")
@@ -1597,9 +1535,9 @@ class TA:
         instead, that huge volume makes the OBV go down, even though
         hardly anything really happened.
         """
-        pl_df, index, was_pandas = _to_polars(ohlcv)
-        wobv = _col(pl_df, "volume") * _diff(_col(pl_df, column))
-        return _series_out(wobv.cum_sum(), "WOBV", index, was_pandas)
+
+        wobv = pd.Series(ohlcv["volume"] * ohlcv[column].diff(), name="WOBV")
+        return wobv.cumsum()
 
     @classmethod
     @inputvalidator(input_="ohlcv")
@@ -1616,15 +1554,15 @@ class TA:
         Meanwhile, readings above 40% signal an overbought condition, while readings above 60% signal an extremely overbought condition.
         Alternatively, readings below -40% indicate an oversold condition, which becomes extremely oversold below -60%.
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        d = _to_np(_diff(_col(pl_df, column)))
-        sign = np.sign(d)
-        # pandas apply sign: (a > 0) - (a < 0); NaN stays weird — np.sign(nan)=nan
-        sign = np.where(d != d, np.nan, (d > 0).astype(float) - (d < 0).astype(float))
-        r = pl.Series(sign) * _col(pl_df, "volume")
-        dvma = _ewm_mean(r, span=period, adjust=adjust)
-        vma = _ewm_mean(_col(pl_df, "volume"), span=period, adjust=adjust)
-        return _series_out(100 * (dvma / vma), "VZO", index, was_pandas)
+
+        def sign(a):
+            return (a > 0) - (a < 0)
+
+        r = ohlc[column].diff().apply(sign) * ohlc["volume"]
+        dvma = r.ewm(span=period, adjust=adjust).mean()
+        vma = ohlc["volume"].ewm(span=period, adjust=adjust).mean()
+
+        return pd.Series(100 * (dvma / vma), name="VZO")
 
     @classmethod
     def PZO(
@@ -1641,15 +1579,15 @@ class TA:
 
         :period: Specifies the number of Periods used for PZO calculation
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        d = _to_np(_diff(_col(pl_df, column)))
-        sign = np.where(d != d, np.nan, (d > 0).astype(float) - (d < 0).astype(float))
-        r = pl.Series(sign) * _col(pl_df, column)
-        cp = _ewm_mean(r, span=period, adjust=adjust)
-        tc = cls.EMA(pl_df, period, column=column, adjust=adjust)
-        return _series_out(
-            100 * (cp / tc), "{} period PZO".format(period), index, was_pandas
-        )
+
+        def sign(a):
+            return (a > 0) - (a < 0)
+
+        r = ohlc[column].diff().apply(sign) * ohlc[column]
+        cp = pd.Series(r.ewm(span=period, adjust=adjust).mean())
+        tc = cls.EMA(ohlc, period)
+
+        return pd.Series(100 * (cp / tc), name="{} period PZO".format(period))
 
     @classmethod
     @inputvalidator(input_="ohlcv")
@@ -1662,11 +1600,12 @@ class TA:
     ) -> Series:
         """Elder's Force Index is an indicator that uses price and volume to assess the power
         behind a move or identify possible turning points."""
-        pl_df, index, was_pandas = _to_polars(ohlcv)
-        fi = _diff(_col(pl_df, column)) * _col(pl_df, "volume")
-        result = _ewm_mean(fi, span=period, adjust=adjust)
-        return _series_out(
-            result, "{0} period Force Index".format(period), index, was_pandas
+
+        # https://tradingsim.com/blog/elders-force-index/
+        fi = pd.Series(ohlcv[column].diff() * ohlcv["volume"])
+        return pd.Series(
+            fi.ewm(ignore_na=False, span=period, adjust=adjust).mean(),
+            name="{0} period Force Index".format(period),
         )
 
     @classmethod
@@ -1678,21 +1617,23 @@ class TA:
         Cummulative Force Index.
         Adopted from  Elder's Force Index.
         """
-        pl_df, index, was_pandas = _to_polars(ohlcv)
-        fi1 = _col(pl_df, "volume") * _diff(_col(pl_df, column))
-        cfi = _ewm_mean(fi1, span=10, min_periods=9, adjust=adjust)
-        return _series_out(cfi.cum_sum(), "CFI", index, was_pandas)
+
+        fi1 = pd.Series(ohlcv["volume"] * ohlcv[column].diff())
+        cfi = pd.Series(
+            fi1.ewm(ignore_na=False, min_periods=9, span=10, adjust=adjust).mean(),
+            name="CFI",
+        )
+
+        return cfi.cumsum()
 
     @classmethod
     def EBBP(cls, ohlc: DataFrame) -> DataFrame:
         """Bull power and bear power by Dr. Alexander Elder show where today's high and low lie relative to the a 13-day EMA"""
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        ema13 = cls.EMA(pl_df, 13)
-        bull_power = _col(pl_df, "high") - ema13
-        bear_power = _col(pl_df, "low") - ema13
-        return _frame_out(
-            {"Bull.": bull_power, "Bear.": bear_power}, index, was_pandas
-        )
+
+        bull_power = pd.Series(ohlc["high"] - cls.EMA(ohlc, 13), name="Bull.")
+        bear_power = pd.Series(ohlc["low"] - cls.EMA(ohlc, 13), name="Bear.")
+
+        return pd.concat([bull_power, bear_power], axis=1)
 
     @classmethod
     @inputvalidator(input_="ohlcv")
@@ -1702,19 +1643,19 @@ class TA:
         prices are advancing with relative ease when the oscillator is in positive territory.
         Conversely, prices are declining with relative ease when the oscillator is in negative territory.
         """
-        pl_df, index, was_pandas = _to_polars(ohlcv)
-        distance = ((_col(pl_df, "high") + _col(pl_df, "low")) / 2) - (
-            (_shift(_col(pl_df, "high")) + _shift(_col(pl_df, "low"))) / 2
+
+        distance = pd.Series(
+            ((ohlcv["high"] + ohlcv["low"]) / 2)
+            - (ohlcv["high"].shift() + ohlcv["low"].shift()) / 2
         )
-        box_ratio = (_col(pl_df, "volume") / 1000000) / (
-            _col(pl_df, "high") - _col(pl_df, "low")
+        box_ratio = pd.Series(
+            (ohlcv["volume"] / 1000000) / (ohlcv["high"] - ohlcv["low"])
         )
-        _emv = distance / box_ratio
-        return _series_out(
-            _rolling_mean(_emv, period),
-            "{0} period EMV.".format(period),
-            index,
-            was_pandas,
+
+        _emv = pd.Series(distance / box_ratio)
+
+        return pd.Series(
+            _emv.rolling(window=period).mean(), name="{0} period EMV.".format(period)
         )
 
     @classmethod
@@ -1732,60 +1673,70 @@ class TA:
         :factor float: the constant at .015 to ensure that approximately 70 to 80 percent of CCI values would fall between -100 and +100.
         :return pd.Series: result is pandas.Series
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        tp = cls.TP(pl_df)
-        tp_mean = _rolling_mean(tp, period, min_periods=0)
 
-        def _mad(x: np.ndarray) -> float:
-            return float(np.mean(np.abs(x - np.mean(x))))
-
-        mad = tp.rolling_map(_mad, window_size=period, min_samples=1)
-        # pandas min_periods=0 still needs at least 1 sample for apply
-        result = (tp - tp_mean) / (constant * mad)
-        return _series_out(result, "{0} period CCI".format(period), index, was_pandas)
+        tp = cls.TP(ohlc)
+        tp_rolling = tp.rolling(window=period, min_periods=0)
+        # calculate MAD (Mean Deviation)
+        # https://www.khanacademy.org/math/statistics-probability/summarizing-quantitative-data/other-measures-of-spread/a/mean-absolute-deviation-mad-review
+        mad = tp_rolling.apply(lambda s: abs(s - s.mean()).mean(), raw=True)
+        return pd.Series(
+            (tp - tp_rolling.mean()) / (constant * mad),
+            name="{0} period CCI".format(period),
+        )
 
     @classmethod
     def COPP(cls, ohlc: DataFrame, adjust: bool = True) -> Series:
         """The Coppock Curve is a momentum indicator, it signals buying opportunities when the indicator moved from negative territory to positive territory."""
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        roc1 = cls.ROC(pl_df, 14)
-        roc2 = cls.ROC(pl_df, 11)
-        result = _ewm_mean(roc1 + roc2, span=10, min_periods=9, adjust=adjust)
-        return _series_out(result, "Coppock Curve", index, was_pandas)
+
+        roc1 = cls.ROC(ohlc, 14)
+        roc2 = cls.ROC(ohlc, 11)
+
+        return pd.Series(
+            (roc1 + roc2).ewm(span=10, min_periods=9, adjust=adjust).mean(),
+            name="Coppock Curve",
+        )
 
     @classmethod
     def BASP(cls, ohlc: DataFrame, period: int = 40, adjust: bool = True) -> DataFrame:
         """BASP indicator serves to identify buying and selling pressure."""
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        sp = _col(pl_df, "high") - _col(pl_df, "close")
-        bp = _col(pl_df, "close") - _col(pl_df, "low")
-        spavg = _ewm_mean(sp, span=period, adjust=adjust)
-        bpavg = _ewm_mean(bp, span=period, adjust=adjust)
+
+        sp = ohlc["high"] - ohlc["close"]
+        bp = ohlc["close"] - ohlc["low"]
+        spavg = sp.ewm(span=period, adjust=adjust).mean()
+        bpavg = bp.ewm(span=period, adjust=adjust).mean()
+
         nbp = bp / bpavg
         nsp = sp / spavg
-        varg = _ewm_mean(_col(pl_df, "volume"), span=period, adjust=adjust)
-        nv = _col(pl_df, "volume") / varg
-        nbfraw = nbp * nv
-        nsfraw = nsp * nv
-        return _frame_out({"Buy.": nbfraw, "Sell.": nsfraw}, index, was_pandas)
+
+        varg = ohlc["volume"].ewm(span=period, adjust=adjust).mean()
+        nv = ohlc["volume"] / varg
+
+        nbfraw = pd.Series(nbp * nv, name="Buy.")
+        nsfraw = pd.Series(nsp * nv, name="Sell.")
+
+        return pd.concat([nbfraw, nsfraw], axis=1)
 
     @classmethod
     def BASPN(cls, ohlc: DataFrame, period: int = 40, adjust: bool = True) -> DataFrame:
         """
         Normalized BASP indicator
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        sp = _col(pl_df, "high") - _col(pl_df, "close")
-        bp = _col(pl_df, "close") - _col(pl_df, "low")
-        spavg = _ewm_mean(sp, span=period, adjust=adjust)
-        bpavg = _ewm_mean(bp, span=period, adjust=adjust)
+
+        sp = ohlc["high"] - ohlc["close"]
+        bp = ohlc["close"] - ohlc["low"]
+        spavg = sp.ewm(span=period, adjust=adjust).mean()
+        bpavg = bp.ewm(span=period, adjust=adjust).mean()
+
         nbp = bp / bpavg
         nsp = sp / spavg
-        varg = _ewm_mean(_col(pl_df, "volume"), span=period, adjust=adjust)
-        nv = _col(pl_df, "volume") / varg
-        nbf = _ewm_mean(nbp * nv, span=20, adjust=adjust)
-        nsf = _ewm_mean(nsp * nv, span=20, adjust=adjust)
-        return _frame_out({"Buy.": nbf, "Sell.": nsf}, index, was_pandas)
+
+        varg = ohlc["volume"].ewm(span=period, adjust=adjust).mean()
+        nv = ohlc["volume"] / varg
+
+        nbf = pd.Series((nbp * nv).ewm(span=20, adjust=adjust).mean(), name="Buy.")
+        nsf = pd.Series((nsp * nv).ewm(span=20, adjust=adjust).mean(), name="Sell.")
+
+        return pd.concat([nbf, nsf], axis=1)
 
     @classmethod
     def CMO(
@@ -1802,15 +1753,20 @@ class TA:
         dividing the result by the sum of all price movement over the period.
         This oscillator is similar to other momentum indicators such as the Relative Strength Index and the Stochastic Oscillator
         because it is range bounded (+100 and -100)."""
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        delta = _diff(_col(pl_df, column))
-        d = _to_np(delta)
-        up = np.where(d < 0, 0.0, d)
-        down = np.where(d > 0, 0.0, d)
-        _gain = _ewm_mean(pl.Series(up), com=period, adjust=adjust)
-        _loss = _ewm_mean(pl.Series(down), com=period, adjust=adjust).abs()
-        result = factor * ((_gain - _loss) / (_gain + _loss))
-        return _series_out(result, "CMO", index, was_pandas)
+
+        # get the price diff
+        delta = ohlc[column].diff()
+
+        # positive gains (up) and negative gains (down) Series
+        up, down = delta.copy(), delta.copy()
+        up[up < 0] = 0
+        down[down > 0] = 0
+
+        # EMAs of ups and downs
+        _gain = up.ewm(com=period, adjust=adjust).mean()
+        _loss = down.ewm(com=period, adjust=adjust).mean().abs()
+
+        return pd.Series(factor * ((_gain - _loss) / (_gain + _loss)), name="CMO")
 
     @classmethod
     def CHANDELIER(
@@ -1827,37 +1783,48 @@ class TA:
 
         Typically, the Chandelier Exit will be above prices during a downtrend and below prices during an uptrend.
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        atr22 = cls.ATR(pl_df, 22)
-        l = _rolling_max(_col(pl_df, "high"), long_period) - atr22 * k
-        s = _rolling_min(_col(pl_df, "low"), short_period) + atr22 * k
-        return _frame_out({"Short.": s, "Long.": l}, index, was_pandas)
+
+        l = pd.Series(
+            ohlc["high"].rolling(window=long_period).max() - cls.ATR(ohlc, 22) * k,
+            name="Long.",
+        )
+        s = pd.Series(
+            ohlc["low"].rolling(window=short_period).min() + cls.ATR(ohlc, 22) * k,
+            name="Short.",
+        )
+
+        return pd.concat([s, l], axis=1)
 
     @classmethod
     def QSTICK(cls, ohlc: DataFrame, period: int = 14) -> Series:
         """
         QStick indicator shows the dominance of black (down) or white (up) candlesticks, which are red and green in Chart,
         as represented by the average open to close change for each of past N days."""
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        n = len(pl_df)
-        start = max(0, n - period)
-        close = _col(pl_df, "close").slice(start, period)
-        open_ = _col(pl_df, "open").slice(start, period)
-        result = (close - open_) / period
-        if was_pandas and index is not None:
-            return pd.Series(
-                _to_np(result),
-                index=index[start:],
-                name="{0} period QSTICK.".format(period),
-            )
-        return _series_out(
-            result, "{0} period QSTICK.".format(period), None, was_pandas
+
+        _close = ohlc["close"].tail(period)
+        _open = ohlc["open"].tail(period)
+
+        return pd.Series(
+            (_close - _open) / period, name="{0} period QSTICK.".format(period)
         )
 
     @classmethod
     def TMF(cls, ohlcv: DataFrame, period: int = 21) -> Series:
         """Indicator by Colin Twiggs which improves upon CMF.
         source: https://user42.tuxfamily.org/chart/manual/Twiggs-Money-Flow.html"""
+
+        ohlcv["ll"] = [min(l, c) for l, c in zip(ohlcv["low"], ohlcv["close"].shift(1))]
+        ohlcv["hh"] = [
+            max(h, c) for h, c in zip(ohlcv["high"], ohlcv["close"].shift(1))
+        ]
+
+        ohlcv["range"] = (
+            2 * ((ohlcv["close"] - ohlcv["ll"]) / (ohlcv["hh"] - ohlcv["ll"])) - 1
+        )
+        ohlcv["rangev"] = None
+
+        # TMF Signal Line = EMA(TMF)
+        # return TMF
         raise NotImplementedError
 
     @classmethod
@@ -1872,38 +1839,39 @@ class TA:
         Wave Trend Oscillator
         source: http://www.fxcoaching.com/WaveTrend/
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        ap = cls.TP(pl_df)
-        esa = _ewm_mean(ap, span=average_length, adjust=adjust)
-        d = _ewm_mean((ap - esa).abs(), span=channel_length, adjust=adjust)
+
+        ap = cls.TP(ohlc)
+        esa = ap.ewm(span=average_length, adjust=adjust).mean()
+        d = pd.Series(
+            (ap - esa).abs().ewm(span=channel_length, adjust=adjust).mean(), name="d"
+        )
         ci = (ap - esa) / (0.015 * d)
-        wt1 = _ewm_mean(ci, span=average_length, adjust=adjust)
-        wt2 = _rolling_mean(wt1, 4)
-        return _frame_out({"WT1.": wt1, "WT2.": wt2}, index, was_pandas)
+
+        wt1 = pd.Series(ci.ewm(span=average_length, adjust=adjust).mean(), name="WT1.")
+        wt2 = pd.Series(wt1.rolling(window=4).mean(), name="WT2.")
+
+        return pd.concat([wt1, wt2], axis=1)
 
     @classmethod
     def FISH(cls, ohlc: DataFrame, period: int = 10, adjust: bool = True) -> Series:
         """
         Fisher Transform was presented by John Ehlers. It assumes that price distributions behave like square waves.
         """
+
         from numpy import log, seterr
 
         seterr(divide="ignore")
 
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        med = (_col(pl_df, "high") + _col(pl_df, "low")) / 2
-        ndaylow = _rolling_min(med, period)
-        ndayhigh = _rolling_max(med, period)
+        med = (ohlc["high"] + ohlc["low"]) / 2
+        ndaylow = med.rolling(window=period).min()
+        ndayhigh = med.rolling(window=period).max()
         raw = (2 * ((med - ndaylow) / (ndayhigh - ndaylow))) - 1
-        smooth = _ewm_mean(raw, span=5, adjust=adjust)
-        _smooth = smooth.fill_null(0)
-        # also fill NaN from inf/-inf division
-        sm = _to_np(_smooth)
-        sm = np.nan_to_num(sm, nan=0.0)
-        fisher = log((1 + sm) / (1 - sm))
-        result = _ewm_mean(pl.Series(fisher), span=3, adjust=adjust)
-        return _series_out(
-            result, "{0} period FISH.".format(period), index, was_pandas
+        smooth = raw.ewm(span=5, adjust=adjust).mean()
+        _smooth = smooth.fillna(0)
+
+        return pd.Series(
+            (log((1 + _smooth) / (1 - _smooth))).ewm(span=3, adjust=adjust).mean(),
+            name="{0} period FISH.".format(period),
         )
 
     @classmethod
@@ -1921,35 +1889,49 @@ class TA:
 
         Ichimoku Kinko Hyo translates into "one look equilibrium chart".
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        tenkan_sen = (
-            _rolling_max(_col(pl_df, "high"), tenkan_period)
-            + _rolling_min(_col(pl_df, "low"), tenkan_period)
-        ) / 2
-        kijun_sen = (
-            _rolling_max(_col(pl_df, "high"), kijun_period)
-            + _rolling_min(_col(pl_df, "low"), kijun_period)
-        ) / 2
-        senkou_span_a = _shift((tenkan_sen + kijun_sen) / 2, kijun_period)
-        senkou_span_b = _shift(
+
+        tenkan_sen = pd.Series(
             (
-                _rolling_max(_col(pl_df, "high"), senkou_period)
-                + _rolling_min(_col(pl_df, "low"), senkou_period)
+                ohlc["high"].rolling(window=tenkan_period).max()
+                + ohlc["low"].rolling(window=tenkan_period).min()
             )
             / 2,
-            kijun_period,
+            name="TENKAN",
+        )  # conversion line
+
+        kijun_sen = pd.Series(
+            (
+                ohlc["high"].rolling(window=kijun_period).max()
+                + ohlc["low"].rolling(window=kijun_period).min()
+            )
+            / 2,
+            name="KIJUN",
+        )  # base line
+
+        senkou_span_a = pd.Series(
+            ((tenkan_sen + kijun_sen) / 2), name="senkou_span_a"
+        ).shift(
+            kijun_period
+        )  # Leading span
+
+        senkou_span_b = pd.Series(
+            (
+                (
+                    ohlc["high"].rolling(window=senkou_period).max()
+                    + ohlc["low"].rolling(window=senkou_period).min()
+                )
+                / 2
+            ),
+            name="SENKOU",
+        ).shift(kijun_period)
+
+        chikou_span = pd.Series(
+            ohlc["close"].shift(-chikou_period),
+            name="CHIKOU",
         )
-        chikou_span = _shift(_col(pl_df, "close"), -chikou_period)
-        return _frame_out(
-            {
-                "TENKAN": tenkan_sen,
-                "KIJUN": kijun_sen,
-                "senkou_span_a": senkou_span_a,
-                "SENKOU": senkou_span_b,
-                "CHIKOU": chikou_span,
-            },
-            index,
-            was_pandas,
+
+        return pd.concat(
+            [tenkan_sen, kijun_sen, senkou_span_a, senkou_span_b, chikou_span], axis=1
         )
 
     @classmethod
@@ -1970,21 +1952,21 @@ class TA:
 
         the APZ was created to help traders find potential turning points in the markets.
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        ma_vals = _ensure_ma(MA, len(pl_df))
-        if ma_vals is None:
-            ma = cls.DEMA(pl_df, period, adjust=adjust)
-        else:
-            ma = pl.Series(ma_vals)
-        price_range = _ewm_mean(
-            _col(pl_df, "high") - _col(pl_df, "low"), span=period, adjust=adjust
+
+        if not isinstance(MA, pd.Series):
+            MA = cls.DEMA(ohlc, period)
+        price_range = pd.Series(
+            (ohlc["high"] - ohlc["low"]).ewm(span=period, adjust=adjust).mean()
         )
-        volatility_value = _ewm_mean(price_range, span=period, adjust=adjust)
-        upper_band = (volatility_value * dev_factor) + ma
-        lower_band = ma - (volatility_value * dev_factor)
-        return _frame_out(
-            {"UPPER": upper_band, "LOWER": lower_band}, index, was_pandas
+        volatility_value = pd.Series(
+            price_range.ewm(span=period, adjust=adjust).mean(), name="vol_val"
         )
+
+        # upper_band = dev_factor * volatility_value + dema
+        upper_band = pd.Series((volatility_value * dev_factor) + MA, name="UPPER")
+        lower_band = pd.Series(MA - (volatility_value * dev_factor), name="LOWER")
+
+        return pd.concat([upper_band, lower_band], axis=1)
 
     @classmethod
     def SQZMI(cls, ohlc: DataFrame, period: int = 20, MA: Series = None) -> DataFrame:
@@ -2003,28 +1985,25 @@ class TA:
 
         SQZMI['SQZ'] is bool True/False, if True squeeze is on. If false, squeeeze has fired.
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        # Preserve pandas-ref quirk: when MA is a Series, pass ma=None to BBANDS
-        if not _is_series_like(MA):
-            ma = cls.SMA(pl_df, period)
+
+        if not isinstance(MA, pd.core.series.Series):
+            ma = pd.Series(cls.SMA(ohlc, period))
         else:
             ma = None
-        bb = cls.BBANDS(pl_df, period=period, MA=ma)
-        kc = cls.KC(pl_df, period=period, kc_mult=1.5)
-        if isinstance(bb, pl.DataFrame):
-            bb_lower = _to_np(bb.get_column("BB_LOWER"))
-            bb_upper = _to_np(bb.get_column("BB_UPPER"))
-        else:
-            bb_lower = bb["BB_LOWER"].to_numpy()
-            bb_upper = bb["BB_UPPER"].to_numpy()
-        if isinstance(kc, pl.DataFrame):
-            kc_lower = _to_np(kc.get_column("KC_LOWER"))
-            kc_upper = _to_np(kc.get_column("KC_UPPER"))
-        else:
-            kc_lower = kc["KC_LOWER"].to_numpy()
-            kc_upper = kc["KC_UPPER"].to_numpy()
-        sqz = (bb_lower > kc_lower) & (bb_upper < kc_upper)
-        return _series_out(sqz, "{0} period SQZMI".format(period), index, was_pandas)
+
+        bb = cls.BBANDS(ohlc, period=period, MA=ma)
+        kc = cls.KC(ohlc, period=period, kc_mult=1.5)
+        comb = pd.concat([bb, kc], axis=1)
+
+        def sqz_on(row):
+            if row["BB_LOWER"] > row["KC_LOWER"] and row["BB_UPPER"] < row["KC_UPPER"]:
+                return True
+            else:
+                return False
+
+        comb["SQZ"] = comb.apply(sqz_on, axis=1)
+
+        return pd.Series(comb["SQZ"], name="{0} period SQZMI".format(period))
 
     @classmethod
     @inputvalidator(input_="ohlcv")
@@ -2035,13 +2014,15 @@ class TA:
         If there appears to be a bullish divergence of price and the VPT (upward slope of the VPT and downward slope of the price) a buy opportunity exists.
         Conversely, a bearish divergence (downward slope of the VPT and upward slope of the price) implies a sell opportunity.
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        hilow = (_col(pl_df, "high") - _col(pl_df, "low")) * 100
-        openclose = (_col(pl_df, "close") - _col(pl_df, "open")) * 100
-        vol = _col(pl_df, "volume") / hilow
-        spreadvol = (openclose * vol).cum_sum()
+
+        hilow = (ohlc["high"] - ohlc["low"]) * 100
+        openclose = (ohlc["close"] - ohlc["open"]) * 100
+        vol = ohlc["volume"] / hilow
+        spreadvol = (openclose * vol).cumsum()
+
         vpt = spreadvol + spreadvol
-        return _series_out(vpt, "VPT", index, was_pandas)
+
+        return pd.Series(vpt, name="VPT")
 
     @classmethod
     @inputvalidator(input_="ohlcv")
@@ -2050,24 +2031,27 @@ class TA:
         FVE is a money flow indicator, but it has two important innovations: first, the F VE takes into account both intra and
         interday price action, and second, minimal price changes are taken into account by introducing a price threshold.
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        hl2 = (_col(pl_df, "high") + _col(pl_df, "low")) / 2
-        tp = TA.TP(pl_df)
-        smav = _rolling_mean(_col(pl_df, "volume"), period)
-        mf = _col(pl_df, "close") - hl2 + _diff(tp)
-        mf_a = _to_np(mf)
-        close_a = _to_np(_col(pl_df, "close"))
-        vol_a = _to_np(_col(pl_df, "volume"))
-        vol_shift = np.zeros(len(mf_a))
-        for i in range(len(mf_a)):
-            if mf_a[i] > factor * close_a[i] / 100:
-                vol_shift[i] = vol_a[i]
-            elif mf_a[i] < -factor * close_a[i] / 100:
-                vol_shift[i] = -vol_a[i]
+
+        hl2 = (ohlc["high"] + ohlc["low"]) / 2
+        tp = TA.TP(ohlc)
+        smav = ohlc["volume"].rolling(window=period).mean()
+        mf = pd.Series((ohlc["close"] - hl2 + tp.diff()), name="mf")
+
+        _mf = pd.concat([ohlc["close"], ohlc["volume"], mf], axis=1)
+
+        def vol_shift(row):
+
+            if row["mf"] > factor * row["close"] / 100:
+                return row["volume"]
+            elif row["mf"] < -factor * row["close"] / 100:
+                return -row["volume"]
             else:
-                vol_shift[i] = 0
-        _sum = _rolling_sum(pl.Series(vol_shift), period)
-        return _series_out((_sum / smav) / period * 100, None, index, was_pandas)
+                return 0
+
+        _mf["vol_shift"] = _mf.apply(vol_shift, axis=1)
+        _sum = _mf["vol_shift"].rolling(window=period).sum()
+
+        return pd.Series((_sum / smav) / period * 100)
 
     @classmethod
     def VFI(
@@ -2091,39 +2075,61 @@ class TA:
         :vfactor: Specifies the cutoff for maximum volume in the VFI calculation
         :smoothing_factor: Specifies the number of periods used in the short moving average
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        typical = TA.TP(pl_df)
-        inter = _diff(pl.Series(np.log(_to_np(typical))))
-        vinter = _rolling_std(inter, 30)
-        cutoff = factor * vinter * _col(pl_df, "close")
-        price_change = _diff(typical)
-        mav = _rolling_mean(_col(pl_df, "volume"), period)
-        mav_shift = _shift(mav)
 
-        vol = _to_np(_col(pl_df, "volume"))
-        mav_s = _to_np(mav_shift)
-        pc = _to_np(price_change)
-        cut = _to_np(cutoff)
-        # fillna 0 like pandas
-        pc = np.nan_to_num(pc, nan=0.0)
-        cut = np.nan_to_num(cut, nan=0.0)
-
-        added_vol = np.where(
-            vol > vfactor * mav_s, vfactor * mav_s, vol
+        typical = TA.TP(ohlc)
+        # historical interday volatility and cutoff
+        inter = typical.apply(np.log).diff()
+        # stdev of linear1
+        vinter = inter.rolling(window=30).std()
+        cutoff = pd.Series(factor * vinter * ohlc["close"], name="cutoff")
+        price_change = pd.Series(typical.diff(), name="pc")  # price change
+        mav = pd.Series(
+            ohlc["volume"].rolling(center=False, window=period).mean(),
+            name="mav",
         )
-        # when mav_s is nan, comparison is false, use vol — match apply behavior with NaN
-        added_vol = np.where(mav_s != mav_s, vol, added_vol)
 
-        multiplier = np.where(pc > cut, 1, np.where(pc < 0 - cut, -1, 0))
-        raw_sum = _rolling_sum(pl.Series(multiplier * added_vol), period)
-        raw_value = raw_sum / mav_shift
-        vfi = _ewm_mean(
-            raw_value,
-            span=smoothing_factor,
-            min_periods=smoothing_factor - 1,
-            adjust=adjust,
+        _va = pd.concat([ohlc["volume"], mav.shift()], axis=1)
+        _mp = pd.concat([price_change, cutoff], axis=1)
+        _mp.fillna(value=0, inplace=True)
+
+        def _vol_added(row):
+            """Determine the maximum volume to be added"""
+
+            if row["volume"] > vfactor * row["mav"]:
+                return vfactor * row["mav"]
+            else:
+                return row["volume"]
+
+        added_vol = _va.apply(_vol_added, axis=1)
+
+        def _multiplier(row):
+            """
+            Determine whether the volume is up volume (multiplier +1) or
+            down volume (multiplier -1). If price change is smaller than cutoff
+            do not count volume (multipler 0).
+            """
+            if row["pc"] > row["cutoff"]:
+                return 1
+            elif row["pc"] < 0 - row["cutoff"]:
+                return -1
+            else:
+                return 0
+
+        multiplier = _mp.apply(_multiplier, axis=1)
+        raw_sum = (multiplier * added_vol).rolling(window=period).sum()
+        raw_value = raw_sum / mav.shift()
+
+        vfi = pd.Series(
+            raw_value.ewm(
+                ignore_na=False,
+                min_periods=smoothing_factor - 1,
+                span=smoothing_factor,
+                adjust=adjust,
+            ).mean(),
+            name="VFI",
         )
-        return _series_out(vfi, "VFI", index, was_pandas)
+
+        return vfi
 
     @classmethod
     def MSD(cls, ohlc: DataFrame, period: int = 21, column: str = "close") -> Series:
@@ -2138,10 +2144,8 @@ class TA:
 
         :period: Specifies the number of Periods used for MSD calculation
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        return _series_out(
-            _rolling_std(_col(pl_df, column), period), "MSD", index, was_pandas
-        )
+
+        return pd.Series(ohlc[column].rolling(period).std(), name="MSD")
 
     @classmethod
     def STC(
@@ -2177,19 +2181,32 @@ class TA:
         In case the STC indicator is increasing, this indicates that the trend cycle
         is up, while the price tends to stabilize or follow the cycle to the upside.
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        ema_fast = _ewm_mean(_col(pl_df, column), span=period_fast, adjust=adjust)
-        ema_slow = _ewm_mean(_col(pl_df, column), span=period_slow, adjust=adjust)
-        macd = ema_fast - ema_slow
-        stok = (
-            (macd - _rolling_min(macd, k_period))
-            / (_rolling_max(macd, k_period) - _rolling_min(macd, k_period))
-        ) * 100
-        stod = _rolling_mean(stok, d_period)
-        stod_double = _rolling_mean(stod, d_period)
-        return _series_out(
-            stod_double, "{0} period STC".format(k_period), index, was_pandas
+        EMA_fast = pd.Series(
+            ohlc[column].ewm(ignore_na=False, span=period_fast, adjust=adjust).mean(),
+            name="EMA_fast",
         )
+
+        EMA_slow = pd.Series(
+            ohlc[column].ewm(ignore_na=False, span=period_slow, adjust=adjust).mean(),
+            name="EMA_slow",
+        )
+
+        MACD = pd.Series((EMA_fast - EMA_slow), name="MACD")
+
+        STOK = pd.Series(
+            (
+                (MACD - MACD.rolling(window=k_period).min())
+                / (
+                    MACD.rolling(window=k_period).max()
+                    - MACD.rolling(window=k_period).min()
+                )
+            )
+            * 100
+        )
+
+        STOD = STOK.rolling(window=d_period).mean()
+        STOD_DoubleSmooth = STOD.rolling(window=d_period).mean()  # "double smoothed"
+        return pd.Series(STOD_DoubleSmooth, name="{0} period STC".format(k_period))
 
     @classmethod
     @inputvalidator(input_="ohlcv")
@@ -2203,19 +2220,27 @@ class TA:
         adjust: bool = True,
     ) -> Series:
         """Modification of Schaff Trend Cycle using EVWMA MACD for calculation"""
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        ema_slow = cls.EVWMA(pl_df, period_slow)
-        ema_fast = cls.EVWMA(pl_df, period_fast)
+
+        ema_slow = cls.EVWMA(ohlc, period_slow)
+        ema_fast = cls.EVWMA(ohlc, period_fast)
+
         macd = ema_fast - ema_slow
-        stok = (
-            (macd - _rolling_min(macd, k_period))
-            / (_rolling_max(macd, k_period) - _rolling_min(macd, k_period))
-        ) * 100
-        stod = _rolling_mean(stok, d_period)
-        stod_double = _rolling_mean(stod, d_period)
-        return _series_out(
-            stod_double, "{0} period EVSTC".format(k_period), index, was_pandas
+
+        STOK = pd.Series(
+            (
+                (macd - macd.rolling(window=k_period).min())
+                / (
+                    macd.rolling(window=k_period).max()
+                    - macd.rolling(window=k_period).min()
+                )
+            )
+            * 100
         )
+
+        STOD = STOK.rolling(window=d_period).mean()
+        STOD_DoubleSmooth = STOD.rolling(window=d_period).mean()
+
+        return pd.Series(STOD_DoubleSmooth, name="{0} period EVSTC".format(k_period))
 
     @classmethod
     def WILLIAMS_FRACTAL(cls, ohlc: DataFrame, period: int = 2) -> DataFrame:
@@ -2227,29 +2252,31 @@ class TA:
         :param int period: how many lower highs/higher lows the extremum value should be preceded and followed.
         :return DataFrame: fractals identified by boolean
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
+
+        def is_bullish_fractal(x):
+            if x[period] == min(x):
+                return True
+            return False
+
+        def is_bearish_fractal(x):
+            if x[period] == max(x):
+                return True
+            return False
+
         window_size = period * 2 + 1
-        high = _to_np(_col(pl_df, "high"))
-        low = _to_np(_col(pl_df, "low"))
-        n = len(high)
-        bearish = np.full(n, np.nan)
-        bullish = np.full(n, np.nan)
-        # center=True rolling: first valid at period, last at n-period-1
-        half = period
-        for i in range(n):
-            start = i - half
-            end = i + half + 1
-            if start < 0 or end > n:
-                continue
-            window_h = high[start:end]
-            window_l = low[start:end]
-            bearish[i] = 1.0 if window_h[period] == np.max(window_h) else 0.0
-            bullish[i] = 1.0 if window_l[period] == np.min(window_l) else 0.0
-        return _frame_out(
-            {"BearishFractal": bearish, "BullishFractal": bullish},
-            index,
-            was_pandas,
+        bearish_fractals = pd.Series(
+            ohlc.high.rolling(window=window_size, center=True).apply(
+                is_bearish_fractal, raw=True
+            ),
+            name="BearishFractal",
         )
+        bullish_fractals = pd.Series(
+            ohlc.low.rolling(window=window_size, center=True).apply(
+                is_bullish_fractal, raw=True
+            ),
+            name="BullishFractal",
+        )
+        return pd.concat([bearish_fractals, bullish_fractals], axis=1)
 
     @classmethod
     def VC(cls, ohlc: DataFrame, period: int = 5) -> DataFrame:
@@ -2258,24 +2285,26 @@ class TA:
 
         :period: Specifies the number of Periods used for VC calculation
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        float_axis = _rolling_mean(
-            (_col(pl_df, "high") + _col(pl_df, "low")) / 2, period
+
+        float_axis = ((ohlc.high + ohlc.low) / 2).rolling(window=period).mean()
+        vol_unit = (ohlc.high - ohlc.low).rolling(window=period).mean() * 0.2
+
+        value_chart_high = pd.Series(
+            (ohlc.high - float_axis) / vol_unit, name="Value Chart High"
         )
-        vol_unit = _rolling_mean(_col(pl_df, "high") - _col(pl_df, "low"), period) * 0.2
-        value_chart_high = (_col(pl_df, "high") - float_axis) / vol_unit
-        value_chart_low = (_col(pl_df, "low") - float_axis) / vol_unit
-        value_chart_close = (_col(pl_df, "close") - float_axis) / vol_unit
-        value_chart_open = (_col(pl_df, "open") - float_axis) / vol_unit
-        return _frame_out(
-            {
-                "Value Chart High": value_chart_high,
-                "Value Chart Low": value_chart_low,
-                "Value Chart Close": value_chart_close,
-                "Value Chart Open": value_chart_open,
-            },
-            index,
-            was_pandas,
+        value_chart_low = pd.Series(
+            (ohlc.low - float_axis) / vol_unit, name="Value Chart Low"
+        )
+        value_chart_close = pd.Series(
+            (ohlc.close - float_axis) / vol_unit, name="Value Chart Close"
+        )
+        value_chart_open = pd.Series(
+            (ohlc.open - float_axis) / vol_unit, name="Value Chart Open"
+        )
+
+        return pd.concat(
+            [value_chart_high, value_chart_low, value_chart_close, value_chart_open],
+            axis=1,
         )
 
     @classmethod
@@ -2295,9 +2324,9 @@ class TA:
         :param int lookback_period: period for oscillator lookback
         :return Series: WAVE PM
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        ma = _rolling_mean(_col(pl_df, column), period)
-        std = _rolling_std(_col(pl_df, column), period, ddof=0)
+
+        ma = ohlc[column].rolling(window=period).mean()
+        std = ohlc[column].rolling(window=period).std(ddof=0)
 
         def tanh(x):
             two = np.where(x > 0, -2, 2)
@@ -2309,19 +2338,20 @@ class TA:
             output = l / (1 + ex)
             return output
 
-        ma_a = _to_np(ma)
-        std_a = _to_np(std)
-        dev = 3.2 * std_a
-        power = np.power(dev / ma_a, 2)
-        variance = (
-            _to_np(_rolling_sum(pl.Series(power), lookback_period)) / lookback_period
-        )
-        calc_dev = np.sqrt(variance) * ma_a
-        y = dev / calc_dev
-        osc_line = tanh(y)
-        return _series_out(
-            osc_line, "{0} period WAVEPM".format(period), index, was_pandas
-        )
+        def osc(input_dev, mean, power):
+            variance = (
+                Series(power).rolling(window=lookback_period).sum() / lookback_period
+            )
+            calc_dev = np.sqrt(variance) * mean
+            y = input_dev / calc_dev
+            oscLine = tanh(y)
+            return oscLine
+
+        dev = 3.2 * std
+        power = np.power(dev / ma, 2)
+        wavepm = osc(dev, ma, power)
+
+        return pd.Series(wavepm, name="{0} period WAVEPM".format(period))
 
     @classmethod
     def ROLLING_MAX(cls, ohlc, periods=10, column="close") -> Series:
@@ -2333,11 +2363,7 @@ class TA:
         :param str column: column to look at
         :return Series: rolling max
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        if column not in pl_df.columns:
-            raise LookupError(column)
-        result = _rolling_max(_col(pl_df, column), periods)
-        return _series_out(result, None, index, was_pandas)
+        return ohlc[column].rolling(window=periods).max()
 
     @classmethod
     def ROLLING_MIN(cls, ohlc, periods=10, column="close") -> Series:
@@ -2349,11 +2375,7 @@ class TA:
         :param str column: column to look at
         :return Series: rolling min
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-        if column not in pl_df.columns:
-            raise LookupError(column)
-        result = _rolling_min(_col(pl_df, column), periods)
-        return _series_out(result, None, index, was_pandas)
+        return ohlc[column].rolling(window=periods).min()
 
     @classmethod
     def LINEAR_REGRESSION(cls, ohlc: DataFrame, period: int = 14, column: str = "close") -> Series:
@@ -2376,15 +2398,16 @@ class TA:
         Returns:
             Series: Linear regression line values
         """
-        pl_df, index, was_pandas = _to_polars(ohlc)
-
+        import numpy as np
+        
         def calculate_lr_point(values):
             if len(values) < 2:
                 return values[-1] if len(values) > 0 else np.nan
-
+                
             x = np.arange(len(values))
             y = values
-
+            
+            # Calculate slope and intercept
             n = len(x)
             x_mean = np.mean(x)
             y_mean = np.mean(y)
@@ -2393,15 +2416,10 @@ class TA:
             intercept = y_mean - slope * x_mean
             return slope * (n - 1) + intercept
 
-        result = _col(pl_df, column).rolling_map(
-            calculate_lr_point, window_size=period, min_samples=1
+        result = ohlc[column].rolling(window=period, min_periods=1).apply(
+            calculate_lr_point, raw=True
         )
-        return _series_out(
-            result,
-            "{0} period LINEAR_REGRESSION".format(period),
-            index,
-            was_pandas,
-        )
+        return pd.Series(result, name="{0} period LINEAR_REGRESSION".format(period))
 
 
 if __name__ == "__main__":
