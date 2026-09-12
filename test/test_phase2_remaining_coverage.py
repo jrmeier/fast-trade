@@ -89,7 +89,7 @@ def test_apply_charting_date_column_path():
 
 
 def test_infer_frequency_requires_datetime_index():
-    with pytest.raises(ValueError, match="date column"):
+    with pytest.raises(ValueError, match="does not have a 'date' column"):
         infer_frequency(pl.DataFrame({"close": [1, 2]}))
 
 
