@@ -4,9 +4,15 @@ Usage:
   python examples/ml_classifier_backtest.py
   python examples/ml_classifier_backtest.py --symbol BTCUSDT --exchange binanceus
   python examples/ml_classifier_backtest.py --synthetic
+  python examples/ml_classifier_backtest.py --synthetic --signal-threshold 0.55
 
 Requires archive data unless ``--synthetic`` is passed:
   ft download BTCUSDT binanceus --start 2024-01-01 --end 2025-01-01
+
+Notes:
+  - Features use the bar close; entries are assumed at that same close.
+  - Training uses a purge gap of ``horizon`` bars so holdout labels stay OOS.
+  - Strategy freq is taken from the loaded frame (override with --freq).
 """
 
 from __future__ import annotations
@@ -71,6 +77,12 @@ def main(argv: list[str] | None = None) -> int:
         default="test",
         help="Backtest holdout only (default) or full usable history",
     )
+    parser.add_argument(
+        "--signal-threshold",
+        type=float,
+        default=0.5,
+        help="P(class=1) cutoff for ml_signal=1 (default 0.5)",
+    )
     args = parser.parse_args(argv)
 
     if args.synthetic:
@@ -89,6 +101,7 @@ def main(argv: list[str] | None = None) -> int:
         threshold=args.threshold,
         train_frac=args.train_frac,
         backtest_on=args.backtest_on,
+        signal_threshold=args.signal_threshold,
         strategy_overrides={
             "symbol": args.symbol,
             "exchange": args.exchange,
@@ -101,6 +114,9 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  features:        {fit.feature_columns}")
     print(f"  label:           forward {fit.label_horizon} bars > {fit.label_threshold:.2%}")
     print(f"  train / test:    {fit.train_rows} / {fit.test_rows}")
+    print(f"  purged train:    {fit.purged_train_rows}")
+    print(f"  signal thresh:   {fit.signal_threshold:.2f}")
+    print(f"  freq:            {result.extras.get('freq')}")
     print(f"  train accuracy:  {fit.train_accuracy:.3f}")
     print(f"  test accuracy:   {fit.test_accuracy:.3f}")
     if fit.test_roc_auc is not None:

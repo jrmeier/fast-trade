@@ -6,6 +6,7 @@ import pytest
 
 from fast_trade.build_data_frame import apply_transformers_to_dataframe
 from fast_trade.ml.classifier import (
+    _time_split_index,
     attach_ml_signal,
     build_classifier_features,
     default_classifier_strategy,
@@ -13,6 +14,7 @@ from fast_trade.ml.classifier import (
     label_forward_return,
     ml_signal_datapoint,
     predict_ml_signal,
+    resolve_backtest_freq,
     run_classifier_backtest,
 )
 from fast_trade.validate_backtest import validate_backtest
@@ -70,7 +72,7 @@ def test_column_transformer_missing_raises():
 
 
 def test_default_strategy_validates():
-    strategy = default_classifier_strategy()
+    strategy = default_classifier_strategy(freq="1h")
     errors = validate_backtest(strategy)
     assert errors.get("has_error") is False
 
@@ -80,13 +82,59 @@ def test_fit_and_predict_signal_shapes():
     fit, features, labels = fit_return_classifier(
         df, horizon=5, threshold=0.0, train_frac=0.7, random_state=0
     )
-    assert fit.train_rows + fit.test_rows == len(features)
+    assert fit.train_rows + fit.test_rows + fit.purged_train_rows == len(features)
+    assert fit.purged_train_rows == 5
     assert 0.0 <= fit.train_accuracy <= 1.0
     assert 0.0 <= fit.test_accuracy <= 1.0
+    assert fit.signal_threshold == 0.5
     signal = predict_ml_signal(fit.model, features, fit.feature_columns)
     assert signal.index.equals(features.index)
     assert set(signal.unique()).issubset({0, 1})
     assert labels.index.equals(features.index)
+
+
+def test_purge_gap_keeps_train_labels_out_of_sample():
+    df = _synthetic_ohlcv(rows=300)
+    horizon = 5
+    features = build_classifier_features(df)
+    labels = label_forward_return(df["close"], horizon=horizon, threshold=0.0)
+    usable = features.assign(y=labels).dropna()
+    train_idx, test_idx, purged = _time_split_index(
+        usable.index, 0.7, purge_bars=horizon
+    )
+    assert purged == horizon
+    train_positions = usable.index.get_indexer(train_idx)
+    test_start_pos = usable.index.get_loc(test_idx[0])
+    assert (train_positions + horizon).max() < test_start_pos
+
+
+def test_predict_ml_signal_respects_threshold():
+    df = _synthetic_ohlcv()
+    fit, features, _labels = fit_return_classifier(
+        df, horizon=5, threshold=0.0, train_frac=0.7, random_state=0
+    )
+    loose = predict_ml_signal(
+        fit.model, features, fit.feature_columns, threshold=0.1
+    )
+    tight = predict_ml_signal(
+        fit.model, features, fit.feature_columns, threshold=0.9
+    )
+    assert int(loose.sum()) >= int(tight.sum())
+    with pytest.raises(ValueError, match="threshold"):
+        predict_ml_signal(fit.model, features, fit.feature_columns, threshold=1.5)
+
+
+def test_resolve_backtest_freq_infers_and_guards():
+    df = _synthetic_ohlcv(rows=80, freq="1h")
+    inferred = resolve_backtest_freq(df, {})
+    assert inferred[0].isdigit()
+    assert pd.Timedelta(inferred) == pd.Timedelta("1h")
+    # Alias forms of the same bar size are accepted.
+    resolve_backtest_freq(df, {"freq": "1h"})
+    resolve_backtest_freq(df, {"freq": "1H"})
+    with pytest.raises(ValueError, match="does not match"):
+        resolve_backtest_freq(df, {"freq": "1D"})
+    assert resolve_backtest_freq(df, {"freq": "1D"}, allow_resample=True) == "1D"
 
 
 def test_run_classifier_backtest_on_synthetic():
@@ -101,11 +149,36 @@ def test_run_classifier_backtest_on_synthetic():
         random_state=1,
     )
     assert result.fit.test_rows > 0
+    assert result.fit.purged_train_rows == 5
     assert "ml_signal" in result.df.columns
     assert "return_perc" in result.summary
     assert result.extras["backtest_on"] == "test"
-    # Holdout backtest frame should be shorter than full usable history.
+    assert result.extras["purged_train_rows"] == 5
     assert len(result.df) <= result.fit.test_rows + 5
+
+
+def test_run_classifier_backtest_infers_freq_when_omitted():
+    df = _synthetic_ohlcv(rows=500)
+    result = run_classifier_backtest(
+        df,
+        horizon=5,
+        threshold=0.0,
+        strategy_overrides={"comission": 0.0},
+        random_state=1,
+    )
+    assert pd.Timedelta(result.extras["freq"]) == pd.Timedelta("1h")
+
+
+def test_run_classifier_backtest_rejects_freq_mismatch():
+    df = _synthetic_ohlcv(rows=500, freq="1h")
+    with pytest.raises(ValueError, match="does not match"):
+        run_classifier_backtest(
+            df,
+            horizon=5,
+            threshold=0.0,
+            strategy_overrides={"freq": "1D"},
+            random_state=1,
+        )
 
 
 def test_attach_ml_signal_fills_missing():
@@ -128,6 +201,8 @@ def test_feature_and_label_validation_errors():
         fit_return_classifier(_synthetic_ohlcv(rows=30), threshold=0.0)
     with pytest.raises(ValueError, match="Unknown feature"):
         fit_return_classifier(df, feature_columns=["not_a_feature"], threshold=0.0)
+    with pytest.raises(ValueError, match="signal_threshold"):
+        fit_return_classifier(df, threshold=0.0, signal_threshold=0.0)
 
 
 def test_fit_rejects_empty_usable_and_single_class(monkeypatch):
@@ -144,7 +219,6 @@ def test_fit_rejects_empty_usable_and_single_class(monkeypatch):
         fit_return_classifier(df, threshold=0.0)
 
     monkeypatch.undo()
-    # Huge threshold → all zeros in training labels on this synthetic path.
     with pytest.raises(ValueError, match="both classes"):
         fit_return_classifier(df, horizon=5, threshold=10.0, train_frac=0.7)
 
@@ -160,10 +234,12 @@ def test_run_classifier_backtest_all_and_strategy_override():
         threshold=0.0,
         train_frac=0.7,
         backtest_on="all",
+        signal_threshold=0.45,
         strategy={"name": "custom_ml", "comission": 0.0},
         strategy_overrides={"freq": "1h"},
         random_state=2,
     )
     assert result.extras["backtest_on"] == "all"
+    assert result.extras["signal_threshold"] == 0.45
     assert result.strategy["name"] == "custom_ml"
     assert len(result.df) >= result.fit.test_rows

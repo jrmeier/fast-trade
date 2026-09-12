@@ -3,18 +3,25 @@
 Pattern:
   OHLCV → features → forward-return labels → sklearn classifier → ``ml_signal``
   → existing enter/exit engine via the ``column`` datapoint transformer.
+
+Execution assumption
+--------------------
+Features use the bar's close (and other OHLCV fields). Enter/exit logic is
+evaluated on that same bar, so fills are assumed at the close *after* the
+close is known. Shift the signal forward one bar if you need next-open fills.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.metrics import accuracy_score, roc_auc_score
 
+from fast_trade.build_data_frame import infer_frequency
 from fast_trade.run_backtest import run_backtest
 
 
@@ -28,6 +35,9 @@ DEFAULT_FEATURE_COLUMNS = (
     "volume_z",
 )
 
+# Sentinel: strategy dict omitted freq → infer from the dataframe.
+_FREQ_UNSET = object()
+
 
 @dataclass
 class ClassifierFitResult:
@@ -40,6 +50,8 @@ class ClassifierFitResult:
     test_roc_auc: Optional[float]
     label_horizon: int
     label_threshold: float
+    purged_train_rows: int = 0
+    signal_threshold: float = 0.5
 
 
 @dataclass
@@ -92,14 +104,103 @@ def label_forward_return(
     return labels
 
 
-def _time_split_index(index: pd.Index, train_frac: float) -> Tuple[pd.Index, pd.Index]:
+def _time_split_index(
+    index: pd.Index,
+    train_frac: float,
+    *,
+    purge_bars: int = 0,
+) -> Tuple[pd.Index, pd.Index, int]:
+    """Chronological train/test split with an optional purge gap.
+
+    Forward-return labels at time ``t`` depend on prices through ``t + horizon``.
+    Without a purge, the last ``horizon`` training labels leak into the holdout
+    window. When ``purge_bars > 0``, those boundary rows are dropped from train
+    (test is unchanged).
+    """
     if not 0.0 < train_frac < 1.0:
         raise ValueError("train_frac must be between 0 and 1")
+    if purge_bars < 0:
+        raise ValueError("purge_bars must be >= 0")
     if len(index) < 40:
         raise ValueError("Need at least 40 rows with valid features/labels")
     cut = int(len(index) * train_frac)
     cut = max(20, min(cut, len(index) - 10))
-    return index[:cut], index[cut:]
+    train_idx = index[:cut]
+    test_idx = index[cut:]
+    purged = 0
+    if purge_bars > 0:
+        if len(train_idx) <= purge_bars + 10:
+            raise ValueError(
+                "Not enough training rows after purge; "
+                "lower horizon/train_frac or use more data"
+            )
+        purged = purge_bars
+        train_idx = train_idx[:-purge_bars]
+    return train_idx, test_idx, purged
+
+
+def _canonical_freq_str(freq: Any) -> str:
+    """Normalize freq to a validate_backtest-friendly string (e.g. ``h`` → ``1h``)."""
+    if freq is not None and not isinstance(freq, str):
+        freq = getattr(freq, "freqstr", None) or str(freq)
+    s = str(freq).strip()
+    if s and not s[0].isdigit():
+        s = f"1{s}"
+    return s
+
+
+def _freqs_compatible(a: Any, b: Any) -> bool:
+    """True when two pandas freq-like values represent the same offset.
+
+    Handles aliases such as ``1h`` vs ``h`` / ``1H``.
+    """
+    try:
+        from pandas.tseries.frequencies import to_offset
+
+        return to_offset(a) == to_offset(b)
+    except (ValueError, TypeError):
+        return _canonical_freq_str(a).lower() == _canonical_freq_str(b).lower()
+
+
+def resolve_backtest_freq(
+    df: pd.DataFrame,
+    strategy: Mapping[str, Any],
+    *,
+    allow_resample: bool = False,
+) -> str:
+    """Pick strategy freq from the frame when unset; guard silent resamples.
+
+    Parameters
+    ----------
+    allow_resample:
+        When False (default), raise if the strategy freq differs from the
+        dataframe's native spacing. ``prepare_df`` resamples with ``.first()``,
+        which silently regrids a precomputed ``ml_signal``.
+    """
+    inferred = infer_frequency(df)
+    if inferred is not None:
+        inferred = _canonical_freq_str(inferred)
+
+    requested = strategy.get("freq", None)
+    if requested is None or requested is _FREQ_UNSET:
+        if not inferred:
+            raise ValueError(
+                "Could not infer dataframe frequency; pass strategy freq explicitly"
+            )
+        return inferred
+
+    requested_str = _canonical_freq_str(requested)
+    if (
+        not allow_resample
+        and inferred
+        and not _freqs_compatible(requested_str, inferred)
+    ):
+        raise ValueError(
+            f"Strategy freq {requested!r} does not match dataframe freq "
+            f"{inferred!r}. Pass matching freq, or allow_resample=True if you "
+            "intentionally want prepare_df to resample (ml_signal uses .first())."
+        )
+    return requested_str
 
 
 def fit_return_classifier(
@@ -110,12 +211,19 @@ def fit_return_classifier(
     train_frac: float = 0.7,
     feature_columns: Optional[Sequence[str]] = None,
     random_state: int = 42,
+    signal_threshold: float = 0.5,
 ) -> Tuple[ClassifierFitResult, pd.DataFrame, pd.Series]:
     """Fit a classifier on time-ordered features/labels.
 
     Returns the fit result plus aligned feature matrix and labels for the full
     usable index (train + test rows with no NaNs).
+
+    Training rows whose forward-return label window overlaps the holdout are
+    purged (embargo of ``horizon`` bars) so holdout metrics stay out-of-sample.
     """
+    if not 0.0 < signal_threshold < 1.0:
+        raise ValueError("signal_threshold must be between 0 and 1")
+
     features = build_classifier_features(df)
     labels = label_forward_return(df["close"], horizon=horizon, threshold=threshold)
     cols = list(feature_columns or DEFAULT_FEATURE_COLUMNS)
@@ -129,7 +237,9 @@ def fit_return_classifier(
     if usable.empty:
         raise ValueError("No usable rows after dropping NaN features/labels")
 
-    train_idx, test_idx = _time_split_index(usable.index, train_frac)
+    train_idx, test_idx, purged = _time_split_index(
+        usable.index, train_frac, purge_bars=horizon
+    )
     x_train = usable.loc[train_idx, cols]
     y_train = usable.loc[train_idx, "y"].astype(int)
     x_test = usable.loc[test_idx, cols]
@@ -141,9 +251,8 @@ def fit_return_classifier(
     model = HistGradientBoostingClassifier(random_state=random_state)
     model.fit(x_train, y_train)
 
-    train_pred = model.predict(x_train)
-    test_pred = model.predict(x_test)
-    test_proba = None
+    train_pred = _predict_with_threshold(model, x_train, signal_threshold)
+    test_pred = _predict_with_threshold(model, x_test, signal_threshold)
     test_auc: Optional[float] = None
     if hasattr(model, "predict_proba") and y_test.nunique() > 1:
         test_proba = model.predict_proba(x_test)[:, 1]
@@ -159,19 +268,40 @@ def fit_return_classifier(
         test_roc_auc=test_auc,
         label_horizon=horizon,
         label_threshold=threshold,
+        purged_train_rows=purged,
+        signal_threshold=signal_threshold,
     )
     return fit, usable[cols], usable["y"].astype(int)
+
+
+def _predict_with_threshold(
+    model: Any,
+    x: pd.DataFrame,
+    threshold: float,
+) -> np.ndarray:
+    if hasattr(model, "predict_proba"):
+        proba = model.predict_proba(x)[:, 1]
+        return (proba >= threshold).astype(int)
+    return np.asarray(model.predict(x)).astype(int)
 
 
 def predict_ml_signal(
     model: Any,
     features: pd.DataFrame,
     feature_columns: Sequence[str],
+    *,
+    threshold: float = 0.5,
 ) -> pd.Series:
-    """Return a 0/1 signal series aligned to ``features`` index."""
+    """Return a 0/1 signal series aligned to ``features`` index.
+
+    Uses ``predict_proba`` when available and marks 1 when P(class=1) >=
+    ``threshold`` (default 0.5). Falls back to ``predict`` otherwise.
+    """
+    if not 0.0 < threshold < 1.0:
+        raise ValueError("threshold must be between 0 and 1")
     cols = list(feature_columns)
     x = features[cols]
-    pred = model.predict(x)
+    pred = _predict_with_threshold(model, x, threshold)
     return pd.Series(pred.astype(int), index=features.index, name="ml_signal")
 
 
@@ -184,17 +314,20 @@ def default_classifier_strategy(
     *,
     symbol: str = "BTCUSDT",
     exchange: str = "binanceus",
-    freq: str = "1H",
+    freq: Union[str, None] = None,
     signal_column: str = "ml_signal",
     comission: float = 0.01,
     **overrides: Any,
 ) -> Dict[str, Any]:
-    """YAML-shaped strategy that enters when the classifier predicts 1."""
+    """YAML-shaped strategy that enters when the classifier predicts 1.
+
+    ``freq`` defaults to ``None`` so ``run_classifier_backtest`` can infer it
+    from the dataframe and avoid a silent resample mismatch.
+    """
     strategy: Dict[str, Any] = {
         "name": "ml_classifier_example",
         "symbol": symbol,
         "exchange": exchange,
-        "freq": freq,
         "comission": comission,
         "any_enter": [],
         "any_exit": [],
@@ -208,6 +341,8 @@ def default_classifier_strategy(
         "start": None,
         "stop": None,
     }
+    if freq is not None:
+        strategy["freq"] = freq
     strategy.update(overrides)
     return strategy
 
@@ -233,9 +368,11 @@ def run_classifier_backtest(
     train_frac: float = 0.7,
     feature_columns: Optional[Sequence[str]] = None,
     random_state: int = 42,
+    signal_threshold: float = 0.5,
     backtest_on: str = "test",
     strategy: Optional[Mapping[str, Any]] = None,
     strategy_overrides: Optional[Mapping[str, Any]] = None,
+    allow_resample: bool = False,
 ) -> ClassifierBacktestResult:
     """Fit a classifier, attach ``ml_signal``, and run ``run_backtest``.
 
@@ -244,6 +381,13 @@ def run_classifier_backtest(
     backtest_on:
         ``test`` (default) backtests only the holdout window;
         ``all`` scores the whole usable history (leaky; for demos only).
+    signal_threshold:
+        Probability cutoff for class-1 when the model exposes
+        ``predict_proba`` (default 0.5).
+    allow_resample:
+        Permit strategy ``freq`` to differ from the dataframe's native bar
+        size. Default False — mismatched freq would silently regrid
+        ``ml_signal`` via ``resample(...).first()``.
     """
     if backtest_on not in {"test", "all"}:
         raise ValueError("backtest_on must be 'test' or 'all'")
@@ -255,11 +399,19 @@ def run_classifier_backtest(
         train_frac=train_frac,
         feature_columns=feature_columns,
         random_state=random_state,
+        signal_threshold=signal_threshold,
     )
-    signal = predict_ml_signal(fit.model, features, fit.feature_columns)
+    signal = predict_ml_signal(
+        fit.model,
+        features,
+        fit.feature_columns,
+        threshold=signal_threshold,
+    )
     signaled = attach_ml_signal(df.reindex(features.index), signal)
 
-    train_idx, test_idx = _time_split_index(features.index, train_frac)
+    train_idx, test_idx, _purged = _time_split_index(
+        features.index, train_frac, purge_bars=horizon
+    )
     if backtest_on == "test":
         backtest_df = signaled.loc[test_idx]
     else:
@@ -270,6 +422,10 @@ def run_classifier_backtest(
         strat.update(dict(strategy))
     if strategy_overrides:
         strat.update(dict(strategy_overrides))
+
+    strat["freq"] = resolve_backtest_freq(
+        backtest_df, strat, allow_resample=allow_resample
+    )
 
     # Avoid re-slicing away the already-chosen window inside prepare_df.
     # ``start`` must still be present for validate_backtest.
@@ -287,6 +443,9 @@ def run_classifier_backtest(
         strategy=result["backtest"],
         extras={
             "backtest_on": backtest_on,
+            "signal_threshold": signal_threshold,
+            "freq": strat["freq"],
+            "purged_train_rows": fit.purged_train_rows,
             "train_start": str(train_idx[0]),
             "train_end": str(train_idx[-1]),
             "test_start": str(test_idx[0]),

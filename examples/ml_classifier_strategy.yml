@@ -3,7 +3,13 @@
 # (see examples/ml_classifier_backtest.py / fast_trade.ml.classifier).
 #
 # This file is documentation for the enter/exit pattern; the Python helper
-# builds an equivalent strategy dict at runtime.
+# builds an equivalent strategy dict at runtime. Do not run
+# `ft backtest examples/ml_classifier_strategy.yml` alone — without a
+# pre-attached ``ml_signal`` column the ``column`` transformer will fail.
+#
+# Keep ``freq`` equal to the OHLCV bar size. ``prepare_df`` resamples with
+# ``.first()`` before transformers, so a mismatched freq silently regrids
+# ``ml_signal``.
 
 any_enter: []
 any_exit: []

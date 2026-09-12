@@ -13,6 +13,10 @@ def COLUMN(df: pd.DataFrame, column: str) -> pd.Series:
 
     Useful for ML signals (or any external series) that are attached before
     ``run_backtest`` / ``prepare_df``.
+
+    Note: ``prepare_df`` resamples with ``.first()`` *before* transformers run.
+    Keep strategy ``freq`` equal to the dataframe's native bar size, or the
+    precomputed column is silently taken as the first value in each bucket.
     """
     if column not in df.columns:
         raise ValueError(

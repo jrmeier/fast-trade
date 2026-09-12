@@ -207,9 +207,10 @@ Train a simple sklearn classifier on forward returns, attach an `ml_signal` colu
 ```bash
 python examples/ml_classifier_backtest.py --synthetic
 python examples/ml_classifier_backtest.py --symbol BTCUSDT --exchange binanceus
+python examples/ml_classifier_backtest.py --synthetic --signal-threshold 0.55
 ```
 
-Helpers live in `fast_trade/ml/classifier.py`. The strategy shape is documented in `examples/ml_classifier_strategy.yml` (uses the `column` datapoint transformer for precomputed signals).
+Helpers live in `fast_trade/ml/classifier.py`. The strategy shape is documented in `examples/ml_classifier_strategy.yml` (uses the `column` datapoint transformer for precomputed signals). Training applies a purge gap of `horizon` bars so holdout metrics stay out-of-sample; strategy `freq` must match the dataframe bar size unless you opt into resampling.
 
 ## Important Files
 
