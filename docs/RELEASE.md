@@ -10,6 +10,7 @@ This project is prepared for the `3.0.0` release.
 - Removal of the pandas dependency
 - Explicit `date` column instead of a DatetimeIndex
 - Multiprocessing spawn pools for parallel/chunked backtests
+- Headline speed: ~0.58s for a 1-year BTCUSDT 1m strategy backtest; FinTA suite ~1.9× vs pandas (see `docs/PERFORMANCE.md`)
 - Prior `2.1.0` work (FXMacroData, HMM screener, MCP coverage, terminal UI removal) remains in tree
 
 ## Pre-Release Checklist
