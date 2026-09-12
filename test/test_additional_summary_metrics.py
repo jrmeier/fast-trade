@@ -1,5 +1,7 @@
 import math
-import pandas as pd
+import datetime
+
+import polars as pl
 
 from fast_trade.build_summary import (
     calculate_market_adjusted_returns,
@@ -13,10 +15,8 @@ from fast_trade.build_summary import (
 
 
 def _indexed(times):
-    idx = pd.to_datetime(times)
-    df = pd.DataFrame(index=idx)
-    df.index.name = "date"
-    return df
+    dates = [datetime.datetime.fromisoformat(value.replace("Z", "+00:00")) for value in times]
+    return pl.DataFrame({"date": dates})
 
 
 def test_calculate_market_adjusted_returns_simple():
@@ -33,10 +33,12 @@ def test_calculate_position_metrics_core_fields():
             "2025-01-01T00:04:00Z",
         ]
     )
-    df["in_trade"] = [False, True, True, False, True]
-    df["aux"] = [0.0, 0.01, 0.02, 0.0, 0.03]
-    df["fee"] = [0.0, 0.1, 0.1, 0.0, 0.2]
-    df["adj_account_value"] = [100, 101, 102, 103, 104]
+    df = df.with_columns(
+        pl.Series("in_trade", [False, True, True, False, True]),
+        pl.Series("aux", [0.0, 0.01, 0.02, 0.0, 0.03]),
+        pl.Series("fee", [0.0, 0.1, 0.1, 0.0, 0.2]),
+        pl.Series("adj_account_value", [100, 101, 102, 103, 104]),
+    )
 
     res = calculate_position_metrics(df)
 
@@ -56,7 +58,7 @@ def test_calculate_market_exposure_time_and_duration():
             "2025-01-01T00:04:00Z",
         ]
     )
-    df["in_trade"] = [False, True, True, False, True]
+    df = df.with_columns(pl.Series("in_trade", [False, True, True, False, True]))
 
     res = calculate_market_exposure(df)
     assert res["time_in_market_pct"] == 60.0
@@ -73,7 +75,7 @@ def test_calculate_drawdown_metrics_core_values():
             "2025-01-01T00:04:00Z",
         ]
     )
-    df["adj_account_value"] = [100, 110, 105, 90, 95]
+    df = df.with_columns(pl.Series("adj_account_value", [100, 110, 105, 90, 95]))
 
     res = calculate_drawdown_metrics(df)
     assert round(res["max_drawdown_pct"], 3) == -18.182
@@ -91,45 +93,35 @@ def test_calculate_risk_metrics_values():
             "2025-01-01T00:03:00Z",
         ]
     )
-    df["adj_account_value_change_perc"] = [0.0, 0.01, -0.02, 0.01]
+    df = df.with_columns(pl.Series("adj_account_value_change_perc", [0.0, 0.01, -0.02, 0.01]))
     # Provide an equity curve for calmar computation
-    equity = (1 + df["adj_account_value_change_perc"]).cumprod() * 100
-    df["adj_account_value"] = equity.values
+    df = df.with_columns(
+        ((1 + pl.col("adj_account_value_change_perc")).cum_prod() * 100).alias("adj_account_value")
+    )
 
     res = calculate_risk_metrics(df)
 
     # Compute expected values mirroring implementation
     returns = df["adj_account_value_change_perc"]
-    negative_returns = returns[returns < 0]
-    downside_std = negative_returns.std() if not negative_returns.empty else 0.0
+    negative_returns = returns.filter(returns < 0)
+    downside_std = negative_returns.std() if not negative_returns.is_empty() else 0.0
     avg_return = returns.mean()
-    import pandas as _pd  # alias to avoid shadowing
-    sortino = 0.0 if (_pd.isna(downside_std) or downside_std == 0) else avg_return / downside_std
-    # drawdown for calmar
-    # fabricate an adj_account_value series consistent with returns is non-trivial,
-    # but calmar uses avg_return / |max_drawdown| of equity; we can approximate by
-    # creating a synthetic equity curve from returns for expectation here.
-    # Instead, derive calmar using the implementation route for safety:
-    # Build equity curve with cumulative product of (1+return)
-    equity = (1 + returns).cumprod()
-    rolling_max = equity.expanding().max()
-    dd = equity / rolling_max - 1.0
+    sortino = 0.0 if downside_std is None or not math.isfinite(downside_std) or downside_std == 0 else avg_return / downside_std
+    equity = (1 + returns).cum_prod()
+    dd = equity / equity.cum_max() - 1.0
     max_dd = abs(dd.min())
     calmar = 0.0 if max_dd == 0 else avg_return / max_dd
 
     assert round(res["sortino_ratio"], 3) == round(sortino, 3)
     assert round(res["calmar_ratio"], 3) == round(calmar, 3)
-    assert round(res["value_at_risk_95"], 3) == round(returns.quantile(0.05), 3)
+    assert round(res["value_at_risk_95"], 3) == round(returns.quantile(0.05, interpolation="linear"), 3)
     assert round(res["annualized_volatility"], 3) == round(returns.std() * (252 ** 0.5), 3)
-    if _pd.isna(downside_std):
-        assert _pd.isna(res["downside_deviation"])  # single negative return -> NaN std
-    else:
-        assert round(res["downside_deviation"], 3) == round(downside_std, 3)
+    assert res["downside_deviation"] == 0.0
 
 
 def test_calculate_trade_streaks_current_streak_is_contiguous():
     # Sequence: win, win, loss, loss, win, win -> last streak length should be 2
-    idx = pd.to_datetime(
+    trade_log_df = _indexed(
         [
             "2025-01-01T00:00:00Z",
             "2025-01-01T00:01:00Z",
@@ -138,10 +130,8 @@ def test_calculate_trade_streaks_current_streak_is_contiguous():
             "2025-01-01T00:04:00Z",
             "2025-01-01T00:05:00Z",
         ]
-    )
-    trade_log_df = pd.DataFrame(
-        {"adj_account_value_change_perc": [0.1, 0.2, -0.1, -0.2, 0.05, 0.01]},
-        index=idx,
+    ).with_columns(
+        pl.Series("adj_account_value_change_perc", [0.1, 0.2, -0.1, -0.2, 0.05, 0.01])
     )
     res = calculate_trade_streaks(trade_log_df)
     assert res["current_streak"] == 2
@@ -156,9 +146,9 @@ def test_calculate_time_analysis_daily_monthly():
         "2025-02-01",
         "2025-02-02",
     ])
-    df["adj_account_value"] = [100, 110, 121, 121]
+    df = df.with_columns(pl.Series("adj_account_value", [100, 110, 121, 121]))
 
-    res = calculate_time_analysis(df.copy())
+    res = calculate_time_analysis(df.clone())
 
     # Daily last values: [100,110,121,121] -> daily returns: [nan, 0.1, 0.1, 0.0]
     # Metrics in percent

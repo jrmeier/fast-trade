@@ -1,5 +1,7 @@
+import datetime
+
 import numpy as np
-import pandas as pd
+import polars as pl
 
 from fast_trade.ml.markov import (
     calculate_transition_matrix,
@@ -10,19 +12,23 @@ from fast_trade.ml.markov import (
 )
 
 
-def _kline(rows: int = 200, seed: int = 3) -> pd.DataFrame:
+def _kline(rows: int = 200, seed: int = 3) -> pl.DataFrame:
     rng = np.random.default_rng(seed)
-    idx = pd.date_range("2024-01-01", periods=rows, freq="D")
     close = 100 * np.cumprod(1.0 + rng.normal(0.001, 0.02, size=rows))
-    return pd.DataFrame(
+    return pl.DataFrame(
         {
+            "date": pl.datetime_range(
+                start=datetime.datetime(2024, 1, 1),
+                end=datetime.datetime(2024, 1, 1) + datetime.timedelta(days=rows - 1),
+                interval="1d",
+                eager=True,
+            ),
             "open": close,
             "high": close * 1.01,
             "low": close * 0.99,
             "close": close,
             "volume": rng.uniform(100, 1000, size=rows),
-        },
-        index=idx,
+        }
     )
 
 
@@ -45,16 +51,18 @@ def test_create_hmm_adds_future_predictions(monkeypatch):
     assert "hidden_state" in df.columns
     assert "future_state" in df.columns
     assert "predicted_price" in df.columns
-    assert df["predicted_price"].notna().any()
+    assert df["predicted_price"].is_not_null().any()
 
 
 def test_define_granular_states_labels():
     df = _kline()
-    df.loc[df.index[10], "close"] = df["close"].iloc[9] * 1.03
-    df.loc[df.index[11], "close"] = df["close"].iloc[10] * 0.97
+    close = df["close"].to_list()
+    close[10] = close[9] * 1.03
+    close[11] = close[10] * 0.97
+    df = df.with_columns(pl.Series("close", close))
     labeled = define_granular_states(df)
     assert "state" in labeled.columns
-    assert labeled["state"].isin(
+    assert labeled["state"].is_in(
         [
             "Strong Increase",
             "Moderate Increase",
@@ -71,7 +79,7 @@ def test_calculate_transition_matrix_and_simulation():
     df = define_granular_states(_kline())
     matrix = calculate_transition_matrix(df)
     assert matrix.shape == (7, 7)
-    assert (matrix.sum(axis=1).round(6) == 1.0).all()
+    assert np.allclose(matrix.to_numpy().sum(axis=1), 1.0)
 
     np.random.seed(0)
     chain = simulate_markov_chain(matrix, "Stable", num_steps=5)
@@ -80,7 +88,7 @@ def test_calculate_transition_matrix_and_simulation():
 
 
 def test_markov_main_guard(monkeypatch):
-    monkeypatch.setattr("fast_trade.archive.db_helpers.get_kline", lambda **k: pd.DataFrame())
+    monkeypatch.setattr("fast_trade.archive.db_helpers.get_kline", lambda **k: pl.DataFrame())
     monkeypatch.setattr("fast_trade.prepare_df", lambda df, backtest: df)
     import runpy
 

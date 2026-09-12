@@ -1,34 +1,41 @@
-import pandas as pd
 import datetime as dt
+
+import polars as pl
 
 from fast_trade.build_summary import calculate_effective_trades
 
 
 def _make_df_with_trades():
     # Create a simple dataframe with two exit events aligned to indices t2 and t4
-    idx = pd.to_datetime(
-        [
+    dates = [
+        dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+        for value in [
             "2025-01-01T00:00:00Z",
             "2025-01-01T00:01:00Z",
             "2025-01-01T00:02:00Z",  # exit 1 (profit 2.0, fee 0.5)
             "2025-01-01T00:03:00Z",
             "2025-01-01T00:04:00Z",  # exit 2 (loss -1.0, fee 0.5)
         ]
+    ]
+
+    df = pl.DataFrame(
+        {
+            "date": dates,
+            "adj_account_value": [100, 102, 104, 103, 102],
+            "fee": [0.0, 0.0, 0.5, 0.0, 0.5],
+        }
+    ).with_columns(
+        pl.col("adj_account_value").diff().fill_null(0).alias("adj_account_value_change"),
+        pl.col("adj_account_value").pct_change().fill_null(0).alias("adj_account_value_change_perc"),
     )
 
-    df = pd.DataFrame(index=idx)
-    df.index.name = "date"
-    df["adj_account_value"] = [100, 102, 104, 103, 102]
-    df["adj_account_value_change"] = df["adj_account_value"].diff().fillna(0)
-    df["adj_account_value_change_perc"] = df["adj_account_value"].pct_change().fillna(0)
-    df["fee"] = [0.0, 0.0, 0.5, 0.0, 0.5]
-
     # Trade log with the two exit events only (indices 2 and 4)
-    trade_log_df = df.loc[[idx[2], idx[4]], [
+    trade_log_df = df[[2, 4]].select(
+        "date",
         "adj_account_value",
         "adj_account_value_change",
         "adj_account_value_change_perc",
-    ]]
+    )
 
     return df, trade_log_df
 

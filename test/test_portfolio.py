@@ -1,6 +1,6 @@
 import json
 
-import pandas as pd
+import polars as pl
 
 from fast_trade.portfolio import (
     append_trades,
@@ -43,13 +43,13 @@ def test_append_trades_creates_and_appends(tmp_path):
     rows2 = [{"ts": "t2", "side": "SELL", "price": 11.0, "qty": 1.0}]
 
     append_trades(str(trades_path), rows1)
-    df1 = pd.read_parquet(trades_path)
+    df1 = pl.read_parquet(trades_path)
     assert len(df1) == 1
 
     append_trades(str(trades_path), rows2)
-    df2 = pd.read_parquet(trades_path)
+    df2 = pl.read_parquet(trades_path)
     assert len(df2) == 2
-    assert list(df2["side"]) == ["BUY", "SELL"]
+    assert df2["side"].to_list() == ["BUY", "SELL"]
 
 
 def test_append_trades_no_rows_no_file(tmp_path):

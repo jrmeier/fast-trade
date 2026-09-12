@@ -1,8 +1,10 @@
 import pickle
+import re
 from dataclasses import dataclass
+from typing import Mapping
 
 import numpy as np
-import pandas as pd
+import polars as pl
 
 try:
     from hmmlearn.hmm import GaussianHMM
@@ -13,46 +15,81 @@ except Exception:  # pragma: no cover
 @dataclass
 class RegimeModel:
     model: object
-    state_stats: pd.DataFrame
+    state_stats: pl.DataFrame
     config: dict
 
 
-def _ensure_freq(df: pd.DataFrame, freq: str) -> pd.DataFrame:
+def _polars_duration(freq: str) -> str:
+    value = str(freq).strip()
+    match = re.fullmatch(r"(\d+)\s*([A-Za-z]+)", value)
+    if not match:
+        return value.lower()
+    amount, unit = match.groups()
+    units = {
+        "s": "s",
+        "sec": "s",
+        "min": "m",
+        "t": "m",
+        "m": "m",
+        "h": "h",
+        "hour": "h",
+        "d": "d",
+        "day": "d",
+        "w": "w",
+        "week": "w",
+        "mo": "mo",
+        "month": "mo",
+    }
+    return f"{amount}{units.get(unit.lower(), unit.lower())}"
+
+
+def _ensure_freq(df: pl.DataFrame, freq: str) -> pl.DataFrame:
+    if "date" not in df.columns:
+        raise ValueError("Regime data requires an explicit date column")
+    df = df.sort("date")
     if freq:
-        df = df.resample(freq).agg(
-            {
-                "open": "first",
-                "high": "max",
-                "low": "min",
-                "close": "last",
-                "volume": "sum",
-            }
+        df = df.group_by_dynamic("date", every=_polars_duration(freq)).agg(
+            pl.col("open").first(),
+            pl.col("high").max(),
+            pl.col("low").min(),
+            pl.col("close").last(),
+            pl.col("volume").sum(),
         )
-        df = df.dropna()
+        df = df.drop_nulls(["open", "high", "low", "close", "volume"])
     return df
 
 
-def _compute_features(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
+def _finite(expr: pl.Expr) -> pl.Expr:
+    return pl.when(expr.is_finite()).then(expr).otherwise(0.0).fill_null(0.0)
+
+
+def _compute_features(df: pl.DataFrame, cfg: dict) -> pl.DataFrame:
     window = int(cfg.get("vol_window", 20))
     trend_window = int(cfg.get("trend_window", 20))
     volume_window = int(cfg.get("volume_window", 20))
+    working = df.with_row_index("_row").with_columns(
+        pl.col("_row").cast(pl.Float64),
+        pl.col("close").pct_change().alias("_ret"),
+    )
+    rolling_x = pl.col("_row").rolling_sum(trend_window)
+    rolling_y = pl.col("close").rolling_sum(trend_window)
+    rolling_xy = (pl.col("_row") * pl.col("close")).rolling_sum(trend_window)
+    rolling_x2 = (pl.col("_row") ** 2).rolling_sum(trend_window)
+    numerator = trend_window * rolling_xy - rolling_x * rolling_y
+    denominator = trend_window * rolling_x2 - rolling_x**2
+    trend = numerator / denominator
+    volume_mean = pl.col("volume").rolling_mean(volume_window)
+    volume_std = pl.col("volume").rolling_std(volume_window)
+    return working.select(
+        _finite(pl.col("_ret")).alias("ret"),
+        _finite(pl.col("_ret").rolling_std(window)).alias("vol"),
+        _finite((pl.col("high") - pl.col("low")) / pl.col("close")).alias("range"),
+        _finite(trend).alias("trend"),
+        _finite((pl.col("volume") - volume_mean) / volume_std).alias("volume_z"),
+    )
 
-    out = pd.DataFrame(index=df.index)
-    out["ret"] = df["close"].pct_change().fillna(0.0)
-    out["vol"] = out["ret"].rolling(window).std().fillna(0.0)
-    out["range"] = (df["high"] - df["low"]) / df["close"]
-    out["trend"] = (
-        df["close"].rolling(trend_window).apply(lambda x: np.polyfit(range(len(x)), x, 1)[0], raw=False)
-    ).fillna(0.0)
-    out["volume_z"] = (
-        (df["volume"] - df["volume"].rolling(volume_window).mean())
-        / df["volume"].rolling(volume_window).std()
-    ).fillna(0.0)
-    out = out.replace([np.inf, -np.inf], 0.0)
-    return out
 
-
-def _label_state(stats: pd.Series, cfg: dict) -> str:
+def _label_state(stats: Mapping[str, float], cfg: dict) -> str:
     trend_hi = float(cfg.get("trend_up", 0.0))
     trend_lo = float(cfg.get("trend_down", 0.0))
     vol_hi = float(cfg.get("vol_high", 0.0))
@@ -83,7 +120,7 @@ def _label_state(stats: pd.Series, cfg: dict) -> str:
     return best[0]
 
 
-def train_regime_model(df: pd.DataFrame, config: dict) -> RegimeModel:
+def train_regime_model(df: pl.DataFrame, config: dict) -> RegimeModel:
     if GaussianHMM is None:
         raise RuntimeError("hmmlearn is required for regime training")
 
@@ -91,41 +128,51 @@ def train_regime_model(df: pd.DataFrame, config: dict) -> RegimeModel:
     freq = cfg.get("freq", "1H")
     n_states = int(cfg.get("n_states", 6))
 
-    df = _ensure_freq(df.copy(), freq)
+    df = _ensure_freq(df.clone(), freq)
     features = _compute_features(df, cfg)
-    X = features.values
+    x = features.to_numpy()
 
     model = GaussianHMM(n_components=n_states, covariance_type="diag", n_iter=cfg.get("n_iter", 100))
-    model.fit(X)
+    model.fit(x)
 
-    states = model.predict(X)
-    features["state"] = states
-    state_stats = features.groupby("state").mean()
-    state_stats["label"] = state_stats.apply(lambda row: _label_state(row, cfg), axis=1)
+    states = model.predict(x)
+    state_stats = (
+        features.with_columns(pl.Series("state", states))
+        .group_by("state")
+        .mean()
+        .sort("state")
+    )
+    state_stats = state_stats.with_columns(
+        pl.Series("label", [_label_state(row, cfg) for row in state_stats.iter_rows(named=True)])
+    )
 
     return RegimeModel(model=model, state_stats=state_stats, config=config)
 
 
-def apply_regime_model(df: pd.DataFrame, model: RegimeModel) -> pd.DataFrame:
+def apply_regime_model(df: pl.DataFrame, model: RegimeModel) -> pl.DataFrame:
     cfg = model.config.get("settings", {})
     freq = cfg.get("freq", "1H")
-    df = _ensure_freq(df.copy(), freq)
+    df = _ensure_freq(df.clone(), freq)
     features = _compute_features(df, cfg)
-    X = features.values
+    x = features.to_numpy()
 
-    states = model.model.predict(X)
-    probs = model.model.predict_proba(X)
+    states = model.model.predict(x)
+    probs = model.model.predict_proba(x)
+    labels_by_state = dict(
+        zip(model.state_stats["state"].to_list(), model.state_stats["label"].to_list())
+    )
     labels = []
     confs = []
     for i, state in enumerate(states):
-        label = model.state_stats.loc[state, "label"]
+        label = labels_by_state[int(state)]
         conf = float(np.max(probs[i]))
         labels.append(label)
         confs.append(conf)
 
-    df["regime_label"] = labels
-    df["regime_conf"] = confs
-    return df
+    return df.with_columns(
+        pl.Series("regime_label", labels),
+        pl.Series("regime_conf", confs),
+    )
 
 
 def save_regime_model(model: RegimeModel, path: str) -> None:
