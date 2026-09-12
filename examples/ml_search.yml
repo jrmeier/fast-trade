@@ -1,0 +1,41 @@
+# Frozen ML search contract. Dates are locked before any trial runs.
+# Search folds never see the holdout window.
+name: ml_search_example
+symbol: BTCUSDT
+exchange: binanceus
+freq: 1h
+comission: 0.01
+random_state: 42
+
+data:
+  search_start: "2024-01-01"
+  search_stop: "2024-10-01"
+  holdout_start: "2024-10-01"
+  holdout_stop: "2025-01-01"
+
+space:
+  horizons: [3, 5, 10]
+  thresholds: [0.0, 0.01]
+  train_sizes: [300, 400]
+  test_sizes: [80]
+  use_ta: [true, false]
+  include_basic: [true]
+
+screen:
+  baselines: [buy_hold]
+  min_trades: 5
+  top_n: 20
+
+promote:
+  baselines: [buy_hold, rsi, random]
+  min_trades: 10
+  top_n: 5
+
+holdout:
+  baselines: [buy_hold, rsi, random]
+  min_trades: 5
+  top_n: 5
+  must_beat: [buy_hold, rsi]
+
+output:
+  dir: ft_archive/ml_search

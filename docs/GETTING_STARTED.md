@@ -223,6 +223,17 @@ python examples/ml_walk_forward.py --symbol BTCUSDT --exchange binanceus \
 
 API: `fast_trade.ml.walk_forward.walk_forward_evaluate`. Each fold trains only on the train window, predicts `ml_signal` on the test window, then backtests that holdout. Treat this as research scaffolding — require stable OOS AUC and baseline wins before trusting signals.
 
+### Walk-forward search funnel
+
+Screen a small config grid, promote winners, then confirm on a **locked holdout** the search never saw:
+
+```bash
+python examples/ml_walk_forward_batch.py --synthetic --limit 8
+python examples/ml_walk_forward_batch.py --spec examples/ml_search.yml --limit 20
+```
+
+See `docs/ML_SEARCH.md` for the problem breakdown (config, frozen split, ranking, persistence, parallel). Do not scale to 1k configs until a 20-run dry run looks trustworthy.
+
 ## Important Files
 
 - `README.md`: top-level project overview
@@ -234,6 +245,8 @@ API: `fast_trade.ml.walk_forward.walk_forward_evaluate`. Each fold trains only o
 - `examples/ml_classifier_backtest.py`: classifier → `ml_signal` → backtest demo
 - `examples/ml_classifier_strategy.yml`: enter/exit pattern for classifier signals
 - `examples/ml_walk_forward.py`: walk-forward folds vs buy&hold / RSI / random
+- `examples/ml_search.yml` / `examples/ml_walk_forward_batch.py`: grid screen → promote → holdout
+- `docs/ML_SEARCH.md`: search-funnel problem breakdown
 
 ## Tips
 
