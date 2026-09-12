@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+## 3.0.0
+
+### Release Highlights
+- Library is **Polars-native end-to-end**: indicators (FinTA), archive IO, frame prep, backtest engine, summary, CLI, and ML helpers.
+- Strategy YAML/dict inputs are unchanged; OHLC frames are `polars.DataFrame` with an explicit `date` column (no DatetimeIndex).
+- **pandas is removed** as a package dependency.
+
+### Breaking Changes (vs 2.1.0)
+- Public dataframe APIs (`run_backtest`, archive loaders, FinTA, summaries) accept/return **Polars** frames, not pandas.
+- Call sites that passed `pd.DataFrame` must pass `pl.DataFrame` (or convert at the edge with `pl.from_pandas(...)`).
+- FinTA no longer returns pandas Series/DataFrames or preserves a pandas index; use a `date` column.
+- Parallel/chunked backtests use multiprocessing **spawn** (fork + Polars worker threads could deadlock).
+
+### Migration Notes
+- Prefer `pl.read_parquet` / archive helpers that already return Polars.
+- Column names remain lowercase `open`, `high`, `low`, `close`, `volume`, plus `date`.
+- YAML strategies, datapoints, enter/exit logic, and CLI command shapes are the same.
+
 ## 2.1.0
 
 ### Release Highlights

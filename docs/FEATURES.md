@@ -1,9 +1,10 @@
 # Feature Matrix
 
-Current surface area for `fast-trade` `2.1.0`. Use this table to see what exists in the CLI, what is exposed on the MCP server, and what changed since PyPI `2.0.0`.
+Current surface area for `fast-trade` `3.0.0`. Use this table to see what exists in the CLI, what is exposed on the MCP server, and what changed since earlier PyPI releases. Dataframes throughout are Polars (`pl.DataFrame` with a `date` column).
 
 | Feature | CLI | MCP tool | Since | Notes |
 |---------|-----|----------|-------|-------|
+| Polars-native dataframes | — | — | 3.0.0 | Breaking: `pl.DataFrame` + `date` column; no pandas dependency |
 | Download archive data | `ft download` | `download` | stable | Binance / Coinbase |
 | List assets | `ft assets` | `assets`, `list_assets` | stable | `list_assets` returns a plain list helper |
 | Run backtest | `ft backtest` | `backtest` | stable | |

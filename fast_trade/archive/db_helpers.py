@@ -17,8 +17,8 @@ KLINE_COLUMNS = [DATE_COL, "open", "high", "low", "close", "volume"]
 def _atomic_write_parquet(df, path: str, index: bool = True) -> None:
     """Write a frame to parquet, swapping it in only once it is complete.
 
-    ``index`` is only used for pandas style frames, which still reach this
-    helper from fast_trade.portfolio.
+    ``index`` is ignored for Polars frames (the usual path). Kept for
+    callers that still pass objects with ``to_parquet``.
     """
     tmp_path = path + ".tmp"
     if hasattr(df, "write_parquet"):

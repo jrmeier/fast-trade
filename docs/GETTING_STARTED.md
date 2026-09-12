@@ -22,7 +22,7 @@ At a high level, it gives you:
 4. review saved runs with `ft backtests`
 5. optionally tail logs with `ft logs` or run a paper portfolio with `ft portfolio`
 
-The project uses Polars dataframes internally, parquet storage for archive data, and a CLI-first interface through `ft`.
+The project uses Polars dataframes (`pl.DataFrame` with a `date` column) end-to-end, parquet storage for archive data, and a CLI-first interface through `ft`.
 
 ## Install
 
@@ -82,8 +82,8 @@ Example files in the repo:
 A backtest runs a strategy against historical archive data and returns:
 
 - summary metrics
-- processed dataframe
-- trade log dataframe
+- processed Polars dataframe (`date` column + OHLCV and indicators)
+- trade log Polars dataframe
 
 ## First Run
 
@@ -182,7 +182,7 @@ ft regime_apply regime_model.pkl data.csv --out regime_output.csv
 
 ### HMM Screener
 
-Rank symbols with a Gaussian HMM + Monte Carlo forecast screen. This ships in `2.1.0` as `ft screen hmm` (not available in PyPI `2.0.0`).
+Rank symbols with a Gaussian HMM + Monte Carlo forecast screen via `ft screen hmm`.
 
 Archive-first example:
 
@@ -228,6 +228,7 @@ Helpers live in `fast_trade/ml/classifier.py`. The strategy shape is documented 
 - Keep strategies in YAML, not JSON.
 - Use `ft_archive/strategies/` as the default strategy location.
 - Use `ft backtests list` / `ft backtests show` to inspect runs, `ft logs --name <NAME>` to tail portfolio JSONL logs, and `ft portfolio` for paper trading.
+- Upgrading to `3.0.0`: public APIs return Polars frames (not pandas). Strategy YAML is unchanged.
 - Upgrading from `2.0.0`: `ft terminal` was removed in `2.1.0`; use the CLI commands above instead.
 - Use `python -m pytest` instead of bare `pytest` if you want to guarantee the active environment is used.
 
