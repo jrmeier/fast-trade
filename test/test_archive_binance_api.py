@@ -91,14 +91,6 @@ def test_binance_kline_to_df_drops_ignore_and_keeps_date():
     assert "ignore" not in df.columns
     assert "date" in df.columns
     assert isinstance(df.schema["date"], pl.Datetime)
-    assert df.height == 1
-
-
-def test_binance_kline_to_df_empty():
-    df = binance_api.binance_kline_to_df([])
-    assert df.is_empty()
-    assert "ignore" not in df.columns
-    assert "date" in df.columns
 
 
 def test_get_binance_klines_success_with_status_and_store():

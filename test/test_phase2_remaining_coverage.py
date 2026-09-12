@@ -1,9 +1,10 @@
 """Targeted tests for remaining uncovered branches."""
 
+import datetime
 from collections import namedtuple
 from unittest import mock
 
-import pandas as pd
+import polars as pl
 import pytest
 
 from fast_trade.build_data_frame import apply_charting_to_df, build_data_frame, infer_frequency, prepare_df
@@ -31,15 +32,18 @@ from fast_trade.validate_backtest import validate_backtest, validate_backtest_wi
 
 
 def _ohlcv():
-    df = pd.read_csv("./test/ohlcv_data.csv.txt").set_index("date")
-    df.index = pd.to_datetime(df.index, unit="s")
-    return df
+    return pl.read_csv("./test/ohlcv_data.csv.txt").with_columns(
+        pl.from_epoch(pl.col("date"), time_unit="s")
+    )
 
 
 def test_build_mask_column_column_operators():
-    df = pd.DataFrame(
-        {"a": [1, 2, 3], "b": [2, 2, 4]},
-        index=pd.date_range("2024-01-01", periods=3, freq="h"),
+    df = pl.DataFrame(
+        {
+            "date": [datetime.datetime(2024, 1, 1, hour) for hour in range(3)],
+            "a": [1, 2, 3],
+            "b": [2, 2, 4],
+        }
     )
     for op in [">", "<", "=", "!=", ">=", "<="]:
         mask = build_mask(df, [["a", op, "b"]], combine_any=False)
@@ -50,8 +54,16 @@ def test_build_mask_column_column_operators():
 
 def test_build_data_frame_empty_after_load():
     bt = {"freq": "1Min", "start": "", "stop": "", "datapoints": []}
-    empty = pd.DataFrame(columns=["open", "high", "low", "close", "volume"])
-    empty.index.name = "date"
+    empty = pl.DataFrame(
+        schema={
+            "date": pl.Datetime,
+            "open": pl.Float64,
+            "high": pl.Float64,
+            "low": pl.Float64,
+            "close": pl.Float64,
+            "volume": pl.Float64,
+        }
+    )
     with mock.patch("fast_trade.build_data_frame.load_basic_df_from_csv", return_value=empty):
         with pytest.raises(Exception, match="Dataframe is empty"):
             build_data_frame(bt, "ignored.csv")
@@ -71,14 +83,14 @@ def test_prepare_df_uses_chart_period_when_freq_missing():
 
 
 def test_apply_charting_date_column_path():
-    df = pd.read_csv("./test/ohlcv_data.csv.txt")
+    df = pl.read_csv("./test/ohlcv_data.csv.txt")
     out = apply_charting_to_df(df, "1Min", "", "")
-    assert isinstance(out.index, pd.DatetimeIndex)
+    assert isinstance(out.schema["date"], pl.Datetime)
 
 
 def test_infer_frequency_requires_datetime_index():
-    with pytest.raises(ValueError, match="DatetimeIndex"):
-        infer_frequency(pd.DataFrame({"close": [1, 2]}))
+    with pytest.raises(ValueError, match="date column"):
+        infer_frequency(pl.DataFrame({"close": [1, 2]}))
 
 
 def test_run_backtest_chart_period_and_no_int_periods():
@@ -97,9 +109,9 @@ def test_run_backtest_chart_period_and_no_int_periods():
         "any_exit": [],
     }
     with mock.patch("fast_trade.build_data_frame.infer_frequency", return_value="1Min"), mock.patch(
-        "fast_trade.run_backtest.get_kline", return_value=df.copy()
+        "fast_trade.run_backtest.get_kline", return_value=df.clone()
     ) as get_kline:
-        run_backtest(bt, df=pd.DataFrame())
+        run_backtest(bt, df=pl.DataFrame())
     assert get_kline.called
 
 
@@ -143,7 +155,7 @@ def test_run_backtests_parallel_default_processes():
         "any_enter": [],
         "any_exit": [],
     }
-    results = run_backtests_parallel([bt], df=df.copy(), n_processes=None)
+    results = run_backtests_parallel([bt], df=df.clone(), n_processes=None)
     assert len(results) == 1
 
 
@@ -160,9 +172,9 @@ def test_run_backtest_chunked_summary_false_and_defaults():
         "any_enter": [],
         "any_exit": [],
     }
-    result = run_backtest_chunked(bt, df=df.copy(), summary=False, chunk_size=None)
+    result = run_backtest_chunked(bt, df=df.clone(), summary=False, chunk_size=None)
     assert "test_duration" in result["summary"]
-    assert result["trade_df"].empty
+    assert result["trade_df"].is_empty()
 
 
 def test_run_backtest_chunked_loads_empty_df_path():
@@ -180,9 +192,9 @@ def test_run_backtest_chunked_loads_empty_df_path():
         "any_exit": [],
     }
     with mock.patch("fast_trade.build_data_frame.infer_frequency", return_value="1Min"), mock.patch(
-        "fast_trade.run_backtest.get_kline", return_value=df.copy()
+        "fast_trade.run_backtest.get_kline", return_value=df.clone()
     ):
-        result = run_backtest_chunked(bt, df=pd.DataFrame(), chunk_size=4)
+        result = run_backtest_chunked(bt, df=pl.DataFrame(), chunk_size=4)
     assert "summary" in result
 
 
@@ -206,36 +218,34 @@ def test_take_action_compiled_require_any_continue():
 
 
 def test_metrics_return_buy_hold_sharpe_exceptions():
-    tl = pd.DataFrame({"adj_account_value": ["bad", "values"]})
+    tl = pl.DataFrame({"adj_account_value": ["bad", "values"]})
     assert calculate_return_perc(tl) == 0.0
 
-    assert calculate_buy_and_hold_perc(pd.DataFrame({"close": ["bad", "data"]})) == 0.0
+    assert calculate_buy_and_hold_perc(pl.DataFrame({"close": ["bad", "data"]})) == 0.0
 
-    with mock.patch.object(pd.Series, "mean", side_effect=ValueError("boom")):
+    with mock.patch("fast_trade.summary.metrics.finite", side_effect=ValueError("boom")):
         assert calculate_shape_ratio(
-            pd.DataFrame({"adj_account_value_change_perc": [0.1, 0.2]})
+            pl.DataFrame({"adj_account_value_change_perc": [0.1, 0.2]})
         ) == 0.0
 
-    df = pd.DataFrame(
+    df = pl.DataFrame(
         {"in_trade": [True], "aux": [1.0], "fee": [1.0], "adj_account_value": [100.0]}
     )
-    with mock.patch("fast_trade.summary.metrics.round", side_effect=ValueError("boom")):
+    with mock.patch("fast_trade.summary.metrics.clean_float", side_effect=ValueError("boom")):
         res = calculate_position_metrics(df)
     assert res["avg_position_size"] == 0.0
     assert res["total_commission_impact"] == 0.0
 
 
 def test_calculate_trade_streaks_empty_trades_series():
-    trade_log = pd.DataFrame({"adj_account_value_change_perc": [0.1]})
-    with mock.patch.object(pd.Series, "__gt__", return_value=pd.Series([], dtype=bool)):
-        result = calculate_trade_streaks(trade_log)
+    result = calculate_trade_streaks(pl.DataFrame({"adj_account_value_change_perc": []}))
     assert result["current_streak"] == 0
     assert result["max_win_streak"] == 0
 
 
 def test_trade_quality_profit_factor_zero_division():
-    only_wins = pd.DataFrame({"adj_account_value_change_perc": [1.0, 2.0]})
-    with mock.patch.object(pd.Series, "sum", side_effect=ZeroDivisionError):
+    only_wins = pl.DataFrame({"adj_account_value_change_perc": [1.0, 2.0]})
+    with mock.patch.object(pl.Series, "sum", side_effect=ZeroDivisionError):
         q = calculate_trade_quality(only_wins)
     assert q["profit_factor"] == 0.0
 
@@ -254,8 +264,8 @@ def test_run_backtest_get_max_periods_no_int_args():
         "any_enter": [],
         "any_exit": [],
     }
-    with mock.patch("fast_trade.run_backtest.get_kline", return_value=df.copy()):
-        run_backtest(bt, df=pd.DataFrame())
+    with mock.patch("fast_trade.run_backtest.get_kline", return_value=df.clone()):
+        run_backtest(bt, df=pl.DataFrame())
 
 
 def test_validate_backtest_pos2_transformer_suffix_break():
@@ -271,18 +281,18 @@ def test_validate_backtest_pos2_transformer_suffix_break():
 
 
 def test_metrics_and_trades_remaining_exception_paths():
-    with mock.patch.object(pd.DataFrame, "__getitem__", side_effect=ValueError("boom")):
+    with mock.patch("fast_trade.summary.metrics.run_lengths", side_effect=ValueError("boom")):
         assert calculate_market_exposure(
-            pd.DataFrame({"in_trade": [True, False]})
+            pl.DataFrame({"in_trade": [True, False]})
         )["time_in_market_pct"] == 0.0
 
-    with mock.patch.object(pd.Series, "shift", side_effect=KeyError):
+    with mock.patch("fast_trade.summary.metrics.run_lengths", side_effect=KeyError):
         assert calculate_trade_streaks(
-            pd.DataFrame({"adj_account_value_change_perc": [0.1]})
+            pl.DataFrame({"adj_account_value_change_perc": [0.1]})
         )["current_streak"] == 0
 
-    only_wins = pd.DataFrame({"adj_account_value_change_perc": [1.0, 2.0]})
-    with mock.patch.object(pd.Series, "mean", side_effect=ZeroDivisionError):
+    only_wins = pl.DataFrame({"adj_account_value_change_perc": [1.0, 2.0]})
+    with mock.patch.object(pl.Series, "mean", side_effect=ZeroDivisionError):
         q = calculate_trade_quality(only_wins)
         assert q["avg_win_loss_ratio"] == 0.0
 
@@ -316,8 +326,7 @@ def test_validate_backtest_transformer_suffix_and_with_df():
         "exit": [["close", "<", "prefix"]],
         "start": "",
     }
-    df = _ohlcv()
-    df["prefix_sma_value"] = 1.0
+    df = _ohlcv().with_columns(pl.lit(1.0).alias("prefix_sma_value"))
     validate_backtest_with_df(bt, df)
 
     bad_bt = {"datapoints": [], "enter": [], "exit": [], "start": ""}

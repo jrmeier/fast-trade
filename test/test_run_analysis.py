@@ -1,3 +1,5 @@
+import datetime
+
 import polars as pl
 import pytest
 
@@ -366,7 +368,7 @@ def test_apply_logic_to_df_simple():
         False,
     ]
 
-    assert list(df.account_value) == [
+    assert df["account_value"].to_list() == [
         0.0,
         0.0,
         2296.0,
@@ -378,7 +380,7 @@ def test_apply_logic_to_df_simple():
         2274.32014388,
     ]
 
-    assert list(df.adj_account_value) == [
+    assert df["adj_account_value"].to_list() == [
         1000.0,
         1404.0,
         2296.0,
@@ -390,26 +392,25 @@ def test_apply_logic_to_df_simple():
         2274.32014388,
     ]
 
-    assert df.fee.sum() == 0.0
+    assert df["fee"].sum() == 0.0
+    # exit_on_end had nothing to close out, so no extra bar was added
+    assert df.height == 9
 
 
 def test_apply_logic_to_df_lot_size():
-    mock_df = pd.read_csv("./test/ohlcv_data.csv.txt", parse_dates=True).set_index(
-        "date"
-    )
-    mock_df.index = pd.to_datetime(mock_df.index, unit="s")
-
     mock_backtest = {
         "base_balance": 1000,
         "exit_on_end": True,
         "comission": 0.00,
         "lot_size_perc": 0.5,
     }
-    mock_df["action"] = ["e", "h", "h", "x", "h", "h", "e", "h", "h"]
+    mock_df = _ohlcv_df().with_columns(
+        pl.Series("action", ["e", "h", "h", "x", "h", "h", "e", "h", "h"])
+    )
 
     df = apply_logic_to_df(mock_df, mock_backtest)
 
-    assert list(df.in_trade) == [
+    assert df["in_trade"].to_list() == [
         True,
         True,
         True,
@@ -422,7 +423,7 @@ def test_apply_logic_to_df_lot_size():
         False,
     ]
 
-    assert list(df.adj_account_value) == [
+    assert df["adj_account_value"].to_list() == [
         1000.0,
         1202.0,
         1648.0,
@@ -434,3 +435,7 @@ def test_apply_logic_to_df_lot_size():
         1539.8184294100001,
         1539.8184294100001,
     ]
+
+    # exit_on_end closed the open position on a bar one second after the last
+    assert df.height == 10
+    assert df["date"][-1] - df["date"][-2] == datetime.timedelta(seconds=1)
