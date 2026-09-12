@@ -9,7 +9,6 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import numpy as np
-import pandas as pd
 import polars as pl
 import pytest
 
@@ -53,9 +52,20 @@ def test_frames_to_polars_branches():
     assert frames.to_polars(lazy).height == 2
     assert frames.to_polars({"a": [1, 2]}).height == 2
 
-    pdf = pd.DataFrame({"close": [1.0, 2.0]}, index=pd.to_datetime(["2024-01-01", "2024-01-02"]))
-    pdf.index.name = "date"
-    out = frames.to_polars(pdf)
+    # Cover the legacy pandas hand-off without requiring pandas installed in CI.
+    reset = pl.DataFrame(
+        {"date": [datetime(2024, 1, 1), datetime(2024, 1, 2)], "close": [1.0, 2.0]}
+    )
+    pandas_like = SimpleNamespace(
+        columns=["close"],
+        reset_index=lambda: SimpleNamespace(_frame=reset),
+    )
+
+    def _from_pandas(obj):
+        return getattr(obj, "_frame", obj)
+
+    with patch.object(frames.pl, "from_pandas", side_effect=_from_pandas):
+        out = frames.to_polars(pandas_like)
     assert "date" in out.columns or "close" in out.columns
 
 
@@ -83,7 +93,7 @@ def test_frames_is_empty_has_column_sort():
     assert frames.is_empty(None) is True
     assert frames.is_empty(pl.DataFrame()) is True
     assert frames.is_empty(pl.DataFrame({"a": [1]}).lazy()) is False
-    assert frames.is_empty(pd.DataFrame()) is True
+    assert frames.is_empty(SimpleNamespace(empty=True)) is True
     assert frames.is_empty([1, 2]) is False
     assert frames.is_empty(object()) is False
 
