@@ -1,8 +1,54 @@
-# Performance Notes
+# Performance
 
-How to keep Polars-native `fast-trade` fast, and where the remaining gaps are.
+`fast-trade` `3.0.0` is Polars-native so you can iterate on strategies without waiting on backtests.
 
-## FinTA indicators
+## Headline numbers
+
+Measured on Binance.US `BTCUSDT` 1m archive data (**525,058** bars, `2025-09-12` → `2026-09-12`):
+
+| Workload | Result |
+|---|---|
+| Full-year EMA-cross + RSI backtest | **~0.58s** end-to-end |
+| 2-month 1m backtest (~89k bars) | **~0.17s** end-to-end |
+| FinTA indicator suite vs pandas FinTA | **~1.9×** faster |
+| ATR(14) | **~5×** faster |
+| WMA(20) | **~100×** faster |
+| OBV | **~3×** faster |
+
+Reproduce:
+
+```bash
+python scripts/bench_strategy_backtest.py --start 2025-09-12 --stop 2026-09-12 --freq 1Min --repeat 3
+```
+
+## FinTA indicator table (pandas FinTA snapshot vs Polars)
+
+| Indicator | pandas | Polars | Speedup |
+|---|---:|---:|---:|
+| SMA(50) | 0.0076s | 0.0041s | **1.83×** |
+| EMA(50) | 0.0060s | 0.0036s | **1.67×** |
+| RSI(14) | 0.0197s | 0.0164s | **1.20×** |
+| ATR(14) | 0.0600s | 0.0118s | **5.08×** |
+| MACD | 0.0155s | 0.0095s | **1.64×** |
+| BBANDS(20) | 0.0162s | 0.0137s | **1.19×** |
+| WMA(20) | 0.5486s | 0.0052s | **105×** |
+| STOCH | 0.0176s | 0.0168s | ~1.05× |
+| OBV | 0.0296s | 0.0096s | **3.08×** |
+| SAR | 0.7663s | 0.7154s | **1.07×** |
+
+**Suite** (SMA+EMA+RSI+ATR+MACD+BBANDS+STOCH+OBV): pandas **0.158s** → Polars **0.082s** (**1.92×**).
+
+## Strategy backtest stages (1 year, 1m)
+
+| Stage | ~time | Share |
+|---|---:|---:|
+| Account simulation | ~0.34s | ~60% |
+| Indicators | ~0.07s | ~12% |
+| Summary | ~0.06s | ~10% |
+| Load kline | ~0.04s | ~7% |
+| Action generation | ~0.02s | ~4% |
+
+## Keeping it fast
 
 Prefer native Polars / NumPy vectorized paths. Avoid `Series.rolling_map` Python
 UDFs and per-bar Python loops.

@@ -8,6 +8,7 @@
 - Library is **Polars-native end-to-end**: indicators (FinTA), archive IO, frame prep, backtest engine, summary, CLI, and ML helpers.
 - Strategy YAML/dict inputs are unchanged; OHLC frames are `polars.DataFrame` with an explicit `date` column (no DatetimeIndex).
 - **pandas is removed** as a package dependency.
+- **Speed:** ~0.58s for a 1-year BTCUSDT 1m EMA-cross+RSI backtest; FinTA suite ~1.9× vs pandas FinTA (ATR ~5×, WMA ~100×, OBV ~3×). See `docs/PERFORMANCE.md`.
 
 ### Breaking Changes (vs 2.1.0)
 - Public dataframe APIs (`run_backtest`, archive loaders, FinTA, summaries) accept/return **Polars** frames, not pandas.

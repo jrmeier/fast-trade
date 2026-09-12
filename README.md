@@ -10,6 +10,17 @@ A library built with backtest portability and performance in mind for trading st
 ## Motivations
 If backtests are fast, strategies are cheap.
 
+## Performance
+
+`3.0.0` is Polars-native end-to-end. On ~525k bars of BTCUSDT 1m data:
+
+- **~0.58s** for a full-year EMA-cross + RSI backtest (end-to-end)
+- **~0.17s** for a 2-month 1m backtest
+- FinTA indicator suite **~1.9×** faster than the previous pandas FinTA path
+- Standouts: **ATR ~5×**, **WMA ~100×**, **OBV ~3×** vs pandas FinTA
+
+See `docs/PERFORMANCE.md` for stage breakdowns and `python scripts/bench_strategy_backtest.py` to reproduce.
+
 ## MCP Server
 
 I'm using this library and my own closed-source data collection software which has live-streaming data from HyperLiquid, Coinbase, and Binanceus. If you want to try it out with absolutely no garentees, send me an email at fasttrade@jedm.dev or join the Discord [https://discord.gg/Y8ypD3dcgs](https://discord.gg/Y8ypD3dcgs).

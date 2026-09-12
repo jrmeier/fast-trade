@@ -1,12 +1,12 @@
 # Getting Started
 
-`fast-trade` is a backtesting and strategy execution toolkit for market data stored in a local archive.
+`fast-trade` is a backtesting and strategy execution toolkit for market data stored in a local archive. In `3.0.0` it is Polars-native: a full-year BTCUSDT 1m EMA-cross + RSI backtest runs in about **0.58s** on commodity hardware (see `docs/PERFORMANCE.md`).
 
 At a high level, it gives you:
 
 - strategy configs in YAML
 - local market data management
-- backtests with summaries and saved runs
+- fast Polars-backed backtests with summaries and saved runs
 - non-interactive backtest browsing via `ft backtests`
 - log tailing via `ft logs`
 - a paper portfolio runner
