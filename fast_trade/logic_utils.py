@@ -1,5 +1,5 @@
 import itertools
-from typing import Any, List
+from typing import List
 
 import numpy as np
 import polars as pl
@@ -12,60 +12,6 @@ _COMPARISONS = {
     ">=": np.greater_equal,
     "<=": np.less_equal,
 }
-
-
-def frame_is_empty(frame: Any) -> bool:
-    """True when a frame holds no rows.
-
-    Accepts Polars frames and, while the rest of the library is still being
-    ported, frames handed over by callers that have not been migrated yet.
-    """
-    if frame is None:
-        return True
-    if isinstance(frame, pl.DataFrame):
-        return frame.height == 0
-
-    is_empty = getattr(frame, "is_empty", None)
-    if callable(is_empty):
-        return bool(is_empty())
-
-    empty = getattr(frame, "empty", None)
-    if empty is not None:
-        return bool(empty)
-
-    return len(frame) == 0
-
-
-def _index_is_datetime(index: Any) -> bool:
-    dtype = getattr(index, "dtype", None)
-    return getattr(dtype, "kind", "") == "M"
-
-
-def to_polars_frame(frame: Any) -> pl.DataFrame:
-    """Normalize a frame to Polars, keeping the date as an explicit column.
-
-    Polars frames pass through untouched. Frames coming from modules that are
-    still pandas based get their datetime index materialized as a `date` column.
-    """
-    if frame is None:
-        return pl.DataFrame()
-    if isinstance(frame, pl.DataFrame):
-        return frame
-    if isinstance(frame, pl.Series):
-        return frame.to_frame()
-
-    index = getattr(frame, "index", None)
-    columns = getattr(frame, "columns", None)
-    if index is None or columns is None:
-        raise TypeError(f"Expected a Polars DataFrame, got {type(frame)!r}")
-
-    if len(columns) == 0:
-        return pl.DataFrame()
-    if "date" in columns:
-        return pl.from_pandas(frame.reset_index(drop=True))
-    if _index_is_datetime(index):
-        return pl.from_pandas(frame.rename_axis("date").reset_index())
-    return pl.from_pandas(frame.reset_index(drop=True))
 
 
 def max_last_frames(backtest: dict) -> int:

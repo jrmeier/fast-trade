@@ -12,14 +12,9 @@ from fast_trade.archive.db_helpers import get_kline
 from .build_data_frame import prepare_df
 from .build_summary import build_summary
 from .evaluate import evaluate_rules
+from .frames import freq_to_timedelta, is_empty, to_polars
 from .run_analysis import apply_logic_to_df
-from .logic_utils import (
-    can_vectorize_logic,
-    frame_is_empty,
-    max_last_frames,
-    to_polars_frame,
-    vectorized_actions,
-)
+from .logic_utils import can_vectorize_logic, max_last_frames, vectorized_actions
 from .validate_backtest import validate_backtest, validate_backtest_with_df
 
 
@@ -30,31 +25,6 @@ _LOGIC_OPERATORS = {
     "!=": operator.ne,
     ">=": operator.ge,
     "<=": operator.le,
-}
-
-_FREQ_UNITS = {
-    "": "minutes",
-    "t": "minutes",
-    "min": "minutes",
-    "mins": "minutes",
-    "minute": "minutes",
-    "minutes": "minutes",
-    "s": "seconds",
-    "sec": "seconds",
-    "secs": "seconds",
-    "second": "seconds",
-    "seconds": "seconds",
-    "h": "hours",
-    "hr": "hours",
-    "hrs": "hours",
-    "hour": "hours",
-    "hours": "hours",
-    "d": "days",
-    "day": "days",
-    "days": "days",
-    "w": "weeks",
-    "week": "weeks",
-    "weeks": "weeks",
 }
 
 
@@ -107,26 +77,6 @@ class BacktestKeyError(Exception):
         super().__init__(f"Backtest Error(s):\n{self.error_msgs}")
 
 
-def freq_to_timedelta(freq) -> datetime.timedelta:
-    """Convert a fast-trade frequency (ex. "30Min", "4h", "1D") to a timedelta.
-
-    A bare number is read as minutes, matching the frequencies accepted by
-    validate_backtest. Missing frequencies fall back to one minute, the same
-    default prepare_df uses.
-    """
-    if isinstance(freq, datetime.timedelta):
-        return freq
-    if not freq:
-        return datetime.timedelta(minutes=1)
-
-    match = re.match(r"^\s*(\d+(?:\.\d+)?)\s*([a-zA-Z]*)\s*$", str(freq))
-    unit = _FREQ_UNITS.get(match.group(2).lower()) if match else None
-    if unit is None:
-        raise ValueError(f"Frequency not valid: {freq}")
-
-    return datetime.timedelta(**{unit: float(match.group(1))})
-
-
 def _ensure_date_dtype(df: pl.DataFrame) -> pl.DataFrame:
     """Make sure the `date` column is a datetime, converting epochs/strings."""
     if "date" not in df.columns:
@@ -154,17 +104,8 @@ def _date_column_first(df: pl.DataFrame) -> pl.DataFrame:
 
 
 def _prepare_df(df: pl.DataFrame, backtest: dict) -> pl.DataFrame:
-    """Apply charting/datapoints through prepare_df and return a Polars frame.
-
-    build_data_frame is being ported separately, so a pandas based prepare_df is
-    still tolerated here: it only understands frames with a datetime index.
-    """
-    try:
-        prepared = prepare_df(df, backtest)
-    except (AttributeError, TypeError):
-        prepared = prepare_df(df.to_pandas(), backtest)
-
-    return _ensure_date_dtype(to_polars_frame(prepared))
+    """Apply charting/datapoints through prepare_df and return a Polars frame."""
+    return _ensure_date_dtype(to_polars(prepare_df(df, backtest)))
 
 
 def _load_df_from_archive(backtest: dict, progress_callback=None) -> pl.DataFrame:
@@ -202,7 +143,7 @@ def _load_df_from_archive(backtest: dict, progress_callback=None) -> pl.DataFram
     if progress_callback:
         progress_callback({"phase": "data", "percent": 100})
 
-    return to_polars_frame(df)
+    return to_polars(df)
 
 
 def _check_backtest_errors(backtest: dict) -> None:
@@ -242,12 +183,12 @@ def run_backtest(
     new_backtest = prepare_new_backtest(backtest)
     _check_backtest_errors(new_backtest)
 
-    df = to_polars_frame(df)
+    df = to_polars(df)
 
-    if frame_is_empty(df):
+    if is_empty(df):
         df = _load_df_from_archive(new_backtest, progress_callback=progress_callback)
 
-    if frame_is_empty(df):
+    if is_empty(df):
         raise MissingData(
             f"No data found for {backtest.get('symbol')} on {backtest.get('exchange')} or in the given dataframe"
         )
@@ -336,7 +277,7 @@ def apply_backtest_to_df(df: pl.DataFrame, backtest: dict, progress_callback=Non
     -------
         df, dataframe with with all the actions and backtest processed
     """
-    df = to_polars_frame(df)
+    df = to_polars(df)
 
     df = process_logic_and_generate_actions(
         df,
@@ -393,7 +334,7 @@ def process_logic_and_generate_actions(
     """we need to search though all the logics and find the highest confirmation number
     so we know how many frames to pass in
     """
-    df = to_polars_frame(df)
+    df = to_polars(df)
     max_last = max_last_frames(backtest)
     compiled_logic = compile_action_logic(backtest)
 
@@ -737,12 +678,12 @@ def run_backtest_chunked(
     new_backtest = prepare_new_backtest(backtest)
     _check_backtest_errors(new_backtest)
 
-    df = to_polars_frame(df)
+    df = to_polars(df)
 
-    if frame_is_empty(df):
+    if is_empty(df):
         df = _load_df_from_archive(new_backtest)
 
-    if frame_is_empty(df):
+    if is_empty(df):
         raise MissingData(
             f"No data found for {backtest.get('symbol')} on {backtest.get('exchange')} or in the given dataframe"
         )
