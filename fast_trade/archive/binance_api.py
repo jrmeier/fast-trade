@@ -4,27 +4,31 @@ import os
 import random
 import time
 
-import pandas as pd
+import polars as pl
 import requests
 from rich.console import Console
+
+from ..utils import DATE_COL
 
 API_DELAY = float(os.getenv("API_DELAY", 0.3))
 console = Console()
 
-BINANCE_KLINE_REST_HEADER_MATCH = [
-    "date",  # Open time
-    "open",  # Open
-    "high",  # High
-    "low",  # Low
-    "close",  # Close
-    "volume",  # Volume
-    "close_time",  # Close time
-    "quote_asset_volume",  # Quote asset volume
-    "number_of_trades",  # Number of trades
-    "taker_buy_base_asset_volume",  # Taker buy base asset volume
-    "taker_buy_base_a_volume",  # Taker buy quote
-    "ignore",  # literally ignore this
-]
+BINANCE_KLINE_REST_SCHEMA = {
+    "date": pl.Int64,  # Open time
+    "open": pl.Float64,  # Open
+    "high": pl.Float64,  # High
+    "low": pl.Float64,  # Low
+    "close": pl.Float64,  # Close
+    "volume": pl.Float64,  # Volume
+    "close_time": pl.Int64,  # Close time
+    "quote_asset_volume": pl.Float64,  # Quote asset volume
+    "number_of_trades": pl.Int64,  # Number of trades
+    "taker_buy_base_asset_volume": pl.Float64,  # Taker buy base asset volume
+    "taker_buy_base_a_volume": pl.Float64,  # Taker buy quote
+    "ignore": pl.Utf8,  # literally ignore this
+}
+
+BINANCE_KLINE_REST_HEADER_MATCH = list(BINANCE_KLINE_REST_SCHEMA.keys())
 
 
 def get_exchange_info(tld="us"):
@@ -178,19 +182,19 @@ def get_binance_klines(
     return klines_df, status_obj
 
 
-def binance_kline_to_df(klines):
-    new_df = pd.DataFrame(klines, columns=BINANCE_KLINE_REST_HEADER_MATCH)
+def binance_kline_to_df(klines) -> pl.DataFrame:
+    """Turn the REST kline rows into a frame with a datetime "date" column."""
+    schema = dict(BINANCE_KLINE_REST_SCHEMA)
 
-    new_df = new_df.drop_duplicates()
-    new_df.index = pd.to_datetime(new_df.date, unit="ms")
+    if not klines:
+        schema[DATE_COL] = pl.Datetime
+        del schema["ignore"]
+        return pl.DataFrame(schema=schema)
 
-    columns_to_drop = []
-    if new_df.ignore.any():
-        columns_to_drop.append("ignore")
+    new_df = pl.DataFrame(klines, schema=schema, orient="row")
 
-    if new_df.date.any():
-        columns_to_drop.append("date")
+    new_df = new_df.unique(maintain_order=True).drop("ignore")
 
-    new_df = new_df.drop(columns=columns_to_drop)
+    new_df = new_df.with_columns(pl.from_epoch(DATE_COL, time_unit="ms"))
 
-    return new_df
+    return new_df.sort(DATE_COL)

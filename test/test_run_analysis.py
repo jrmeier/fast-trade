@@ -1,6 +1,6 @@
+import polars as pl
 import pytest
-import pandas as pd
-import random
+
 from fast_trade.run_analysis import (
     calculate_new_account_value_on_enter,
     convert_base_to_aux,
@@ -10,6 +10,13 @@ from fast_trade.run_analysis import (
     exit_position,
     calculate_fee,
 )
+
+
+def _ohlcv_df():
+    """OHLCV fixture as a Polars frame with an explicit date column."""
+    return pl.read_csv("./test/ohlcv_data.csv.txt").with_columns(
+        pl.from_epoch(pl.col("date"), time_unit="s")
+    )
 
 
 def test_convert_base_to_aux_1():
@@ -335,22 +342,19 @@ def test_calculate_new_account_value_on_enter_with_account_vaue_list():
 
 
 def test_apply_logic_to_df_simple():
-    mock_df = pd.read_csv("./test/ohlcv_data.csv.txt", parse_dates=True).set_index(
-        "date"
-    )
-
-    mock_df.index = pd.to_datetime(mock_df.index, unit="s")
     mock_backtest = {
         "base_balance": 1000,
         "exit_on_end": True,
         "comission": 0.00,
         "lot_size_perc": 1,
     }
-    mock_df["action"] = ["e", "h", "x", "x", "x", "e", "x", "h", "h"]
+    mock_df = _ohlcv_df().with_columns(
+        pl.Series("action", ["e", "h", "x", "x", "x", "e", "x", "h", "h"])
+    )
 
     df = apply_logic_to_df(mock_df, mock_backtest)
 
-    assert list(df.in_trade) == [
+    assert df["in_trade"].to_list() == [
         True,
         True,
         False,

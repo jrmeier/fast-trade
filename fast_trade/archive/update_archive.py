@@ -6,8 +6,7 @@ from typing import Callable, List, Tuple
 from rich.console import Console
 from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn, TimeElapsedColumn
 
-import pandas as pd
-
+from ..utils import DATE_COL, ensure_date_column
 from .update_kline import update_kline
 from .db_helpers import _safe_read_parquet
 
@@ -33,10 +32,7 @@ def update_single_archive(
             df = _safe_read_parquet(path)
             if df is None:
                 raise RuntimeError("archive parquet corrupted")
-            if "date" in df.columns:
-                df = df.set_index("date")
-            df.index = pd.to_datetime(df.index)
-            start_date = df.index.max()
+            start_date = ensure_date_column(df).get_column(DATE_COL).max()
         except Exception:
             start_date = None
     else:
