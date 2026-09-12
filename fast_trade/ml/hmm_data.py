@@ -4,39 +4,98 @@ from __future__ import annotations
 
 import datetime as dt
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional
 
-import pandas as pd
+import polars as pl
 import requests
 
-from fast_trade.archive.db_helpers import ARCHIVE_PATH, _safe_read_parquet
+from fast_trade.archive.db_helpers import ARCHIVE_PATH
 from fast_trade.ml.hmm_screen import normalize_config
 
 
 COINBASE_BASE_URL = "https://api.exchange.coinbase.com"
 HYPERLIQUID_INFO_URL = "https://api.hyperliquid.xyz/info"
+OHLCV_COLUMNS = ["open", "high", "low", "close", "volume"]
 
 
 def utc_now() -> dt.datetime:
     return dt.datetime.now(dt.timezone.utc)
 
 
-def _ensure_ohlcv(df: pd.DataFrame) -> pd.DataFrame:
-    if df is None or df.empty:
-        return pd.DataFrame()
-    out = df.copy()
-    if "date" in out.columns:
-        out["date"] = pd.to_datetime(out["date"], utc=True)
-        out = out.set_index("date")
-    out.index = pd.to_datetime(out.index, utc=True)
-    out = out.sort_index()
-    required = ["open", "high", "low", "close", "volume"]
-    missing = [col for col in required if col not in out.columns]
+def _empty_ohlcv() -> pl.DataFrame:
+    return pl.DataFrame(
+        schema={"date": pl.Datetime(time_zone="UTC"), **{name: pl.Float64 for name in OHLCV_COLUMNS}}
+    )
+
+
+def _safe_read_parquet(path: str) -> Optional[pl.DataFrame]:
+    try:
+        return pl.read_parquet(path)
+    except Exception:
+        return None
+
+
+def _date_expression(df: pl.DataFrame) -> pl.Expr:
+    dtype = df.schema["date"]
+    column = pl.col("date")
+    if dtype.is_integer():
+        values = df["date"].drop_nulls()
+        maximum = abs(float(values.max() or 0))
+        unit = "ms" if maximum >= 100_000_000_000 else "s"
+        return pl.from_epoch(column.cast(pl.Int64), time_unit=unit).dt.replace_time_zone("UTC")
+    if dtype == pl.Date:
+        return column.cast(pl.Datetime).dt.replace_time_zone("UTC")
+    if isinstance(dtype, pl.Datetime):
+        if dtype.time_zone:
+            return column.dt.convert_time_zone("UTC")
+        return column.dt.replace_time_zone("UTC")
+    return column.cast(pl.String).str.to_datetime(strict=False, time_zone="UTC")
+
+
+def _ensure_ohlcv(df: pl.DataFrame) -> pl.DataFrame:
+    if df is None or not isinstance(df, pl.DataFrame) or df.is_empty():
+        return _empty_ohlcv()
+    if "date" not in df.columns:
+        raise ValueError("OHLCV requires an explicit date column")
+    missing = [col for col in OHLCV_COLUMNS if col not in df.columns]
     if missing:
         raise ValueError(f"OHLCV missing columns: {missing}")
-    return out[required].astype(float)
+    return (
+        df.with_columns(_date_expression(df).alias("date"))
+        .with_columns([pl.col(name).cast(pl.Float64, strict=False).alias(name) for name in OHLCV_COLUMNS])
+        .drop_nulls(["date", *OHLCV_COLUMNS])
+        .unique(subset=["date"], keep="last")
+        .sort("date")
+        .select("date", *OHLCV_COLUMNS)
+    )
+
+
+def _polars_duration(freq: str) -> str:
+    value = str(freq).strip()
+    match = re.fullmatch(r"(\d+)\s*([A-Za-z]+)", value)
+    if not match:
+        return value.lower()
+    amount, unit = match.groups()
+    units = {
+        "s": "s",
+        "sec": "s",
+        "second": "s",
+        "min": "m",
+        "t": "m",
+        "m": "m",
+        "h": "h",
+        "hour": "h",
+        "d": "d",
+        "day": "d",
+        "w": "w",
+        "week": "w",
+        "mo": "mo",
+        "month": "mo",
+    }
+    return f"{amount}{units.get(unit.lower(), unit.lower())}"
 
 
 def load_archive_candles(
@@ -44,7 +103,7 @@ def load_archive_candles(
     exchange: str,
     lookback_days: int = 260,
     freq: str = "1D",
-) -> pd.DataFrame:
+) -> pl.DataFrame:
     """Load local archive candles without auto-downloading."""
     parquet_path = os.path.join(ARCHIVE_PATH, exchange, f"{symbol}.parquet")
     if not os.path.exists(parquet_path):
@@ -53,25 +112,24 @@ def load_archive_candles(
             "Run `ft download` first or pass live=True."
         )
     df = _safe_read_parquet(parquet_path)
-    if df is None or df.empty:
+    if df is None or df.is_empty():
         raise RuntimeError(f"Archive parquet unreadable or empty: {parquet_path}")
     df = _ensure_ohlcv(df)
     if lookback_days:
         start = utc_now() - dt.timedelta(days=int(lookback_days))
-        df = df[df.index >= start]
+        df = df.filter(pl.col("date") >= start)
     if freq:
         df = (
-            df.resample(freq)
+            df.group_by_dynamic("date", every=_polars_duration(freq))
             .agg(
-                {
-                    "open": "first",
-                    "high": "max",
-                    "low": "min",
-                    "close": "last",
-                    "volume": "sum",
-                }
+                pl.col("open").first(),
+                pl.col("high").max(),
+                pl.col("low").min(),
+                pl.col("close").last(),
+                pl.col("volume").sum(),
             )
-            .dropna()
+            .drop_nulls(OHLCV_COLUMNS)
+            .sort("date")
         )
     return df
 
@@ -113,7 +171,7 @@ def fetch_coinbase_candles(
     granularity: int = 86400,
     cache_dir: Optional[Path] = None,
     cache_max_age_hours: float = 6.0,
-) -> pd.DataFrame:
+) -> pl.DataFrame:
     cache_dir = Path(cache_dir or "ft_archive/screen_cache/coinbase")
     cache_path = _candle_cache_path(
         cache_dir, product_id, "1d" if granularity == 86400 else f"{granularity}s"
@@ -121,8 +179,9 @@ def fetch_coinbase_candles(
     if cache_path.exists():
         age_hours = (time.time() - cache_path.stat().st_mtime) / 3600
         if age_hours <= cache_max_age_hours:
-            cached = pd.read_parquet(cache_path)
-            return _ensure_ohlcv(cached)
+            cached = _safe_read_parquet(str(cache_path))
+            if cached is not None:
+                return _ensure_ohlcv(cached)
 
     cache_dir.mkdir(parents=True, exist_ok=True)
     end = utc_now().replace(minute=0, second=0, microsecond=0)
@@ -148,11 +207,13 @@ def fetch_coinbase_candles(
     if not candles:
         raise RuntimeError(f"No candles returned for {product_id}")
 
-    df = pd.DataFrame(candles, columns=["date", "low", "high", "open", "close", "volume"])
-    df = df.drop_duplicates(subset=["date"]).sort_values("date")
-    df["date"] = pd.to_datetime(df["date"], unit="s", utc=True)
-    df = df.set_index("date").astype(float)
-    df.to_parquet(cache_path)
+    df = pl.DataFrame(
+        candles,
+        schema=["date", "low", "high", "open", "close", "volume"],
+        orient="row",
+    ).with_columns(pl.from_epoch(pl.col("date").cast(pl.Int64), time_unit="s").dt.replace_time_zone("UTC"))
+    df = _ensure_ohlcv(df)
+    df.write_parquet(cache_path)
     return df
 
 
@@ -188,13 +249,15 @@ def fetch_hyperliquid_candles(
     interval: str = "1d",
     cache_dir: Optional[Path] = None,
     cache_max_age_hours: float = 6.0,
-) -> pd.DataFrame:
+) -> pl.DataFrame:
     cache_dir = Path(cache_dir or "ft_archive/screen_cache/hyperliquid")
     cache_path = _candle_cache_path(cache_dir, coin, interval)
     if cache_path.exists():
         age_hours = (time.time() - cache_path.stat().st_mtime) / 3600
         if age_hours <= cache_max_age_hours:
-            return _ensure_ohlcv(pd.read_parquet(cache_path))
+            cached = _safe_read_parquet(str(cache_path))
+            if cached is not None:
+                return _ensure_ohlcv(cached)
 
     cache_dir.mkdir(parents=True, exist_ok=True)
     end_ms = int(utc_now().timestamp() * 1000)
@@ -213,8 +276,8 @@ def fetch_hyperliquid_candles(
     if not candles:
         raise RuntimeError(f"No candles returned for {coin}")
 
-    df = pd.DataFrame(candles).rename(
-        columns={
+    df = pl.DataFrame(candles).rename(
+        {
             "t": "date",
             "o": "open",
             "h": "high",
@@ -224,13 +287,12 @@ def fetch_hyperliquid_candles(
             "n": "trades",
         }
     )
-    df["date"] = pd.to_datetime(df["date"], unit="ms", utc=True)
-    df = df.set_index("date").sort_index()
-    for col in ["open", "high", "low", "close", "volume"]:
-        df[col] = pd.to_numeric(df[col], errors="coerce")
-    df = df.dropna(subset=["open", "high", "low", "close", "volume"])
-    df.to_parquet(cache_path)
-    return df[["open", "high", "low", "close", "volume"]]
+    df = df.with_columns(
+        pl.from_epoch(pl.col("date").cast(pl.Int64), time_unit="ms").dt.replace_time_zone("UTC")
+    )
+    df = _ensure_ohlcv(df)
+    df.write_parquet(cache_path)
+    return df
 
 
 def _local_archive_symbols(exchange: str) -> List[str]:
@@ -300,14 +362,14 @@ def load_universe(config: Mapping[str, Any]) -> List[Dict[str, Any]]:
                         lookback_days=settings["lookback_days"],
                         freq=settings["freq"],
                     )
-                    if "price" not in meta and not df.empty:
-                        meta["price"] = float(df["close"].iloc[-1])
+                    if "price" not in meta and not df.is_empty():
+                        meta["price"] = float(df["close"][-1])
             except Exception as exc:
                 series.append(
                     {
                         "symbol": symbol,
                         "exchange": exchange,
-                        "df": pd.DataFrame(),
+                        "df": _empty_ohlcv(),
                         "meta": {**meta, "load_error": str(exc)},
                     }
                 )
@@ -345,15 +407,15 @@ def load_universe(config: Mapping[str, Any]) -> List[Dict[str, Any]]:
                     lookback_days=settings["lookback_days"],
                     freq=settings["freq"],
                 )
-                if "price" not in meta and not df.empty:
-                    meta["price"] = float(df["close"].iloc[-1])
-                    meta["quote_volume_24h"] = float(df["close"].iloc[-1] * df["volume"].iloc[-1])
+                if "price" not in meta and not df.is_empty():
+                    meta["price"] = float(df["close"][-1])
+                    meta["quote_volume_24h"] = float(df["close"][-1] * df["volume"][-1])
         except Exception as exc:
             series.append(
                 {
                     "symbol": symbol,
                     "exchange": exchange,
-                    "df": pd.DataFrame(),
+                    "df": _empty_ohlcv(),
                     "meta": {**meta, "load_error": str(exc)},
                 }
             )

@@ -3,9 +3,20 @@ import json
 import os
 from typing import Dict, List, Optional, Tuple, Union
 
-import pandas as pd
+import polars as pl
 
-from fast_trade.archive.db_helpers import _atomic_write_parquet, _safe_read_parquet
+
+def _atomic_write_parquet(df: pl.DataFrame, path: str) -> None:
+    tmp_path = path + ".tmp"
+    df.write_parquet(tmp_path)
+    os.replace(tmp_path, path)
+
+
+def _safe_read_parquet(path: str) -> Optional[pl.DataFrame]:
+    try:
+        return pl.read_parquet(path)
+    except Exception:
+        return None
 
 
 def portfolio_paths(name: str, archive_path: Optional[str] = None) -> Dict[str, str]:
@@ -58,16 +69,16 @@ def append_log(path: str, record: Union[str, dict]) -> None:
 def append_trades(trades_path: str, rows: List[dict]) -> None:
     if not rows:
         return
-    df = pd.DataFrame(rows)
+    df = pl.DataFrame(rows)
     if os.path.exists(trades_path):
         existing = _safe_read_parquet(trades_path)
         if existing is None:
             merged = df
         else:
-            merged = pd.concat([existing, df]).reset_index(drop=True)
-        _atomic_write_parquet(merged, trades_path, index=False)
+            merged = pl.concat([existing, df], how="diagonal_relaxed")
+        _atomic_write_parquet(merged, trades_path)
     else:
-        _atomic_write_parquet(df, trades_path, index=False)
+        _atomic_write_parquet(df, trades_path)
 
 
 def apply_action(

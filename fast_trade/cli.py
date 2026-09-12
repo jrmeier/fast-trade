@@ -1,14 +1,16 @@
 import datetime
 import json
 import os
+import re
 import sys
 import time
 import subprocess
 import signal
 from pprint import pprint
+from types import SimpleNamespace
 from typing import Dict, List, Optional
 
-import pandas as pd
+import polars as pl
 import typer
 from rich import box
 from rich.console import Console
@@ -66,6 +68,43 @@ console = Console()
 EXCHANGE_CHOICES = ["binancecom", "binanceus", "coinbase"]
 ASSET_EXCHANGE_CHOICES = ["local", "binanceus", "binancecom", "coinbase"]
 SCREEN_EXCHANGE_CHOICES = ["coinbase", "binanceus", "binancecom", "hyperliquid"]
+
+
+def _normalize_date_column(df: pl.DataFrame) -> pl.DataFrame:
+    if "date" not in df.columns:
+        return df
+    dtype = df.schema["date"]
+    if dtype.is_integer():
+        values = df["date"].drop_nulls()
+        maximum = abs(float(values.max() or 0))
+        unit = "ms" if maximum >= 100_000_000_000 else "s"
+        expression = pl.from_epoch(pl.col("date").cast(pl.Int64), time_unit=unit)
+    elif dtype == pl.Date:
+        expression = pl.col("date").cast(pl.Datetime)
+    elif isinstance(dtype, pl.Datetime):
+        return df
+    else:
+        expression = pl.col("date").cast(pl.String).str.to_datetime(strict=False)
+    return df.with_columns(expression.alias("date"))
+
+
+def _frequency_timedelta(freq: str) -> datetime.timedelta:
+    match = re.fullmatch(r"\s*(\d+)\s*([A-Za-z]+)\s*", str(freq))
+    if not match:
+        raise ValueError(f"Unsupported frequency: {freq}")
+    amount = int(match.group(1))
+    unit = match.group(2).lower()
+    if unit in {"s", "sec", "second", "seconds"}:
+        return datetime.timedelta(seconds=amount)
+    if unit in {"m", "min", "minute", "minutes", "t"}:
+        return datetime.timedelta(minutes=amount)
+    if unit in {"h", "hour", "hours"}:
+        return datetime.timedelta(hours=amount)
+    if unit in {"d", "day", "days"}:
+        return datetime.timedelta(days=amount)
+    if unit in {"w", "week", "weeks"}:
+        return datetime.timedelta(weeks=amount)
+    raise ValueError(f"Unsupported frequency: {freq}")
 
 
 def _apply_mods(strategy: Dict, mods: Optional[List[str]]) -> Dict:
@@ -270,11 +309,10 @@ def backtest(
             db_path = os.path.join(archive_path, exchange, f"{symbol}.parquet")
             if os.path.exists(db_path):
                 try:
-                    df = pd.read_parquet(db_path)
-                    if "date" in df.columns:
-                        df = df.set_index("date")
-                    df.index = pd.to_datetime(df.index)
-                    latest = df.index.max()
+                    df = _normalize_date_column(pl.read_parquet(db_path))
+                    latest = df["date"].max()
+                    if isinstance(latest, datetime.datetime) and latest.tzinfo is None:
+                        latest = latest.replace(tzinfo=datetime.timezone.utc)
                     if latest:
                         start_val = latest
                 except Exception:
@@ -519,16 +557,14 @@ def migrate_backtests_cmd(
             try:
                 if os.path.exists(df_db) and not os.path.exists(df_parquet):
                     con = connect_to_db(df_db)
-                    df = pd.read_sql_query("SELECT * FROM dataframe", con)
-                    if "date" in df.columns:
-                        df = df.set_index("date")
-                    df.to_parquet(df_parquet, index=True)
+                    df = _normalize_date_column(pl.read_database("SELECT * FROM dataframe", con))
+                    con.close()
+                    df.write_parquet(df_parquet)
                 if os.path.exists(trade_db) and not os.path.exists(trade_parquet):
                     con = connect_to_db(trade_db)
-                    df = pd.read_sql_query("SELECT * FROM trade_log", con)
-                    if "date" in df.columns:
-                        df = df.set_index("date")
-                    df.to_parquet(trade_parquet, index=True)
+                    df = _normalize_date_column(pl.read_database("SELECT * FROM trade_log", con))
+                    con.close()
+                    df.write_parquet(trade_parquet)
                 if os.path.exists(summary_json) and not os.path.exists(summary_yml):
                     with open(summary_json, "r") as fh:
                         summary = json.load(fh)
@@ -603,10 +639,7 @@ def regime_train_cmd(
     out: str = typer.Option("regime_model.pkl", "--out", help="Output model path"),
 ):
     cfg = _load_json_or_yaml(config)
-    df = pd.read_csv(data_path)
-    if "date" in df.columns:
-        df["date"] = pd.to_datetime(df["date"])
-        df = df.set_index("date")
+    df = _normalize_date_column(pl.read_csv(data_path, try_parse_dates=True))
     model = train_regime_model(df, cfg)
     save_regime_model(model, out)
     console.print(f"[green]Saved[/green] regime model to [bold]{out}[/bold]")
@@ -619,12 +652,9 @@ def regime_apply_cmd(
     out: str = typer.Option("regime_output.csv", "--out", help="Output CSV path"),
 ):
     model = load_regime_model(model_path)
-    df = pd.read_csv(data_path)
-    if "date" in df.columns:
-        df["date"] = pd.to_datetime(df["date"])
-        df = df.set_index("date")
+    df = _normalize_date_column(pl.read_csv(data_path, try_parse_dates=True))
     res = apply_regime_model(df, model)
-    res.to_csv(out)
+    res.write_csv(out)
     console.print(f"[green]Saved[/green] regime output to [bold]{out}[/bold]")
 
 
@@ -719,12 +749,8 @@ def _load_backtest_run(backtests_path: str, run_id: str):
 
     trade_path = os.path.join(run_path, "trade_log.parquet")
     df_path = os.path.join(run_path, "dataframe.parquet")
-    trade_df = pd.read_parquet(trade_path) if os.path.exists(trade_path) else None
-    df = pd.read_parquet(df_path) if os.path.exists(df_path) else None
-    if trade_df is not None and "date" in trade_df.columns:
-        trade_df = trade_df.set_index("date")
-    if df is not None and "date" in df.columns:
-        df = df.set_index("date")
+    trade_df = _normalize_date_column(pl.read_parquet(trade_path)) if os.path.exists(trade_path) else None
+    df = _normalize_date_column(pl.read_parquet(df_path)) if os.path.exists(df_path) else None
 
     return run_path, summary, trade_df, df
 
@@ -759,20 +785,21 @@ def _max_datapoint_periods(backtest: dict) -> int:
     return max_period
 
 
-def _load_latest_ohlcv(exchange: str, symbol: str, lookback_rows: int) -> pd.DataFrame:
+def _load_latest_ohlcv(exchange: str, symbol: str, lookback_rows: int) -> pl.DataFrame:
     archive_path = os.getenv("ARCHIVE_PATH", "ft_archive")
     path = os.path.join(archive_path, exchange, f"{symbol}.parquet")
     if not os.path.exists(path):
         raise FileNotFoundError(f"Archive not found: {path}")
-    from fast_trade.archive.db_helpers import _safe_read_parquet, get_kline
+    from fast_trade.archive.db_helpers import get_kline
 
-    df = _safe_read_parquet(path)
-    if df is None:
+    try:
+        df = pl.read_parquet(path)
+    except Exception:
         # parquet was corrupted; it has been removed. Rebuild from source.
         df = get_kline(symbol, exchange, freq="1Min")
-    if "date" in df.columns:
-        df = df.set_index("date")
-    df.index = pd.to_datetime(df.index)
+    if not isinstance(df, pl.DataFrame):
+        raise TypeError("Archive loader must return a Polars DataFrame")
+    df = _normalize_date_column(df).sort("date")
     if lookback_rows and len(df) > lookback_rows:
         df = df.tail(lookback_rows)
     return df
@@ -890,7 +917,7 @@ def portfolio_start_cmd(
     strategy_obj["symbol"] = symbol
     exchange = strategy_obj.get("exchange", "coinbase")
     freq = strategy_obj.get("freq", "1Min")
-    interval = pd.Timedelta(freq)
+    interval = _frequency_timedelta(freq)
     lookback = max(200, _max_datapoint_periods(strategy_obj) + 10)
 
     base_balance = float(strategy_obj.get("base_balance", 10000))
@@ -971,20 +998,20 @@ def portfolio_start_cmd(
             console.print(f"[red]{msg}[/red]")
             return
 
-        if df.empty:
+        if df.is_empty():
             msg = f"{datetime.datetime.utcnow().isoformat()} | WARN | empty_df"
             _append_portfolio_log(paths["log"], msg)
             console.print(f"[yellow]{msg}[/yellow]")
             return
 
         df = prepare_df(df, strategy_obj)
-        if df.empty:
+        if df.is_empty():
             msg = f"{datetime.datetime.utcnow().isoformat()} | WARN | empty_df_after_prepare"
             _append_portfolio_log(paths["log"], msg)
             console.print(f"[yellow]{msg}[/yellow]")
             return
 
-        frames = list(df.tail(10).itertuples())
+        frames = [SimpleNamespace(**row) for row in df.tail(10).iter_rows(named=True)]
         if not frames:
             msg = f"{datetime.datetime.utcnow().isoformat()} | WARN | no_frames"
             _append_portfolio_log(paths["log"], msg)
@@ -994,7 +1021,7 @@ def portfolio_start_cmd(
         last_frames = list(reversed(frames))
         action = determine_action_compiled(frame, compiled_action_logic, last_frames=last_frames)
 
-        last_ts = df.index[-1]
+        last_ts = df["date"][-1]
         last_price = float(getattr(frame, "close", 0.0))
         state["last_price"] = last_price
         state["last_data_ts"] = str(last_ts)

@@ -1,12 +1,13 @@
 """Focused tests for remaining CLI / helper coverage gaps."""
 
+import datetime
 import json
 import os
 import sqlite3
 import sys
 from unittest import mock
 
-import pandas as pd
+import polars as pl
 import pytest
 import typer
 import yaml
@@ -129,14 +130,14 @@ def test_migrate_backtests_all_branches(cli_runner, archive_env, backtest_run, s
 
     df_db = run_dir / "dataframe.db"
     con = sqlite3.connect(df_db)
-    pd.DataFrame({"open": [1], "high": [1], "low": [1], "close": [1], "volume": [1]}).to_sql(
-        "dataframe", con, index=False
-    )
+    con.execute("CREATE TABLE dataframe (open REAL, high REAL, low REAL, close REAL, volume REAL)")
+    con.execute("INSERT INTO dataframe VALUES (1, 1, 1, 1, 1)")
     con.close()
 
     trade_db = run_dir / "trade_log.db"
     con2 = sqlite3.connect(trade_db)
-    pd.DataFrame({"close": [1.0], "in_trade": [True]}).to_sql("trade_log", con2, index=False)
+    con2.execute("CREATE TABLE trade_log (close REAL, in_trade INTEGER)")
+    con2.execute("INSERT INTO trade_log VALUES (1, 1)")
     con2.close()
 
     (run_dir / "summary.json").write_text(json.dumps(summary))
@@ -158,9 +159,8 @@ def test_migrate_archive_skips_non_dirs(cli_runner, archive_env, tmp_path, monke
     ex = archive_env / "binanceus"
     sqlite_path = ex / "ETHUSDT.sqlite"
     con = sqlite3.connect(sqlite_path)
-    pd.DataFrame({"date": ["2024-01-01"], "open": [1], "high": [1], "low": [1], "close": [1], "volume": [1]}).to_sql(
-        "kline", con, index=False
-    )
+    con.execute("CREATE TABLE kline (date TEXT, open REAL, high REAL, low REAL, close REAL, volume REAL)")
+    con.execute("INSERT INTO kline VALUES ('2024-01-01', 1, 1, 1, 1, 1)")
     con.close()
     assert _invoke(cli_runner, ["migrate_archive"]).exit_code == 0
 
@@ -186,10 +186,13 @@ def test_max_datapoint_periods():
 
 def test_load_backtest_run_date_columns(archive_env, backtest_run, sample_ohlcv):
     run_id, run_dir, _ = backtest_run
-    df = sample_ohlcv.head(5).reset_index()
-    df.to_parquet(run_dir / "dataframe.parquet", index=False)
-    trade = pd.DataFrame({"date": df["date"], "close": [1.0] * len(df), "in_trade": [True] * len(df)})
-    trade.to_parquet(run_dir / "trade_log.parquet", index=False)
+    df = sample_ohlcv.head(5)
+    df.write_parquet(run_dir / "dataframe.parquet")
+    trade = df.select("date").with_columns(
+        pl.lit(1.0).alias("close"),
+        pl.lit(True).alias("in_trade"),
+    )
+    trade.write_parquet(run_dir / "trade_log.parquet")
 
     _, summary, trade_df, df_out = cli_mod._load_backtest_run(str(archive_env / "backtests"), run_id)
     assert summary["return_perc"] == 12.5
@@ -230,8 +233,7 @@ def test_load_backtest_summary_yaml_write_failure(archive_env, tmp_path):
 
 def test_load_latest_ohlcv_date_column(archive_env, sample_ohlcv):
     path = archive_env / "coinbase" / "ETH-USD.parquet"
-    df = sample_ohlcv.head(10).reset_index()
-    df.to_parquet(path, index=False)
+    sample_ohlcv.head(10).write_parquet(path)
     out = cli_mod._load_latest_ohlcv("coinbase", "ETH-USD", 5)
     assert len(out) == 5
 
@@ -355,16 +357,15 @@ def test_portfolio_default_name_and_once_daemon(cli_runner, strategy_file, archi
         _invoke(cli_runner, ["portfolio", "start", str(strategy_file)])
 
 def test_portfolio_no_frames_path(cli_runner, strategy_file, archive_env, monkeypatch):
-    df = pd.DataFrame({"close": [1.0]}, index=pd.date_range("2024-01-01", periods=1, freq="min"))
+    df = pl.DataFrame({"date": [datetime.datetime(2024, 1, 1)], "close": [1.0]})
 
     class EmptyTail:
         def tail(self, n):
-            return pd.DataFrame()
+            return pl.DataFrame()
 
     df_mock = mock.Mock()
-    df_mock.empty = False
+    df_mock.is_empty.return_value = False
     df_mock.tail = EmptyTail().tail
-    df_mock.index = df.index
 
     monkeypatch.setattr(cli_mod, "_load_latest_ohlcv", lambda *a, **k: df)
     monkeypatch.setattr(cli_mod, "prepare_df", lambda d, s: df_mock)
@@ -396,9 +397,8 @@ def test_migrate_backtests_trade_with_date(cli_runner, archive_env):
     (run_dir / "summary.yml").write_text("return_perc: 1\n")
     trade_db = run_dir / "trade_log.db"
     con = sqlite3.connect(trade_db)
-    pd.DataFrame(
-        {"date": ["2024-01-01"], "close": [1.0], "in_trade": [True]}
-    ).to_sql("trade_log", con, index=False)
+    con.execute("CREATE TABLE trade_log (date TEXT, close REAL, in_trade INTEGER)")
+    con.execute("INSERT INTO trade_log VALUES ('2024-01-01', 1, 1)")
     con.close()
     assert _invoke(cli_runner, ["migrate_backtests"]).exit_code == 0
 
@@ -426,10 +426,8 @@ def test_cli_and_ftv_main_lines():
         ftv_main.assert_called_once()
 
 def test_render_plot_preview_from_data_x_oob(capsys, sample_ohlcv):
-    df = sample_ohlcv.head(9).reset_index(drop=True)
-    df.index = pd.date_range("2020-01-01", periods=len(df), freq="h")
-    idx = df.index[-1]
-    trade_df = pd.DataFrame({"close": [df.loc[idx, "close"]], "in_trade": [True]}, index=[idx])
+    df = sample_ohlcv.head(9)
+    trade_df = df.tail(1).select("date", "close").with_columns(pl.lit(True).alias("in_trade"))
     render_plot_preview_from_data(df, trade_df, width=2, height=4)
     assert capsys.readouterr().out
 
@@ -532,14 +530,14 @@ def test_migrate_backtests_sqlite_without_parquet(cli_runner, archive_env, sampl
 
     df_db = run_dir / "dataframe.db"
     con = sqlite3.connect(df_db)
-    pd.DataFrame(
-        {"date": ["2024-01-01"], "open": [1], "high": [1], "low": [1], "close": [1], "volume": [1]}
-    ).to_sql("dataframe", con, index=False)
+    con.execute("CREATE TABLE dataframe (date TEXT, open REAL, high REAL, low REAL, close REAL, volume REAL)")
+    con.execute("INSERT INTO dataframe VALUES ('2024-01-01', 1, 1, 1, 1, 1)")
     con.close()
 
     trade_db = run_dir / "trade_log.db"
     con2 = sqlite3.connect(trade_db)
-    pd.DataFrame({"close": [1.0], "in_trade": [True]}).to_sql("trade_log", con2, index=False)
+    con2.execute("CREATE TABLE trade_log (close REAL, in_trade INTEGER)")
+    con2.execute("INSERT INTO trade_log VALUES (1, 1)")
     con2.close()
 
     assert _invoke(cli_runner, ["migrate_backtests", "--limit", "5"]).exit_code == 0
@@ -554,24 +552,14 @@ def test_parse_simple_yaml_empty_dash_item():
 
 def test_render_plot_preview_from_data_edge_cases(capsys, sample_ohlcv):
     df = sample_ohlcv.head(100)
-    trade_idx = df.index[-1]
-    trade_df = pd.DataFrame({"close": [df.loc[trade_idx, "close"]], "in_trade": [True]}, index=[trade_idx])
+    trade_df = df.tail(1).select("date", "close").with_columns(pl.lit(True).alias("in_trade"))
     render_plot_preview_from_data(df, trade_df, width=3, height=4)
     assert capsys.readouterr().out
 
-    class _CloseSeries:
-        @property
-        def values(self):
-            return []
-
-    class _FakeDF:
-        empty = False
-        columns = ["close"]
-
-        def __getitem__(self, key):
-            return _CloseSeries()
-
-    render_plot_preview_from_data(_FakeDF(), None)
+    render_plot_preview_from_data(
+        pl.DataFrame(schema={"date": pl.Datetime, "close": pl.Float64}),
+        None,
+    )
 
 def test_render_plot_preview_inner_exception(tmp_path, capsys):
     try:
@@ -631,8 +619,7 @@ def test_cli_name_main_guard():
 
 def test_render_plot_preview_from_data_trade_oob(capsys, sample_ohlcv):
     df = sample_ohlcv.head(200)
-    early_idx = df.index[5]
-    trade_df = pd.DataFrame({"close": [df.loc[early_idx, "close"]], "in_trade": [True]}, index=[early_idx])
+    trade_df = df.slice(5, 1).select("date", "close").with_columns(pl.lit(True).alias("in_trade"))
     render_plot_preview_from_data(df, trade_df, width=2, height=4)
     assert capsys.readouterr().out
 

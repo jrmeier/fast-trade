@@ -4,7 +4,7 @@ import json
 import os
 import re
 
-import pandas as pd
+import polars as pl
 import plotly.graph_objects as go
 import requests
 
@@ -148,25 +148,25 @@ def open_strat_file(fp):
         raise MissingStrategyFile("Could not open strategy file at path: {}".format(fp))
 
 
-def create_plot(df, trade_df, show: bool = True):
+def create_plot(df: pl.DataFrame, trade_df: pl.DataFrame, show: bool = True):
     fig = go.Figure()
     if "close" in df.columns:
         fig.add_trace(
             go.Scatter(
-                x=df.index,
-                y=df["close"],
+                x=df["date"].to_list(),
+                y=df["close"].to_list(),
                 mode="lines",
                 name="close",
                 line=dict(color="#6EE7B7", width=1),
             )
         )
 
-    if trade_df is not None and not trade_df.empty and "close" in trade_df.columns:
-        colors = ["#22C55E" if row["in_trade"] else "#EF4444" for _, row in trade_df.iterrows()]
+    if trade_df is not None and not trade_df.is_empty() and "close" in trade_df.columns:
+        colors = ["#22C55E" if value else "#EF4444" for value in trade_df["in_trade"].to_list()]
         fig.add_trace(
             go.Scatter(
-                x=trade_df.index,
-                y=trade_df["close"],
+                x=trade_df["date"].to_list(),
+                y=trade_df["close"].to_list(),
                 mode="markers",
                 name="trades",
                 marker=dict(size=6, color=colors),
@@ -188,9 +188,9 @@ def create_plot(df, trade_df, show: bool = True):
 
 
 def render_plot_preview_from_data(df, trade_df, width: int = 80, height: int = 12) -> None:
-    if df is None or df.empty or "close" not in df.columns:
+    if df is None or not isinstance(df, pl.DataFrame) or df.is_empty() or "close" not in df.columns:
         return
-    series = df["close"].values
+    series = df["close"].to_numpy()
     if len(series) == 0:
         return
 
@@ -210,15 +210,14 @@ def render_plot_preview_from_data(df, trade_df, width: int = 80, height: int = 1
         grid[y][x] = "#"
 
     # mark trades if available
-    if trade_df is not None and not trade_df.empty and "close" in trade_df.columns:
-        trade_series = trade_df["close"].values
-        trade_idx = trade_df.index
+    if trade_df is not None and not trade_df.is_empty() and "close" in trade_df.columns:
+        trade_series = trade_df["close"].to_numpy()
+        trade_dates = trade_df["date"].to_list()
+        positions = {value: index for index, value in enumerate(df["date"].to_list())}
         # map trade points to sampled x positions
-        for idx, val in zip(trade_idx, trade_series):
-            # approximate position by index in df
-            try:
-                pos = df.index.get_loc(idx)
-            except Exception:
+        for date, val in zip(trade_dates, trade_series):
+            pos = positions.get(date)
+            if pos is None:
                 continue
             x = int(pos / step)
             if x < 0 or x >= len(sampled):
@@ -266,12 +265,8 @@ def save(result, save_all: bool = False):
             summary_file.write(json.dumps(result["summary"], indent=2))
 
     if save_all:
-        result["df"].to_parquet(
-            f"{new_save_dir}/dataframe.parquet", index=True
-        )
-        result["trade_df"].to_parquet(
-            f"{new_save_dir}/trade_log.parquet", index=True
-        )
+        result["df"].write_parquet(f"{new_save_dir}/dataframe.parquet")
+        result["trade_df"].write_parquet(f"{new_save_dir}/trade_log.parquet")
 
     # plot
     fig = create_plot(result["df"], result["trade_df"], show=False)
