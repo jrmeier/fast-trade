@@ -53,7 +53,7 @@ def test_summarize_time_held():
 def test_summarize_trade_perc():
     mock_tl = create_mock_trade_log()
     mock_tl = mock_tl.with_columns(
-        pl.Series("adj_account_value_change_perc", [0, 0.1, 0.4, 0.20, -0.30, 0.55, 0.4, 0.33, 0.54])
+        pl.Series("adj_account_value_change_perc", [0.0, 0.1, 0.4, 0.20, -0.30, 0.55, 0.4, 0.33, 0.54])
     )
 
     [
@@ -74,7 +74,7 @@ def test_summarize_trades():
     mock_total_trades = 100
     mock_tl = create_mock_trade_log()
     mock_tl = mock_tl.with_columns(
-        pl.Series("adj_account_value_change_perc", [0, 0.1, 0.4, 0.20, -0.30, 0.55, 0.4, 0.33, 0.54])
+        pl.Series("adj_account_value_change_perc", [0.0, 0.1, 0.4, 0.20, -0.30, 0.55, 0.4, 0.33, 0.54])
     )
 
     [total_trades, avg_trade_perc, avg_change] = summarize_trades(
@@ -94,7 +94,7 @@ def test_summarize_trades_no_trades():
     mock_total_trades = 0
     mock_tl = create_mock_trade_log()
     mock_tl = mock_tl.with_columns(
-        pl.Series("adj_account_value_change_perc", [0, 0.1, 0.4, 0.20, -0.30, 0.55, 0.4, 0.33, 0.54])
+        pl.Series("adj_account_value_change_perc", [0.0, 0.1, 0.4, 0.20, -0.30, 0.55, 0.4, 0.33, 0.54])
     )
 
     [total_trades, avg_trade_perc, avg_change] = summarize_trades(
