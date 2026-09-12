@@ -22,7 +22,7 @@ At a high level, it gives you:
 4. review saved runs with `ft backtests`
 5. optionally tail logs with `ft logs` or run a paper portfolio with `ft portfolio`
 
-The project uses pandas-based dataframes internally, parquet storage for archive data, and a CLI-first interface through `ft`.
+The project uses Polars dataframes internally, parquet storage for archive data, and a CLI-first interface through `ft`.
 
 ## Install
 
