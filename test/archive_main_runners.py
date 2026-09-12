@@ -7,14 +7,20 @@ import runpy
 import sys
 from unittest import mock
 
-import pandas as pd
+import polars as pl
 
 
 def _chunk_df():
-    ts = int(datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc).timestamp())
-    return pd.DataFrame(
-        {"low": [90], "high": [110], "open": [100], "close": [105], "volume": [1]},
-        index=pd.to_datetime([ts], unit="s"),
+    ts = datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc)
+    return pl.DataFrame(
+        {
+            "date": [ts.replace(tzinfo=None)],
+            "low": [90.0],
+            "high": [110.0],
+            "open": [100.0],
+            "close": [105.0],
+            "volume": [1.0],
+        }
     )
 
 
@@ -46,22 +52,23 @@ def run_db_helpers_main(archive_path: str) -> None:
     sys.modules.pop("fast_trade.archive.db_helpers", None)
     import os
 
-    import fast_trade.archive.db_helpers as db_helpers
-
     os.environ["ARCHIVE_PATH"] = archive_path
     exchange_dir = os.path.join(archive_path, "binanceus")
     os.makedirs(exchange_dir, exist_ok=True)
-    df = pd.DataFrame(
+    df = pl.DataFrame(
         {
+            "date": [
+                datetime.datetime(2024, 12, 12),
+                datetime.datetime(2024, 12, 20),
+            ],
             "open": [100.0, 101.0],
             "high": [110.0, 111.0],
             "low": [90.0, 91.0],
             "close": [105.0, 106.0],
             "volume": [1000.0, 1100.0],
-        },
-        index=pd.to_datetime(["2024-12-12", "2024-12-20"]),
+        }
     )
-    df.to_parquet(os.path.join(exchange_dir, "BTCUSDT.parquet"))
+    df.write_parquet(os.path.join(exchange_dir, "BTCUSDT.parquet"))
     runpy.run_module("fast_trade.archive.db_helpers", run_name="__main__")
 
 
@@ -70,7 +77,7 @@ def run_update_kline_main() -> None:
     import fast_trade.archive.coinbase_api as coinbase_api
 
     with mock.patch.object(
-        coinbase_api, "get_product_candles", return_value=(pd.DataFrame(), {})
+        coinbase_api, "get_product_candles", return_value=(pl.DataFrame(), {})
     ), mock.patch(
         "fast_trade.archive.db_helpers.update_klines_to_db",
         return_value="/tmp/BTC-USD.parquet",

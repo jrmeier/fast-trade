@@ -138,7 +138,7 @@ def migrate_sqlite_to_parquet(sqlite_path: str, parquet_path: str) -> None:
 
 def standardize_df(df: pl.DataFrame) -> pl.DataFrame:
     """Trim a kline frame down to the archive layout: date + OHLCV, sorted."""
-    new_df = ensure_date_column(df)
+    new_df = ensure_date_column(df).with_columns(pl.col(DATE_COL).cast(pl.Datetime("us")))
 
     new_df = new_df.sort(DATE_COL).unique(
         subset=[DATE_COL], keep="last", maintain_order=True

@@ -1,23 +1,26 @@
 import datetime
 from unittest import mock
 
-import pandas as pd
+import polars as pl
 import pytest
 
 from test.archive_main_runners import run_update_archive_main
 from fast_trade.archive import update_archive
 
 
-def _sample_df():
-    return pd.DataFrame(
+def _sample_df(dates=None):
+    if dates is None:
+        dates = [datetime.datetime(2024, 1, 1)]
+    n = len(dates)
+    return pl.DataFrame(
         {
-            "open": [100.0],
-            "high": [110.0],
-            "low": [90.0],
-            "close": [105.0],
-            "volume": [1000.0],
-        },
-        index=pd.to_datetime(["2024-01-01"]),
+            "date": dates,
+            "open": [100.0 + i for i in range(n)],
+            "high": [110.0 + i for i in range(n)],
+            "low": [90.0 + i for i in range(n)],
+            "close": [105.0 + i for i in range(n)],
+            "volume": [1000.0 + 100 * i for i in range(n)],
+        }
     )
 
 
@@ -31,9 +34,8 @@ def archive_path(tmp_path, monkeypatch):
 def test_update_single_archive_existing_parquet(archive_path):
     exchange_dir = archive_path / "binanceus"
     exchange_dir.mkdir(parents=True)
-    df = _sample_df()
-    df.index = pd.to_datetime(["2024-01-10"])
-    df.to_parquet(exchange_dir / "BTCUSDT.parquet")
+    df = _sample_df([datetime.datetime(2024, 1, 10)])
+    df.write_parquet(exchange_dir / "BTCUSDT.parquet")
 
     with mock.patch("fast_trade.archive.update_archive.update_kline") as update_mock:
         update_archive.update_single_archive("BTCUSDT", "binanceus")
@@ -41,13 +43,13 @@ def test_update_single_archive_existing_parquet(archive_path):
         kwargs = update_mock.call_args[1]
         assert kwargs["symbol"] == "BTCUSDT"
         assert kwargs["exchange"] == "binanceus"
-        assert kwargs["start_date"] == pd.to_datetime("2024-01-10")
+        assert kwargs["start_date"] == datetime.datetime(2024, 1, 10)
 
 
 def test_update_single_archive_symbol_already_has_extension(archive_path):
     exchange_dir = archive_path / "binanceus"
     exchange_dir.mkdir(parents=True)
-    _sample_df().to_parquet(exchange_dir / "BTCUSDT.parquet")
+    _sample_df().write_parquet(exchange_dir / "BTCUSDT.parquet")
 
     with mock.patch("fast_trade.archive.update_archive.update_kline") as update_mock:
         update_archive.update_single_archive("BTCUSDT.parquet", "binanceus")
@@ -89,28 +91,21 @@ def test_update_single_archive_read_exception(archive_path):
 def test_update_single_archive_existing_parquet_with_date_column(archive_path):
     exchange_dir = archive_path / "binanceus"
     exchange_dir.mkdir(parents=True)
-    df = pd.DataFrame(
-        {
-            "open": [100.0, 101.0],
-            "high": [110.0, 111.0],
-            "low": [90.0, 91.0],
-            "close": [105.0, 106.0],
-            "volume": [1000.0, 1100.0],
-            "date": pd.to_datetime(["2024-01-01", "2024-01-02"]),
-        }
+    df = _sample_df(
+        [datetime.datetime(2024, 1, 1), datetime.datetime(2024, 1, 2)]
     )
-    df.to_parquet(exchange_dir / "BTCUSDT.parquet", index=False)
+    df.write_parquet(exchange_dir / "BTCUSDT.parquet")
 
     with mock.patch("fast_trade.archive.update_archive.update_kline") as update_mock:
         update_archive.update_single_archive("BTCUSDT", "binanceus")
-        assert update_mock.call_args[1]["start_date"] == pd.to_datetime("2024-01-02")
+        assert update_mock.call_args[1]["start_date"] == datetime.datetime(2024, 1, 2)
 
 
 def test_update_archive_processes_symbols(archive_path):
     for exchange, symbol in [("binanceus", "BTCUSDT"), ("coinbase", "BTC-USD")]:
         exchange_dir = archive_path / exchange
         exchange_dir.mkdir(parents=True)
-        _sample_df().to_parquet(exchange_dir / f"{symbol}.parquet")
+        _sample_df().write_parquet(exchange_dir / f"{symbol}.parquet")
     (archive_path / "skip.txt").write_text("")
 
     with mock.patch("fast_trade.archive.update_archive.update_kline"), mock.patch(
@@ -125,7 +120,7 @@ def test_update_archive_processes_symbols(archive_path):
 def test_update_archive_skips_non_parquet_files(archive_path):
     exchange_dir = archive_path / "binanceus"
     exchange_dir.mkdir(parents=True)
-    _sample_df().to_parquet(exchange_dir / "BTCUSDT.parquet")
+    _sample_df().write_parquet(exchange_dir / "BTCUSDT.parquet")
     (exchange_dir / "notes.txt").write_text("skip")
 
     with mock.patch("fast_trade.archive.update_archive.update_kline"), mock.patch(
@@ -139,7 +134,7 @@ def test_update_archive_skips_non_parquet_files(archive_path):
 def test_update_archive_progress_callback_invalid_perc(archive_path):
     exchange_dir = archive_path / "binanceus"
     exchange_dir.mkdir(parents=True)
-    _sample_df().to_parquet(exchange_dir / "BTCUSDT.parquet")
+    _sample_df().write_parquet(exchange_dir / "BTCUSDT.parquet")
 
     def fake_update(symbol, exchange, progress_callback=None, **kwargs):
         if progress_callback:
@@ -154,7 +149,7 @@ def test_update_archive_progress_callback_invalid_perc(archive_path):
 def test_update_archive_raises_on_failure(archive_path):
     exchange_dir = archive_path / "binanceus"
     exchange_dir.mkdir(parents=True)
-    _sample_df().to_parquet(exchange_dir / "BTCUSDT.parquet")
+    _sample_df().write_parquet(exchange_dir / "BTCUSDT.parquet")
 
     with mock.patch(
         "fast_trade.archive.update_archive.update_kline",

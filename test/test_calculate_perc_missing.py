@@ -99,4 +99,4 @@ def test_calculate_perc_missing_never_returns_negative():
 
     # 5 rows inside a 3 minute range: more bars than expected, never negative
     assert total_missing == 0
-    assert perc_missing == -66.67
+    assert perc_missing == 0.0

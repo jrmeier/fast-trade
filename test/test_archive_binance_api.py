@@ -1,7 +1,7 @@
 import datetime
 from unittest import mock
 
-import pandas as pd
+import polars as pl
 import pytest
 
 from fast_trade.archive import binance_api
@@ -84,13 +84,21 @@ def test_get_oldest_date_available_fallback_on_error():
     assert result < datetime.datetime.utcnow()
 
 
-def test_binance_kline_to_df_drops_ignore_and_date():
+def test_binance_kline_to_df_drops_ignore_and_keeps_date():
     kline = _sample_kline(1_600_000_000_000)
     kline[-1] = "1"
     df = binance_api.binance_kline_to_df([kline])
     assert "ignore" not in df.columns
-    assert "date" not in df.columns
-    assert isinstance(df.index, pd.DatetimeIndex)
+    assert "date" in df.columns
+    assert isinstance(df.schema["date"], pl.Datetime)
+    assert df.height == 1
+
+
+def test_binance_kline_to_df_empty():
+    df = binance_api.binance_kline_to_df([])
+    assert df.is_empty()
+    assert "ignore" not in df.columns
+    assert "date" in df.columns
 
 
 def test_get_binance_klines_success_with_status_and_store():
@@ -122,7 +130,7 @@ def test_get_binance_klines_success_with_status_and_store():
     assert "api.binance.us/api/v3/klines" in url
     assert "symbol=BTCUSDT" in url
     assert "interval=1m" in url
-    assert not df.empty
+    assert not df.is_empty()
     assert status["perc_complete"] == 100
     assert len(status_updates) >= 1
 
@@ -161,7 +169,7 @@ def test_get_binance_klines_handles_non_200_error():
         get_mock.return_value = _mock_response(500, text="server error")
         df, _ = binance_api.get_binance_klines("BTCUSDT", start, end)
 
-    assert df.empty
+    assert df.is_empty()
 
 
 def test_get_binance_klines_handles_429_rate_limit():
@@ -179,7 +187,7 @@ def test_get_binance_klines_handles_429_rate_limit():
         df, status = binance_api.get_binance_klines("BTCUSDT", start, end)
 
     assert sleep_mock.called
-    assert not df.empty
+    assert not df.is_empty()
     assert status["perc_complete"] == 100
 
 
