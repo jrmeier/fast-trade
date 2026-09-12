@@ -244,6 +244,7 @@ def test_run_classifier_backtest_all_and_strategy_override():
     assert result.strategy["name"] == "custom_ml"
     assert len(result.df) >= result.fit.test_rows
 
+
 def test_time_split_purge_validation_errors():
     idx = pd.date_range("2024-01-01", periods=50, freq="1h", tz="UTC")
     with pytest.raises(ValueError, match="purge_bars"):
