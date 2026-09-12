@@ -2,7 +2,7 @@ import re
 
 import polars as pl
 
-from .logic_utils import frame_is_empty
+from .frames import is_empty
 from .transformers_map import transformers_map
 
 TRANSFORMER_GENERATED_KEYS = [
@@ -242,7 +242,7 @@ def validate_backtest_with_df(backtest: dict, df: pl.DataFrame) -> None:
     if errors.get("has_error"):
         raise Exception(errors)
 
-    if frame_is_empty(df):
+    if is_empty(df):
         raise Exception("Dataframe is empty. Check your data source.")
 
     errors = []
