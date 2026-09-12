@@ -1,7 +1,8 @@
 import re
 
-import pandas as pd
+import polars as pl
 
+from .logic_utils import frame_is_empty
 from .transformers_map import transformers_map
 
 TRANSFORMER_GENERATED_KEYS = [
@@ -236,12 +237,12 @@ def match_field_type_to_value(field):
     return field
 
 
-def validate_backtest_with_df(backtest: dict, df: pd.DataFrame) -> None:
+def validate_backtest_with_df(backtest: dict, df: pl.DataFrame) -> None:
     errors = validate_backtest(backtest)
     if errors.get("has_error"):
         raise Exception(errors)
 
-    if df.empty:
+    if frame_is_empty(df):
         raise Exception("Dataframe is empty. Check your data source.")
 
     errors = []
