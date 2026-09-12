@@ -277,6 +277,123 @@ def _summary_metrics(summary: Mapping[str, Any]) -> Tuple[float, int, float]:
     )
 
 
+def evaluate_fixed_split(
+    df: pd.DataFrame,
+    train_index: pd.Index,
+    test_index: pd.Index,
+    *,
+    horizon: int = 5,
+    threshold: float = 0.01,
+    use_ta: bool = True,
+    ta_datapoints: Optional[Sequence[Mapping[str, Any]]] = None,
+    include_basic: bool = True,
+    feature_columns: Optional[Sequence[str]] = None,
+    freq: str = "1h",
+    comission: float = 0.01,
+    random_state: int = 42,
+    baselines: Sequence[str] = ("buy_hold", "rsi", "random"),
+    fold: int = 0,
+) -> FoldMetrics:
+    """Train on ``train_index`` and backtest only ``test_index``.
+
+    Used for locked holdout confirmation: train on the search window, score
+    the holdout the search never saw.
+    """
+    baseline_set = set(baselines)
+    unknown = baseline_set - {"buy_hold", "rsi", "random"}
+    if unknown:
+        raise ValueError(f"Unknown baselines: {sorted(unknown)}")
+    if len(train_index) == 0 or len(test_index) == 0:
+        raise ValueError("train_index and test_index must be non-empty")
+
+    features, cols = build_feature_matrix(
+        df,
+        use_ta=use_ta,
+        ta_datapoints=ta_datapoints,
+        include_basic=include_basic,
+        feature_columns=feature_columns,
+    )
+    labels = label_forward_return(df["close"], horizon=horizon, threshold=threshold)
+    usable_feat = features.dropna()
+    if usable_feat.empty:
+        raise ValueError("No usable feature rows after dropping NaNs")
+
+    train_label_ok = train_index[:-horizon] if horizon > 0 else train_index
+    train_idx = train_label_ok.intersection(usable_feat.index)
+    test_idx = test_index.intersection(usable_feat.index)
+    y_train_full = labels.reindex(train_idx)
+    train_idx = train_idx[y_train_full.notna().to_numpy()]
+    if len(train_idx) < 20:
+        raise ValueError(f"Too few labeled train rows ({len(train_idx)})")
+    if len(test_idx) < 5:
+        raise ValueError(f"Too few test rows ({len(test_idx)})")
+
+    x_train = usable_feat.loc[train_idx, cols]
+    y_train = labels.loc[train_idx].astype(int)
+    if y_train.nunique() < 2:
+        raise ValueError("Training labels must include both classes; loosen threshold")
+
+    x_test = usable_feat.loc[test_idx, cols]
+    model = HistGradientBoostingClassifier(random_state=random_state + fold)
+    model.fit(x_train, y_train)
+    pred = predict_ml_signal(model, x_test, cols)
+
+    y_test = labels.reindex(test_idx)
+    labeled_test = y_test.dropna()
+    test_acc: Optional[float] = None
+    test_auc: Optional[float] = None
+    if not labeled_test.empty:
+        pred_labeled = pred.reindex(labeled_test.index)
+        test_acc = float(accuracy_score(labeled_test.astype(int), pred_labeled))
+        if hasattr(model, "predict_proba"):
+            proba = model.predict_proba(usable_feat.loc[labeled_test.index, cols])[:, 1]
+            test_auc = _safe_auc(labeled_test.astype(int).to_numpy(), proba)
+
+    ohlcv_test = df.loc[test_idx, ["open", "high", "low", "close", "volume"]]
+    ml_summary = _run_signal_backtest(ohlcv_test, pred, freq=freq, comission=comission)
+    ml_ret, ml_trades, ml_sharpe = _summary_metrics(ml_summary)
+    bh_ret = (
+        buy_hold_return_perc(ohlcv_test["close"]) if "buy_hold" in baseline_set else 0.0
+    )
+    if "rsi" in baseline_set:
+        rsi_summary = _rsi_baseline_summary(ohlcv_test, freq=freq, comission=comission)
+        rsi_ret, rsi_trades, _ = _summary_metrics(rsi_summary)
+    else:
+        rsi_ret, rsi_trades = 0.0, 0
+    if "random" in baseline_set:
+        pos_rate = float(pred.mean()) if len(pred) else 0.0
+        rand_sig = _random_signal(test_idx, pos_rate, seed=random_state + 1000 + fold)
+        rand_summary = _run_signal_backtest(
+            ohlcv_test, rand_sig, freq=freq, comission=comission
+        )
+        rand_ret, rand_trades, _ = _summary_metrics(rand_summary)
+    else:
+        rand_ret, rand_trades = 0.0, 0
+
+    return FoldMetrics(
+        fold=fold,
+        train_rows=len(train_idx),
+        test_rows=len(test_idx),
+        train_start=str(train_idx[0]),
+        train_end=str(train_idx[-1]),
+        test_start=str(test_idx[0]),
+        test_end=str(test_idx[-1]),
+        test_accuracy=test_acc,
+        test_roc_auc=test_auc,
+        ml_return_perc=ml_ret,
+        ml_num_trades=ml_trades,
+        ml_sharpe_ratio=ml_sharpe,
+        buy_hold_return_perc=bh_ret,
+        rsi_return_perc=rsi_ret,
+        rsi_num_trades=rsi_trades,
+        random_return_perc=rand_ret,
+        random_num_trades=rand_trades,
+        beats_buy_hold=ml_ret > bh_ret,
+        beats_rsi=ml_ret > rsi_ret,
+        beats_random=ml_ret > rand_ret,
+    )
+
+
 def walk_forward_evaluate(
     df: pd.DataFrame,
     *,
