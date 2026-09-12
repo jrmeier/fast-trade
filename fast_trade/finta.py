@@ -34,7 +34,13 @@ def _series_out(values: Any, name: Optional[str]) -> pl.Series:
     if isinstance(values, pl.Series):
         s = values
     else:
-        s = pl.Series("" if name is None else name, values)
+        arr = np.asarray(values)
+        if arr.dtype != object and arr.dtype.kind == "b":
+            s = pl.Series("" if name is None else name, arr)
+        else:
+            if arr.dtype.kind in "iufc" or arr.dtype == object:
+                arr = np.asarray(values, dtype=float)
+            s = pl.Series("" if name is None else name, arr, strict=False)
     if name is not None:
         s = s.alias(name)
     if s.dtype in (pl.Float32, pl.Float64):
@@ -1497,7 +1503,8 @@ class TA:
         for i in range(len(obv)):
             if no_change[i]:
                 obv[i] = obv[i - 1] if i > 0 else np.nan
-        return _series_out(np.cumsum(obv), "OBV")
+        # Skip leading NaN like pandas Series.cumsum(skipna=True)
+        return _series_out(np.nancumsum(obv), "OBV")
 
     @classmethod
     @inputvalidator(input_="ohlcv")

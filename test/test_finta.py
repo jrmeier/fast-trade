@@ -128,7 +128,7 @@ def test_polars_input_returns_polars(simple_ohlc):
     sma = TA.SMA(simple_ohlc, period=3)
     assert isinstance(sma, pl.Series)
     assert len(sma) == len(simple_ohlc)
-    assert sma[-1] == pytest.approx(11.0)
+    assert sma[-1] == pytest.approx((11.0 + 10.0 + 10.0) / 3)
 
     macd = TA.MACD(simple_ohlc, period_fast=3, period_slow=5, signal=2)
     assert isinstance(macd, pl.DataFrame)
