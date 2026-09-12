@@ -1,7 +1,5 @@
-from datetime import timedelta
 import numpy as np
-import pandas as pd
-
+import polars as pl
 
 ACTION_HOLD = 0
 ACTION_ENTER = 1
@@ -78,17 +76,30 @@ def _simulate_account_path(
     }
 
 
-def apply_logic_to_df(df: pd.DataFrame, backtest: dict, progress_callback=None):
+def append_exit_on_end_row(df: pl.DataFrame) -> pl.DataFrame:
+    """Duplicate the last bar one second later so the closing trade has a row."""
+    last_row = df.tail(1)
+
+    if "date" in df.columns:
+        if df.schema["date"].is_temporal():
+            last_row = last_row.with_columns(pl.col("date") + pl.duration(seconds=1))
+        else:
+            last_row = last_row.with_columns(pl.col("date") + 1)
+
+    return pl.concat([df, last_row], how="vertical")
+
+
+def apply_logic_to_df(df: pl.DataFrame, backtest: dict, progress_callback=None):
     """Analyzes the dataframe and runs sort of a market simulation, entering and exiting positions
 
     Parameters
     ----------
-        df, dataframe from process_dataframe after the actions have been added
+        df, polars dataframe from process_dataframe after the actions have been added
         backtest: dict, contains instructions on when to enter/exit trades
 
     Returns
     -------
-        df, returns a dataframe with the new rows processed
+        df, returns a dataframe with the new columns processed
 
     Explainer
     ---------
@@ -97,7 +108,6 @@ def apply_logic_to_df(df: pd.DataFrame, backtest: dict, progress_callback=None):
     calculations (datapoints/indicators) are made before this step and all the actions have been generated,
     meaning based on the datapoints alone, the action is determined.(see process_logic_and_action in run_backtest.py).
 
-
     At this point, the state of backtest is as follows:
         * datapoints/indicators ARE calculated
         * actions (enter, exit) ARE determined
@@ -105,7 +115,7 @@ def apply_logic_to_df(df: pd.DataFrame, backtest: dict, progress_callback=None):
     What is left is to apply the strategy to our dataframe so we can analyze the perfomance of our strategy. To do this,
     we need to keep track of our account balance and transactions.
 
-    This optimized version uses vectorized operations where possible for better performance.
+    The account path is simulated over numpy arrays extracted from the frame, then written back as columns.
     """
     # Try to use vectorized operations for better performance
     try:
@@ -115,8 +125,8 @@ def apply_logic_to_df(df: pd.DataFrame, backtest: dict, progress_callback=None):
         max_lot_size = backtest.get("max_lot_size")
 
         # Get action and close price arrays
-        actions = df["action"].values
-        close_prices = df["close"].values
+        actions = df["action"].to_numpy()
+        close_prices = df["close"].to_numpy().astype(float)
         action_codes = _encode_actions(actions)
         sim = _simulate_account_path(
             action_codes=action_codes,
@@ -135,19 +145,13 @@ def apply_logic_to_df(df: pd.DataFrame, backtest: dict, progress_callback=None):
         adj_account_value_array = sim["adj_account_value"]
 
         # Handle exit_on_end if needed
-        if backtest.get("exit_on_end") and in_trade_array[-1]:
-            # Create a new row for the exit
-            new_date = df.index[-1] + timedelta(seconds=1)
-            new_row = pd.DataFrame(data=[df.iloc[-1]], index=[new_date])
-
-            # Process the exit
+        if backtest.get("exit_on_end") and len(in_trade_array) and in_trade_array[-1]:
             close = close_prices[-1]
             new_base = round(aux_array[-1] * close, 8) if aux_array[-1] else 0.0
             fee = round(new_base * fee_rate, 8) if fee_rate and new_base else 0.0
             new_account_value = account_value_array[-1] + new_base - fee
 
-            # Add the new row to the dataframe
-            df = pd.concat([df, pd.DataFrame(data=new_row)])
+            df = append_exit_on_end_row(df)
 
             # Append values to arrays
             in_trade_array = np.append(in_trade_array, False)
@@ -159,15 +163,16 @@ def apply_logic_to_df(df: pd.DataFrame, backtest: dict, progress_callback=None):
                 adj_account_value_array, adj_account_value
             )
 
-        # Add columns to dataframe
-        df["aux"] = aux_array
-        df["account_value"] = account_value_array
-        df["adj_account_value"] = adj_account_value_array
-        df["in_trade"] = in_trade_array
-        df["fee"] = fee_array
+        df = df.with_columns(
+            pl.Series("aux", aux_array),
+            pl.Series("account_value", account_value_array),
+            pl.Series("adj_account_value", adj_account_value_array),
+            pl.Series("in_trade", in_trade_array),
+            pl.Series("fee", fee_array),
+        )
 
     except Exception:
-        # Fall back to original implementation if vectorized approach fails
+        # Fall back to row by row processing if the simulation kernel fails
         in_trade = False
         account_value = float(backtest.get("base_balance"))
         comission = float(backtest.get("comission"))
@@ -177,17 +182,18 @@ def apply_logic_to_df(df: pd.DataFrame, backtest: dict, progress_callback=None):
         new_account_value = account_value
 
         aux = 0.0
+        close = 0.0
         aux_list = []
         account_value_list = []
         in_trade_list = []
         fee_list = []
         adj_account_value_list = []
 
-        total_rows = len(df)
+        total_rows = df.height
         update_every = max(1, total_rows // 200)
-        for idx, row in enumerate(df.itertuples()):
-            close = row.close
-            curr_action = row.action
+        for idx, row in enumerate(df.iter_rows(named=True)):
+            close = row["close"]
+            curr_action = row["action"]
             fee = 0.0
 
             if curr_action in ["e", "ae"] and not in_trade:
@@ -225,25 +231,24 @@ def apply_logic_to_df(df: pd.DataFrame, backtest: dict, progress_callback=None):
             [in_trade, aux, new_account_value, fee] = exit_position(
                 account_value_list, close, aux, comission
             )
-            new_date = df.index[-1] + timedelta(seconds=1)
 
-            new_row = pd.DataFrame(data=[df.iloc[-1]], index=[new_date])
+            df = append_exit_on_end_row(df)
 
-            df = pd.concat([df, pd.DataFrame(data=new_row)])
-            aux_list.append(fee)
-
+            aux_list.append(aux)
             account_value_list.append(new_account_value)
             in_trade_list.append(in_trade)
             fee_list.append(fee)
-            adj_account_value = new_account_value + convert_aux_to_base(aux, close)
+            adj_account_value_list.append(
+                new_account_value + convert_aux_to_base(aux, close)
+            )
 
-            adj_account_value_list.append(adj_account_value)
-
-        df["aux"] = aux_list
-        df["account_value"] = account_value_list
-        df["adj_account_value"] = adj_account_value_list
-        df["in_trade"] = in_trade_list
-        df["fee"] = fee_list
+        df = df.with_columns(
+            pl.Series("aux", aux_list, dtype=pl.Float64),
+            pl.Series("account_value", account_value_list, dtype=pl.Float64),
+            pl.Series("adj_account_value", adj_account_value_list, dtype=pl.Float64),
+            pl.Series("in_trade", in_trade_list, dtype=pl.Boolean),
+            pl.Series("fee", fee_list, dtype=pl.Float64),
+        )
 
     return df
 
