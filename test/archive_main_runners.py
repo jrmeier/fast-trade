@@ -11,15 +11,15 @@ import polars as pl
 
 
 def _chunk_df():
-    ts = datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc)
+    ts = int(datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc).timestamp())
     return pl.DataFrame(
         {
-            "date": [ts.replace(tzinfo=None)],
-            "low": [90.0],
-            "high": [110.0],
-            "open": [100.0],
-            "close": [105.0],
-            "volume": [1.0],
+            "date": [datetime.datetime.utcfromtimestamp(ts)],
+            "low": [90],
+            "high": [110],
+            "open": [100],
+            "close": [105],
+            "volume": [1],
         }
     )
 
@@ -51,6 +51,8 @@ if __name__ == "__main__":
 def run_db_helpers_main(archive_path: str) -> None:
     sys.modules.pop("fast_trade.archive.db_helpers", None)
     import os
+
+    import fast_trade.archive.db_helpers as db_helpers
 
     os.environ["ARCHIVE_PATH"] = archive_path
     exchange_dir = os.path.join(archive_path, "binanceus")

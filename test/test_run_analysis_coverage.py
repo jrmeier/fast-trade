@@ -3,7 +3,7 @@
 from unittest import mock
 
 import numpy as np
-import pandas as pd
+import polars as pl
 import pytest
 
 from fast_trade.run_analysis import (
@@ -14,13 +14,12 @@ from fast_trade.run_analysis import (
 
 
 def _ohlcv():
-    df = pd.read_csv("./test/ohlcv_data.csv.txt").set_index("date")
-    df.index = pd.to_datetime(df.index, unit="s")
-    return df
+    return pl.read_csv("./test/ohlcv_data.csv.txt").with_columns(
+        pl.from_epoch(pl.col("date"), time_unit="s")
+    )
 
 
 def test_simulate_account_path_max_lot_size_and_progress():
-    actions = np.array(["e", "h", "x"])
     closes = np.array([10.0, 11.0, 12.0])
     progress = []
     sim = _simulate_account_path(
@@ -39,8 +38,7 @@ def test_simulate_account_path_max_lot_size_and_progress():
 
 
 def test_apply_logic_exit_on_end_with_fees_appends_row():
-    df = _ohlcv().iloc[:3].copy()
-    df["action"] = ["e", "h", "h"]
+    df = _ohlcv().head(3).with_columns(pl.Series("action", ["e", "h", "h"]))
     backtest = {
         "base_balance": 1000.0,
         "exit_on_end": True,
@@ -49,14 +47,13 @@ def test_apply_logic_exit_on_end_with_fees_appends_row():
         "max_lot_size": 0,
     }
     out = apply_logic_to_df(df, backtest)
-    assert len(out) == 4
-    assert out.iloc[-1]["in_trade"] == False
-    assert out.iloc[-1]["fee"] > 0
+    assert out.height == 4
+    assert out["in_trade"][-1] is False
+    assert out["fee"][-1] > 0
 
 
 def test_apply_logic_fallback_exit_on_end_and_progress():
-    df = _ohlcv().iloc[:3].copy()
-    df["action"] = ["e", "h", "h"]
+    df = _ohlcv().head(3).with_columns(pl.Series("action", ["e", "h", "h"]))
     backtest = {
         "base_balance": 1000.0,
         "exit_on_end": True,
@@ -71,6 +68,30 @@ def test_apply_logic_fallback_exit_on_end_and_progress():
     ):
         out = apply_logic_to_df(df, backtest, progress_callback=progress.append)
 
-    assert len(out) == 4
-    assert out.iloc[-1]["in_trade"] == False
+    assert out.height == 4
+    assert out["in_trade"][-1] is False
     assert progress[-1]["percent"] == 100
+
+
+def test_apply_logic_matches_between_vectorized_and_fallback():
+    actions = ["e", "h", "x", "h", "e", "h", "x", "h", "h"]
+    df = _ohlcv().with_columns(pl.Series("action", actions))
+    backtest = {
+        "base_balance": 1000.0,
+        "exit_on_end": False,
+        "comission": 0.5,
+        "lot_size_perc": 0.75,
+        "max_lot_size": 0,
+    }
+
+    vectorized = apply_logic_to_df(df, backtest)
+    with mock.patch(
+        "fast_trade.run_analysis._simulate_account_path",
+        side_effect=RuntimeError("force fallback"),
+    ):
+        fallback = apply_logic_to_df(df, backtest)
+
+    for column in ["aux", "account_value", "adj_account_value", "fee", "in_trade"]:
+        assert vectorized[column].to_list() == pytest.approx(
+            [float(value) for value in fallback[column].to_list()]
+        )

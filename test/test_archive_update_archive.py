@@ -19,7 +19,7 @@ def _sample_df(dates=None):
             "high": [110.0 + i for i in range(n)],
             "low": [90.0 + i for i in range(n)],
             "close": [105.0 + i for i in range(n)],
-            "volume": [1000.0 + 100 * i for i in range(n)],
+            "volume": [1000.0 + i * 100 for i in range(n)],
         }
     )
 
@@ -34,8 +34,8 @@ def archive_path(tmp_path, monkeypatch):
 def test_update_single_archive_existing_parquet(archive_path):
     exchange_dir = archive_path / "binanceus"
     exchange_dir.mkdir(parents=True)
-    df = _sample_df([datetime.datetime(2024, 1, 10)])
-    df.write_parquet(exchange_dir / "BTCUSDT.parquet")
+    df = _sample_df(dates=[datetime.datetime(2024, 1, 10)])
+    df.write_parquet(str(exchange_dir / "BTCUSDT.parquet"))
 
     with mock.patch("fast_trade.archive.update_archive.update_kline") as update_mock:
         update_archive.update_single_archive("BTCUSDT", "binanceus")
@@ -49,7 +49,7 @@ def test_update_single_archive_existing_parquet(archive_path):
 def test_update_single_archive_symbol_already_has_extension(archive_path):
     exchange_dir = archive_path / "binanceus"
     exchange_dir.mkdir(parents=True)
-    _sample_df().write_parquet(exchange_dir / "BTCUSDT.parquet")
+    _sample_df().write_parquet(str(exchange_dir / "BTCUSDT.parquet"))
 
     with mock.patch("fast_trade.archive.update_archive.update_kline") as update_mock:
         update_archive.update_single_archive("BTCUSDT.parquet", "binanceus")
@@ -91,10 +91,8 @@ def test_update_single_archive_read_exception(archive_path):
 def test_update_single_archive_existing_parquet_with_date_column(archive_path):
     exchange_dir = archive_path / "binanceus"
     exchange_dir.mkdir(parents=True)
-    df = _sample_df(
-        [datetime.datetime(2024, 1, 1), datetime.datetime(2024, 1, 2)]
-    )
-    df.write_parquet(exchange_dir / "BTCUSDT.parquet")
+    df = _sample_df(dates=[datetime.datetime(2024, 1, 1), datetime.datetime(2024, 1, 2)])
+    df.write_parquet(str(exchange_dir / "BTCUSDT.parquet"))
 
     with mock.patch("fast_trade.archive.update_archive.update_kline") as update_mock:
         update_archive.update_single_archive("BTCUSDT", "binanceus")
@@ -105,7 +103,7 @@ def test_update_archive_processes_symbols(archive_path):
     for exchange, symbol in [("binanceus", "BTCUSDT"), ("coinbase", "BTC-USD")]:
         exchange_dir = archive_path / exchange
         exchange_dir.mkdir(parents=True)
-        _sample_df().write_parquet(exchange_dir / f"{symbol}.parquet")
+        _sample_df().write_parquet(str(exchange_dir / f"{symbol}.parquet"))
     (archive_path / "skip.txt").write_text("")
 
     with mock.patch("fast_trade.archive.update_archive.update_kline"), mock.patch(
@@ -120,7 +118,7 @@ def test_update_archive_processes_symbols(archive_path):
 def test_update_archive_skips_non_parquet_files(archive_path):
     exchange_dir = archive_path / "binanceus"
     exchange_dir.mkdir(parents=True)
-    _sample_df().write_parquet(exchange_dir / "BTCUSDT.parquet")
+    _sample_df().write_parquet(str(exchange_dir / "BTCUSDT.parquet"))
     (exchange_dir / "notes.txt").write_text("skip")
 
     with mock.patch("fast_trade.archive.update_archive.update_kline"), mock.patch(
@@ -134,7 +132,7 @@ def test_update_archive_skips_non_parquet_files(archive_path):
 def test_update_archive_progress_callback_invalid_perc(archive_path):
     exchange_dir = archive_path / "binanceus"
     exchange_dir.mkdir(parents=True)
-    _sample_df().write_parquet(exchange_dir / "BTCUSDT.parquet")
+    _sample_df().write_parquet(str(exchange_dir / "BTCUSDT.parquet"))
 
     def fake_update(symbol, exchange, progress_callback=None, **kwargs):
         if progress_callback:
@@ -149,7 +147,7 @@ def test_update_archive_progress_callback_invalid_perc(archive_path):
 def test_update_archive_raises_on_failure(archive_path):
     exchange_dir = archive_path / "binanceus"
     exchange_dir.mkdir(parents=True)
-    _sample_df().write_parquet(exchange_dir / "BTCUSDT.parquet")
+    _sample_df().write_parquet(str(exchange_dir / "BTCUSDT.parquet"))
 
     with mock.patch(
         "fast_trade.archive.update_archive.update_kline",
