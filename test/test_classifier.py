@@ -270,4 +270,3 @@ def test_predict_ml_signal_falls_back_without_predict_proba():
     cols = list(features.columns)
     signal = predict_ml_signal(_NoProba(), features, cols, threshold=0.5)
     assert (signal == 1).all()
-
