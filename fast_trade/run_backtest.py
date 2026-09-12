@@ -627,6 +627,11 @@ def clean_field_type(field, row=None):
     return row
 
 
+def _mp_pool(processes: int):
+    """Use spawn to avoid fork deadlocks with Polars/BLAS worker threads."""
+    return mp.get_context("spawn").Pool(processes=processes)
+
+
 def run_backtests_parallel(
     backtests: list, df: pl.DataFrame = pl.DataFrame(), summary=True, n_processes=None
 ):
@@ -647,11 +652,13 @@ def run_backtests_parallel(
     if n_processes is None:
         n_processes = mp.cpu_count()
 
-    # Create a partial function with fixed df and summary parameters
     run_backtest_partial = partial(run_backtest, df=df, summary=summary)
 
-    # Run backtests in parallel
-    with mp.Pool(processes=n_processes) as pool:
+    # Avoid Pool overhead / fork issues for trivial parallelism
+    if n_processes <= 1 or len(backtests) <= 1:
+        return [run_backtest_partial(bt) for bt in backtests]
+
+    with _mp_pool(n_processes) as pool:
         results = pool.map(run_backtest_partial, backtests)
 
     return results
@@ -699,11 +706,13 @@ def run_backtest_chunked(
     # Split the dataframe into chunks
     chunks = [df.slice(offset, chunk_size) for offset in range(0, df.height, chunk_size)]
 
-    # Process each chunk in parallel
-    with mp.Pool(processes=mp.cpu_count()) as pool:
-        processed_chunks = pool.map(
-            partial(apply_backtest_to_df, backtest=new_backtest), chunks
-        )
+    apply_chunk = partial(apply_backtest_to_df, backtest=new_backtest)
+    # Prefer spawn (or sequential for a single chunk) — fork deadlocks with Polars threads
+    if len(chunks) <= 1:
+        processed_chunks = [apply_chunk(chunk) for chunk in chunks]
+    else:
+        with _mp_pool(min(mp.cpu_count(), len(chunks))) as pool:
+            processed_chunks = pool.map(apply_chunk, chunks)
 
     # Combine the processed chunks
     processed_df = pl.concat(processed_chunks, how="vertical")
