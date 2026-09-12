@@ -146,16 +146,32 @@ def _diff(series: Any, n: int = 1) -> pl.Series:
 
 
 def _wma(series: Any, period: int) -> pl.Series:
-    """Weighted moving average matching pandas rolling.apply with linear weights."""
+    """Weighted moving average matching pandas rolling.apply with linear weights.
+
+    Prefer Polars' native weighted ``rolling_mean`` when the series has no nulls.
+    Polars cannot apply weights on nullable arrays (e.g. HMA intermediates), so
+    fall back to a NumPy sliding-window matmul in that case — still far faster
+    than ``rolling_map`` Python UDFs.
+    """
     s = _as_pl_series(series)
-    weights = np.arange(1, period + 1, dtype=float)
-    d = (period * (period + 1)) / 2.0
+    weights = list(range(1, period + 1))
+    if s.null_count() == 0:
+        return s.rolling_mean(window_size=period, weights=weights, min_samples=period)
 
-    def _compute(x) -> float:
-        arr = _window_np(x)
-        return float((weights * arr).sum() / d)
+    arr = np.asarray(s.to_numpy(), dtype=float)
+    out = np.full(len(arr), np.nan, dtype=float)
+    if len(arr) < period:
+        return pl.Series(name=s.name, values=out)
 
-    return s.rolling_map(_compute, window_size=period, min_samples=period)
+    w = np.arange(1, period + 1, dtype=float)
+    denom = w.sum()
+    windows = np.lib.stride_tricks.sliding_window_view(arr, period)
+    finite = np.isfinite(windows).all(axis=1)
+    vals = np.full(len(windows), np.nan, dtype=float)
+    if finite.any():
+        vals[finite] = windows[finite] @ w / denom
+    out[period - 1 :] = vals
+    return pl.Series(name=s.name, values=out)
 
 
 def _ensure_ma(MA: Any, length: int) -> Optional[np.ndarray]:
@@ -896,27 +912,30 @@ class TA:
         pl_df = ohlc
         high = _to_np(_col(pl_df, "high"))
         low = _to_np(_col(pl_df, "low"))
+        n = len(high)
 
         sig0, xpt0, af0 = True, high[0], af
-        hl_std = float(np.nanstd(high - low, ddof=1)) if len(high) > 1 else 0.0
+        hl_std = float(np.nanstd(high - low, ddof=1)) if n > 1 else 0.0
         # pandas (ohlc.high - ohlc.low).std() uses ddof=1
-        _sar = [low[0] - hl_std]
+        sar = np.empty(n, dtype=float)
+        sar[0] = low[0] - hl_std
+        sar_prev = sar[0]
 
-        for i in range(1, len(pl_df)):
+        for i in range(1, n):
             sig1, xpt1, af1 = sig0, xpt0, af0
 
             lmin = min(low[i - 1], low[i])
             lmax = max(high[i - 1], high[i])
 
             if sig1:
-                sig0 = low[i] > _sar[-1]
+                sig0 = low[i] > sar_prev
                 xpt0 = max(lmax, xpt1)
             else:
-                sig0 = high[i] >= _sar[-1]
+                sig0 = high[i] >= sar_prev
                 xpt0 = min(lmin, xpt1)
 
             if sig0 == sig1:
-                sari = _sar[-1] + (xpt1 - _sar[-1]) * af1
+                sari = sar_prev + (xpt1 - sar_prev) * af1
                 af0 = min(amax, af1 + af)
 
                 if sig0:
@@ -929,9 +948,10 @@ class TA:
                 af0 = af
                 sari = xpt0
 
-            _sar.append(sari)
+            sar[i] = sari
+            sar_prev = sari
 
-        return _series_out(_sar, None)
+        return _series_out(sar, None)
 
     @classmethod
     def PSAR(cls, ohlc: pl.DataFrame, iaf: int = 0.02, maxaf: int = 0.2) -> pl.DataFrame:
@@ -1491,20 +1511,25 @@ class TA:
         pl_df = ohlcv
         close = _to_np(_col(pl_df, column))
         volume = _to_np(_col(pl_df, "volume"))
-        prev = np.roll(close, 1)
+        prev = np.empty_like(close)
         prev[0] = np.nan
-        obv = np.full(len(close), np.nan)
-        pos_change = close >= prev
-        neg_change = close < prev
-        no_change = close == prev
-        obv[pos_change] = volume[pos_change]
-        obv[neg_change] = -volume[neg_change]
-        # no_change overwrites with previous OBV (still nan before cumsum for equals that were also pos)
-        for i in range(len(obv)):
-            if no_change[i]:
-                obv[i] = obv[i - 1] if i > 0 else np.nan
-        # Skip leading NaN like pandas Series.cumsum(skipna=True)
-        return _series_out(np.nancumsum(obv), "OBV")
+        prev[1:] = close[:-1]
+        # Match FinTA: up = +vol, down = -vol, flat = previous signed contrib, then cumsum.
+        # Use strict > / < so flats stay NaN and get forward-filled (pandas sets >= then
+        # overwrites equals with shift(1)).
+        signed = np.where(
+            close > prev,
+            volume,
+            np.where(close < prev, -volume, np.nan),
+        )
+        idx = np.arange(len(signed))
+        valid = np.isfinite(signed)
+        idx[0] = 0
+        idx[1:] = np.where(valid[1:], idx[1:], 0)
+        np.maximum.accumulate(idx, out=idx)
+        filled = np.where(valid | (idx > 0), signed[idx], np.nan)
+        # Leading NaNs become 0 under nancumsum (prior Polars path / np.nancumsum).
+        return _series_out(np.nancumsum(filled), "OBV")
 
     @classmethod
     @inputvalidator(input_="ohlcv")

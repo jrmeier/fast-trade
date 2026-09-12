@@ -13,6 +13,7 @@ Library dataframes are Polars (`pl.DataFrame` with a `date` column) as of `3.0.0
 - `CONTRIBUTING.md` — local dev setup and PR expectations
 - `METRICS.md` — backtest summary metric definitions
 - `FEATURES.md` — CLI ↔ MCP feature matrix
+- `PERFORMANCE.md` — FinTA/backtest speed notes and benchmark commands
 
 ## Reference Docs
 
