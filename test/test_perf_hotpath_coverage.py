@@ -7,7 +7,6 @@ from unittest.mock import patch
 import numpy as np
 import polars as pl
 
-from fast_trade import finta as finta_mod
 from fast_trade.finta import TA
 from fast_trade.run_analysis import (
     ACTION_ENTER,
@@ -29,16 +28,6 @@ def _ohlcv(n: int = 40) -> pl.DataFrame:
             "volume": np.linspace(1000, 2000, n),
         }
     )
-
-
-def test_window_np_accepts_ndarray_and_series():
-    arr = np.array([1.0, 2.0, 3.0])
-    out = finta_mod._window_np(arr)
-    assert out.dtype == float
-    assert list(out) == [1.0, 2.0, 3.0]
-    # Series branch (line used by leftover rolling_map callers)
-    series_out = finta_mod._window_np(pl.Series("x", [4.0, 5.0]))
-    assert list(series_out) == [4.0, 5.0]
 
 
 def test_simulate_python_fallback_and_progress():

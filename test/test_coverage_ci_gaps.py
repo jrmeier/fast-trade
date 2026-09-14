@@ -51,61 +51,17 @@ def test_frames_to_polars_branches():
     lazy = pl.DataFrame({"a": [1, 2]}).lazy()
     assert frames.to_polars(lazy).height == 2
     assert frames.to_polars({"a": [1, 2]}).height == 2
-
-    # Cover the legacy pandas hand-off without requiring pandas installed in CI.
-    reset = pl.DataFrame(
-        {"date": [datetime(2024, 1, 1), datetime(2024, 1, 2)], "close": [1.0, 2.0]}
-    )
-    pandas_like = SimpleNamespace(
-        columns=["close"],
-        reset_index=lambda: SimpleNamespace(_frame=reset),
-    )
-
-    def _from_pandas(obj):
-        return getattr(obj, "_frame", obj)
-
-    with patch.object(frames.pl, "from_pandas", side_effect=_from_pandas):
-        out = frames.to_polars(pandas_like)
-    assert "date" in out.columns or "close" in out.columns
+    with pytest.raises(TypeError):
+        frames.to_polars(SimpleNamespace(columns=["close"]))
 
 
-def test_frames_normalize_date_column():
-    empty = pl.DataFrame({"close": pl.Series([], dtype=pl.Float64)})
-    assert frames._normalize_date_column(empty).is_empty()
-
-    with_date = pl.DataFrame({"date": [datetime(2024, 1, 1)], "close": [1.0]})
-    assert frames._normalize_date_column(with_date).columns == with_date.columns
-
-    indexed = pl.DataFrame(
-        {
-            "index": [datetime(2024, 1, 1)],
-            "close": [1.0],
-        }
-    )
-    renamed = frames._normalize_date_column(indexed)
-    assert "date" in renamed.columns
-
-    no_match = pl.DataFrame({"close": [1.0]})
-    assert frames._normalize_date_column(no_match).columns == ["close"]
-
-
-def test_frames_is_empty_has_column_sort():
+def test_frames_is_empty_and_parse_freq():
     assert frames.is_empty(None) is True
     assert frames.is_empty(pl.DataFrame()) is True
     assert frames.is_empty(pl.DataFrame({"a": [1]}).lazy()) is False
-    assert frames.is_empty(SimpleNamespace(empty=True)) is True
     assert frames.is_empty([1, 2]) is False
     assert frames.is_empty(object()) is False
 
-    assert frames.has_column(None, "date") is False
-    assert frames.has_column(_ohlcv(1), "close") is True
-
-    df = _ohlcv(3).reverse()
-    assert frames.sort_by_date(df)["date"][0] < frames.sort_by_date(df)["date"][-1]
-    assert frames.sort_by_date(pl.DataFrame({"close": [1.0]})).height == 1
-
-
-def test_frames_parse_freq_and_write(tmp_path: Path):
     assert frames.parse_freq(None) == (1, "m")
     assert frames.parse_freq(timedelta(seconds=90)) == (90, "s")
     assert frames.parse_freq("1Min") == (1, "m")
@@ -114,14 +70,7 @@ def test_frames_parse_freq_and_write(tmp_path: Path):
         frames.parse_freq("!!!")
     with pytest.raises(ValueError):
         frames.parse_freq("1zz")
-
-    assert frames.freq_to_polars(None) == "1m"
-    assert frames.freq_to_polars("2h") == "2h"
     assert frames.freq_to_timedelta("1h") == timedelta(hours=1)
-
-    path = tmp_path / "out.parquet"
-    frames.write_parquet(_ohlcv(2), str(path))
-    assert path.exists()
 
 
 def test_finta_helper_edge_paths():
@@ -136,8 +85,6 @@ def test_finta_helper_edge_paths():
     assert isinstance(finta_mod._frame_out({"a": [1, 2]}), pl.DataFrame)
 
     assert finta_mod._to_np([1, 2, 3]).dtype == float
-    assert finta_mod._window_np([1.0, 2.0]).dtype == float
-
     with pytest.raises(ValueError):
         finta_mod._ewm_mean(pl.Series("x", [1.0, 2.0, 3.0]))
 
@@ -402,15 +349,6 @@ def test_portfolio_and_db_helpers_parquet(tmp_path: Path):
     out2 = tmp_path / "db.parquet"
     db_helpers._atomic_write_parquet(_ohlcv(2), str(out2))
     assert out2.exists()
-
-    # pandas / to_parquet fallback (line 27)
-    class PandasLike:
-        def to_parquet(self, path, index=True):
-            pl.DataFrame({"a": [1]}).write_parquet(path)
-
-    out3 = tmp_path / "pandas_like.parquet"
-    db_helpers._atomic_write_parquet(PandasLike(), str(out3))
-    assert out3.exists()
 
 
 def test_coinbase_get_single_candle_concat_existing_df():

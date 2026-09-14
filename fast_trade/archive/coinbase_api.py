@@ -212,7 +212,3 @@ def get_oldest_day(
 if __name__ == "__main__":
     start = datetime.datetime(2024, 2, 7)
     get_product_candles("BTC-USD", start=start)
-
-    # res.to_csv("btc.csv")
-    # print(res)
-    # print(res[0], res[1])
