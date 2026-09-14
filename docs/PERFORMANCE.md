@@ -8,17 +8,34 @@ Measured on Binance.US `BTCUSDT` 1m archive data (**525,058** bars, `2025-09-12`
 
 | Workload | Result |
 |---|---|
-| Full-year EMA-cross + RSI backtest | **~0.58s** end-to-end |
+| Full-year EMA-cross + RSI backtest | **~0.62s** end-to-end |
 | 2-month 1m backtest (~89k bars) | **~0.17s** end-to-end |
 | FinTA indicator suite vs pandas FinTA | **~1.9×** faster |
 | ATR(14) | **~5×** faster |
 | WMA(20) | **~100×** faster |
 | OBV | **~3×** faster |
 
+### Multi-year 1m throughput (EMA-cross + RSI)
+
+Local archive holds ~1y of live 1m bars. Longer windows tile that real series
+with date shifts so bar counts match 2y / 5y / 10y calendar lengths (engine
+throughput, not live multi-year PnL).
+
+| Horizon | Bars | End-to-end (mean of 3) |
+|---|---:|---:|
+| 1 year | ~526k | **~0.62s** |
+| 2 years | ~1.05M | **~1.14s** |
+| 5 years | ~2.63M | **~2.73s** |
+| 10 years | ~5.25M | **~5.52s** |
+
+Scaling is roughly linear (~0.55–0.62s per year of 1m bars). Simulation remains
+~60–65% of wall time at every horizon.
+
 Reproduce:
 
 ```bash
 python scripts/bench_strategy_backtest.py --start 2025-09-12 --stop 2026-09-12 --freq 1Min --repeat 3
+python scripts/bench_multi_year.py --years 2 5 10 --repeat 3
 ```
 
 ## FinTA indicator table (pandas FinTA snapshot vs Polars)
@@ -68,7 +85,7 @@ UDFs and per-bar Python loops.
 
 ## Strategy backtests (1m)
 
-On ~525k 1m bars (1 year BTCUSDT), a basic EMA-cross+RSI backtest is ~0.58s
+On ~526k 1m bars (1 year BTCUSDT), a basic EMA-cross+RSI backtest is ~0.62s
 end-to-end. Stage split:
 
 | Stage | ~share | Notes |
@@ -92,6 +109,11 @@ end-to-end. Stage split:
 # Strategy backtest stages on archive 1m data:
 python scripts/bench_strategy_backtest.py --start 2025-09-12 --stop 2026-09-12 --freq 1Min --repeat 3
 
+# 2y / 5y / 10y 1m throughput (tiled from live 1y archive):
+python scripts/bench_multi_year.py --years 2 5 10 --repeat 3
+
 # Hotspot profiler
 python scripts/profile_backtest_hotspots.py --mode simulation --start 2025-09-12 --stop 2025-11-12
 ```
+
+Raw multi-year timings: `docs/bench_multi_year_results.json`.
