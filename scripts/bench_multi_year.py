@@ -82,29 +82,29 @@ def with_summary_cols(df: pl.DataFrame) -> pl.DataFrame:
 
 
 def bench_stages(backtest: dict, raw: pl.DataFrame, repeat: int) -> dict:
-    prepared = prepare_df(raw.clone(), backtest)
+    prepared = prepare_df(raw, backtest)
 
     def indicators():
-        return prepare_df(raw.clone(), backtest)
+        return prepare_df(raw, backtest)
 
     _, ind_stats = timed(indicators, repeat)
 
-    with_actions = process_logic_and_generate_actions(prepared.clone(), backtest)
+    with_actions = process_logic_and_generate_actions(prepared, backtest)
 
     def actions():
-        return process_logic_and_generate_actions(prepared.clone(), backtest)
+        return process_logic_and_generate_actions(prepared, backtest)
 
     _, action_stats = timed(actions, repeat)
 
     def simulate():
-        return with_summary_cols(apply_logic_to_df(with_actions.clone(), backtest))
+        return with_summary_cols(apply_logic_to_df(with_actions, backtest))
 
     simulated, sim_stats = timed(simulate, repeat)
 
     started = dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
 
     def summary():
-        return build_summary(simulated.clone(), started)
+        return build_summary(simulated, started)
 
     _, summary_stats = timed(summary, repeat)
 
@@ -134,7 +134,7 @@ def run_horizon(
     )
     print(f"\n=== {years}y  {start} → {stop_s}  input_rows={df.height:,} ===")
 
-    result, e2e = timed(lambda: run_backtest(backtest, df.clone()), repeat)
+    result, e2e = timed(lambda: run_backtest(backtest, df), repeat)
     out_df = result.get("df")
     stages = bench_stages(backtest, df, repeat)
     row = {

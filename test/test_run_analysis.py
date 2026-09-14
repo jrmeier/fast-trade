@@ -423,18 +423,23 @@ def test_apply_logic_to_df_lot_size():
         False,
     ]
 
-    assert df["adj_account_value"].to_list() == [
-        1000.0,
-        1202.0,
-        1648.0,
-        1560.0,
-        1560.0,
-        1560.0,
-        1560.0,
-        1555.39718566,
-        1539.8184294100001,
-        1539.8184294100001,
-    ]
+    # Float path rounds once at the end; allow tiny float drift vs legacy per-fill round.
+    assert df["adj_account_value"].to_list() == pytest.approx(
+        [
+            1000.0,
+            1202.0,
+            1648.0,
+            1560.0,
+            1560.0,
+            1560.0,
+            1560.0,
+            1555.39718566,
+            1539.81842941,
+            1539.81842941,
+        ],
+        rel=1e-9,
+        abs=1e-8,
+    )
 
     # exit_on_end closed the open position on a bar one second after the last
     assert df.height == 10

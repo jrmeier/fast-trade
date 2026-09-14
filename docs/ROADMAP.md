@@ -103,7 +103,7 @@ Avoid becoming “yet another AutoML trading framework.” The edge is **speed +
 - **Rebuilding the interactive terminal** — removed for good reasons (complexity, CI pain, limited value)
 - **Competing with full bots** (Freqtrade, Jesse, etc.) on live order management
 - **Broad exchange support** before one exchange’s paper path is rock-solid
-- **Heavy dependencies** (Numba, TA-Lib, XGBoost) unless gated as optional extras
+- **Heavy dependencies** (TA-Lib, XGBoost) unless gated as optional extras. Numba is a core dependency for the simulation / SAR hotpaths.
 
 ## Concrete Roadmap
 
@@ -114,16 +114,17 @@ Avoid becoming “yet another AutoML trading framework.” The edge is **speed +
 3. Add batch backtest + summary ranking CLI
 4. Extend MCP with evolve and backtest-comparison tools
 
-### Medium term (close the simulation gap)
+### Medium term (close remaining bottlenecks)
 
 5. Candle-close paper runner wired to archive updates + portfolio
 6. Walk-forward / train-test split in evolver config
-7. Optional Numba JIT for simulation kernel (already teed up in `RUN_ANALYSIS_PLAN.md`)
+7. Re-profile summary / trade-log builders now that simulation is Numba-accelerated
+8. Optional Rust/Cython only if Numba stops being enough for a measured hotspot
 
 ### Long term (only if paper path is solid)
 
-8. Implement `fast_trade/live/` per `Live.plan.md`, paper first
-9. Hyperliquid integration (already referenced in HMM screen)
+9. Implement `fast_trade/live/` per `Live.plan.md`, paper first
+10. Hyperliquid integration (already referenced in HMM screen)
 
 ## Strategic Positioning
 

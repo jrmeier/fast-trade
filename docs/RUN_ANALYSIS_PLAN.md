@@ -82,3 +82,4 @@ Use `scripts/profile_backtest_hotspots.py` to rerun comparable hotspot profiles.
 - `2026-03-11`: After extraction, the representative simulation benchmark measured about `0.21s` mean. This is slightly slower than the fully inlined version, but still materially better than the original `0.48s` baseline while leaving the code in a cleaner state for a future JIT pass.
 - `2026-03-11`: Full verification completed after Phase 2: `python -m pytest` passed (`137 passed`) and `flake8` passed.
 - `2026-09-12`: Library migrated to Polars-native frames (`3.0.0`); simulation kernel remains numpy-oriented behind the Polars wrapper.
+- `2026-09-14`: Phase 3 (JIT) landed. Account path uses a Numba `@njit` kernel with a Python fallback; per-fill `round()` removed in favor of float math + one-shot `np.round(..., 8)` on outputs. Representative 1y sim stage ~0.04s (was ~0.34s); e2e ~0.43s.
