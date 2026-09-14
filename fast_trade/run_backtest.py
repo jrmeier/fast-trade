@@ -5,13 +5,14 @@ import multiprocessing as mp
 from collections import deque
 from functools import partial
 
-import pandas as pd
+import polars as pl
 
 from fast_trade.archive.db_helpers import get_kline
 
 from .build_data_frame import prepare_df
 from .build_summary import build_summary
 from .evaluate import evaluate_rules
+from .frames import freq_to_timedelta, is_empty, to_polars
 from .run_analysis import apply_logic_to_df
 from .logic_utils import can_vectorize_logic, max_last_frames, vectorized_actions
 from .validate_backtest import validate_backtest, validate_backtest_with_df
@@ -76,9 +77,106 @@ class BacktestKeyError(Exception):
         super().__init__(f"Backtest Error(s):\n{self.error_msgs}")
 
 
+def _ensure_date_dtype(df: pl.DataFrame) -> pl.DataFrame:
+    """Make sure the `date` column is a datetime, converting epochs/strings."""
+    if "date" not in df.columns:
+        return df
+
+    dtype = df.schema["date"]
+    if dtype.is_temporal():
+        return df
+    if dtype == pl.String:
+        return df.with_columns(pl.col("date").str.to_datetime(strict=False))
+    if dtype.is_numeric():
+        sample = df["date"].drop_nulls()
+        time_unit = "ms" if len(sample) and abs(int(sample[0])) >= 1e11 else "s"
+        return df.with_columns(
+            pl.from_epoch(pl.col("date").cast(pl.Int64), time_unit=time_unit)
+        )
+
+    return df
+
+
+def _date_column_first(df: pl.DataFrame) -> pl.DataFrame:
+    if "date" not in df.columns or df.columns[0] == "date":
+        return df
+    return df.select(["date", *[col for col in df.columns if col != "date"]])
+
+
+def _prepare_df(df: pl.DataFrame, backtest: dict) -> pl.DataFrame:
+    """Apply charting/datapoints through prepare_df and return a Polars frame."""
+    return _ensure_date_dtype(to_polars(prepare_df(df, backtest)))
+
+
+def _load_df_from_archive(backtest: dict, progress_callback=None) -> pl.DataFrame:
+    """Pull the data for a backtest out of the local archive."""
+    if progress_callback:
+        progress_callback({"phase": "data", "percent": 0})
+
+    # calculate the start date based on the max number of periods in any dp args
+    def get_max_periods(datapoint):
+        args = datapoint.get("args", [])
+        periods = [int(arg) for arg in args if isinstance(arg, int)]
+        if len(periods) == 0:
+            return 0
+        return max(periods)
+
+    args = [get_max_periods(dp) for dp in backtest.get("datapoints", [])]
+    max_periods = max(args) if args else 0
+
+    freq = backtest.get("freq") or backtest.get("chart_period")
+    td_freq = freq_to_timedelta(freq)
+
+    start = backtest.get("start", None)
+    if start and not isinstance(start, datetime.datetime):
+        # YAML may load bare dates as datetime.date
+        if isinstance(start, datetime.date):
+            start = datetime.datetime.combine(start, datetime.time.min)
+        else:
+            start = datetime.datetime.fromisoformat(str(start))
+        start = start - td_freq * max_periods
+
+    stop = backtest.get("stop", None)
+    if stop and not isinstance(stop, datetime.datetime):
+        if isinstance(stop, datetime.date):
+            stop = datetime.datetime.combine(stop, datetime.time.max)
+        else:
+            stop = datetime.datetime.fromisoformat(str(stop))
+    else:
+        stop = backtest.get("stop")
+
+    df = get_kline(
+        backtest.get("symbol"),
+        backtest.get("exchange"),
+        start,
+        stop,
+        freq=freq,
+    )
+
+    if progress_callback:
+        progress_callback({"phase": "data", "percent": 100})
+
+    return to_polars(df)
+
+
+def _check_backtest_errors(backtest: dict) -> None:
+    errors = validate_backtest(backtest)
+
+    if not errors.get("has_error"):
+        return
+
+    # find all the keys with values
+    error_keys = [key for key, value in errors.items() if value and key != "has_error"]
+    error_msgs = extract_error_messages(errors)
+    for ek in error_keys:
+        if ek not in ["any_enter", "any_exit"]:
+            # get the errors from the errors dict
+            raise BacktestKeyError(error_msgs)
+
+
 def run_backtest(
     backtest: dict,
-    df: pd.DataFrame = pd.DataFrame(),
+    df: pl.DataFrame = pl.DataFrame(),
     summary=True,
     progress_callback=None,
 ):
@@ -86,75 +184,29 @@ def run_backtest(
     Run a backtest on a given dataframe
     Parameters
         backtest: dict, required, object containing the logic to test and other details
-        data_path: string or list, required, where to find the csv file of the ohlcv data
-        df: pandas dataframe indexed by date
+        df: polars dataframe with a date column, optional, loaded from the archive when omitted
     Returns
         dict
             summary dict, summary of the performace of backtest
             df dataframe, object used in the backtest
-            trade_log, dataframe of all the rows where transactions happened
+            trade_df, dataframe of all the rows where transactions happened
     """
 
     performance_start_time = datetime.datetime.utcnow()
     new_backtest = prepare_new_backtest(backtest)
-    errors = validate_backtest(new_backtest)
+    _check_backtest_errors(new_backtest)
 
-    if errors.get("has_error"):
-        # find all the keys with values
-        error_keys = [
-            key for key, value in errors.items() if value and key != "has_error"
-        ]
-        error_msgs = extract_error_messages(errors)
-        for ek in error_keys:
-            if ek not in ["any_enter", "any_exit"]:
-                # get the errors from the errors dict
-                raise BacktestKeyError(error_msgs)
+    df = to_polars(df)
 
-    if df.empty:
-        if progress_callback:
-            progress_callback({"phase": "data", "percent": 0})
-        # check the local archive for the data
-        # calculate the start and end dates based on the max number of periods in any dp args
+    if is_empty(df):
+        df = _load_df_from_archive(new_backtest, progress_callback=progress_callback)
 
-        def get_max_periods(datapoint):
-            args = datapoint.get("args", [])
-            periods = [int(arg) for arg in args if isinstance(arg, int)]
-            if len(periods) == 0:
-                return 0
-            return max(periods)
-
-        args = [get_max_periods(dp) for dp in new_backtest.get("datapoints", [])]
-        max_periods = max(args)
-        # print(max_periods)
-        # get the frequency of the backtest
-        freq = new_backtest.get("freq")
-        if not freq and new_backtest.get("chart_period"):
-            freq = new_backtest.get("chart_period")
-        # convert the frequency to a timedelta
-        td_freq = pd.Timedelta(freq)
-
-        start = backtest.get("start", None)
-        if start and not isinstance(start, datetime.datetime):
-            start = datetime.datetime.fromisoformat(start)
-            start = start - td_freq * max_periods
-
-        # get the data from the local archive
-        df = get_kline(
-            backtest.get("symbol"),
-            backtest.get("exchange"),
-            start,
-            backtest.get("stop"),
-            freq=backtest.get("freq") or backtest.get("chart_period"),
-        )
-        if progress_callback:
-            progress_callback({"phase": "data", "percent": 100})
-
-    if df.empty:
+    if is_empty(df):
         raise MissingData(
             f"No data found for {backtest.get('symbol')} on {backtest.get('exchange')} or in the given dataframe"
         )
 
-    df = prepare_df(df, new_backtest)
+    df = _prepare_df(df, new_backtest)
 
     df = apply_backtest_to_df(
         df,
@@ -173,7 +225,7 @@ def run_backtest(
                 performance_stop_time - performance_start_time
             ).total_seconds()
         }
-        trade_log = pd.DataFrame()
+        trade_log = pl.DataFrame()
 
     rule_eval = evaluate_rules(summary, new_backtest.get("rules", []))
     summary["rules"] = {
@@ -207,12 +259,16 @@ def prepare_new_backtest(backtest):
     new_backtest["base_balance"] = backtest.get("base_balance", 1000)
     new_backtest["exit_on_end"] = backtest.get("exit_on_end", False)
     new_backtest["comission"] = backtest.get("comission", 0)
-    new_backtest["trailing_stop_loss"] = backtest.get("trailing_stop_loss", 0)
-    # new_backtest["any_enter"] = backtest.get("any_enter", [])
-    # new_backtest["any_exit"] = backtest.get("any_exit", [])
+    # YAML `trailing_stop_loss: null` must not stay as None
+    new_backtest["trailing_stop_loss"] = backtest.get("trailing_stop_loss") or 0
+    # YAML empty keys (`any_enter:`) load as None — normalize to lists
+    new_backtest["any_enter"] = backtest.get("any_enter") or []
+    new_backtest["any_exit"] = backtest.get("any_exit") or []
+    new_backtest["enter"] = backtest.get("enter") or []
+    new_backtest["exit"] = backtest.get("exit") or []
     new_backtest["lot_size_perc"] = float(backtest.get("lot_size", 1))
     new_backtest["max_lot_size"] = int(backtest.get("max_lot_size", 0))
-    new_backtest["rules"] = backtest.get("rules", [])
+    new_backtest["rules"] = backtest.get("rules") or []
 
     # if chart_start and chart_stop are provided, use them
     if backtest.get("chart_start"):
@@ -227,17 +283,18 @@ def prepare_new_backtest(backtest):
     return new_backtest
 
 
-def apply_backtest_to_df(df: pd.DataFrame, backtest: dict, progress_callback=None):
-    """Processes the frame and adds the resultent rows
+def apply_backtest_to_df(df: pl.DataFrame, backtest: dict, progress_callback=None):
+    """Processes the frame and adds the resultent columns
     Parameters
     ----------
-        df, dataframe with all the calculated datapoints
+        df, polars dataframe with all the calculated datapoints
         backtest, backtest object
 
     Returns
     -------
         df, dataframe with with all the actions and backtest processed
     """
+    df = to_polars(df)
 
     df = process_logic_and_generate_actions(
         df,
@@ -263,22 +320,21 @@ def apply_backtest_to_df(df: pd.DataFrame, backtest: dict, progress_callback=Non
         ),
     )
 
-    df["adj_account_value_change_perc"] = df["adj_account_value"].pct_change()
-    df["adj_account_value_change"] = df["adj_account_value"].diff()
+    df = df.with_columns(
+        pl.col("adj_account_value").pct_change().alias("adj_account_value_change_perc"),
+        pl.col("adj_account_value").diff().alias("adj_account_value_change"),
+    )
 
-    # set the index to the date
-    df.index = pd.to_datetime(df.index)
-    df.index.name = "date"
-    return df
+    return _date_column_first(_ensure_date_dtype(df))
 
 
 def process_logic_and_generate_actions(
-    df: pd.DataFrame, backtest: object, progress_callback=None
+    df: pl.DataFrame, backtest: object, progress_callback=None
 ):
     """
     Parameters
     ----------
-        df, dataframe with the datapoints (indicators) calculated
+        df, polars dataframe with the datapoints (indicators) calculated
         backtest, backtest object
 
     Returns
@@ -288,56 +344,52 @@ def process_logic_and_generate_actions(
     Explainer
     ---------
     In this function, like the name suggests, we process the logic and generate the actions.
-    This optimized version uses vectorized operations where possible.
+    Logic that only looks at the current frame is evaluated with vectorized comparisons,
+    everything else falls back to walking the rows.
     """
 
     """we need to search though all the logics and find the highest confirmation number
     so we know how many frames to pass in
     """
+    df = to_polars(df)
     max_last = max_last_frames(backtest)
     compiled_logic = compile_action_logic(backtest)
 
     # If we need to look at previous frames, we can't fully vectorize
     if max_last:
-        actions = []
-        last_frames = deque(maxlen=max_last)
-        total_rows = len(df)
-        update_every = max(1, total_rows // 200)
-        for idx, frame in enumerate(df.itertuples()):
-            last_frames.appendleft(frame)
-            actions.append(determine_action_compiled(frame, compiled_logic, last_frames))
-            if progress_callback and (idx % update_every == 0 or idx == total_rows - 1):
-                progress_callback({"percent": int((idx + 1) / total_rows * 100)})
-        df["action"] = actions
+        actions = _actions_by_row(df, compiled_logic, max_last, progress_callback)
     else:
         try:
             if can_vectorize_logic(df, backtest):
-                df["action"] = vectorized_actions(df, backtest)
+                actions = vectorized_actions(df, backtest)
                 if progress_callback:
                     progress_callback({"percent": 100})
             else:
-                actions = []
-                total_rows = len(df)
-                update_every = max(1, total_rows // 200)
-                for idx, frame in enumerate(df.itertuples()):
-                    actions.append(determine_action_compiled(frame, compiled_logic))
-                    if progress_callback and (idx % update_every == 0 or idx == total_rows - 1):
-                        progress_callback({"percent": int((idx + 1) / total_rows * 100)})
-                df["action"] = actions
+                actions = _actions_by_row(df, compiled_logic, 0, progress_callback)
         except Exception:
             # If vectorization fails for any reason, fall back to row-by-row processing
-            actions = []
-            total_rows = len(df)
-            update_every = max(1, total_rows // 200)
-            for idx, frame in enumerate(df.itertuples()):
-                actions.append(determine_action_compiled(frame, compiled_logic))
-                if progress_callback and (
-                    idx % update_every == 0 or idx == total_rows - 1
-                ):
-                    progress_callback({"percent": int((idx + 1) / total_rows * 100)})
-            df["action"] = actions
+            actions = _actions_by_row(df, compiled_logic, 0, progress_callback)
 
-    return df
+    return df.with_columns(actions.alias("action"))
+
+
+def _actions_by_row(
+    df: pl.DataFrame, compiled_logic: dict, max_last: int, progress_callback=None
+) -> pl.Series:
+    """Walk the frame row by row, keeping the last `max_last` frames around."""
+    total_rows = df.height
+    update_every = max(1, total_rows // 200)
+    last_frames = deque(maxlen=max_last) if max_last else None
+    actions = []
+
+    for idx, row in enumerate(df.iter_rows(named=True)):
+        if last_frames is not None:
+            last_frames.appendleft(row)
+        actions.append(determine_action_compiled(row, compiled_logic, last_frames))
+        if progress_callback and (idx % update_every == 0 or idx == total_rows - 1):
+            progress_callback({"percent": int((idx + 1) / total_rows * 100)})
+
+    return pl.Series("action", actions, dtype=pl.String)
 
 
 def _compile_field_accessor(field):
@@ -368,26 +420,34 @@ def compile_action_logic(backtest: dict) -> dict:
 
     return {
         "trailing_stop_loss": bool(backtest.get("trailing_stop_loss")),
-        "exit": compile_group(backtest.get("exit", [])),
-        "any_exit": compile_group(backtest.get("any_exit", [])),
-        "enter": compile_group(backtest.get("enter", [])),
-        "any_enter": compile_group(backtest.get("any_enter", [])),
+        "exit": compile_group(backtest.get("exit") or []),
+        "any_exit": compile_group(backtest.get("any_exit") or []),
+        "enter": compile_group(backtest.get("enter") or []),
+        "any_enter": compile_group(backtest.get("any_enter") or []),
     }
+
+
+def _row_value(row, field):
+    """Read a field off a row, which can be a dict (Polars) or a namedtuple."""
+    if isinstance(row, dict):
+        return row[field]
+    return getattr(row, field)
 
 
 def _resolve_compiled_field(field_accessor, row):
     is_attr, value = field_accessor
     if not is_attr:
         return value
-    if isinstance(row, dict):
-        return row[value]
-    return getattr(row, value)
+    return _row_value(row, value)
 
 
 def _process_compiled_logic(compiled_logic, row):
     left_accessor, op, right_accessor, _frames = compiled_logic
     left_value = _resolve_compiled_field(left_accessor, row)
     right_value = _resolve_compiled_field(right_accessor, row)
+    # Warmup / missing indicator values should not raise — treat as no-signal.
+    if left_value is None or right_value is None:
+        return False
     return bool(op(left_value, right_value))
 
 
@@ -427,7 +487,7 @@ def determine_action_compiled(frame, compiled_logic: dict, last_frames=None):
         last_frames = []
 
     if compiled_logic.get("trailing_stop_loss"):
-        if frame.close <= frame.trailing_stop_loss:
+        if _row_value(frame, "close") <= _row_value(frame, "trailing_stop_loss"):
             return "tsl"
 
     if _take_action_compiled(frame, compiled_logic.get("exit", []), last_frames):
@@ -455,11 +515,11 @@ def determine_action_compiled(frame, compiled_logic: dict, last_frames=None):
     return "h"
 
 
-def determine_action(frame: pd.DataFrame, backtest: dict, last_frames=None):
+def determine_action(frame, backtest: dict, last_frames=None):
     """processes the actions with the applied logic
     Parameters
     ----------
-        frame: current row of the dataframe
+        frame: current row of the dataframe, as a dict or a named tuple
         backtest: object with the logic of how to trade
 
     Returns
@@ -561,7 +621,7 @@ def clean_field_type(field, row=None):
     Parameters
     ----------
         field - str, int, or float, logic field to check
-        row - dict, dictionary of values of the current frame
+        row - dict or named tuple, values of the current frame
 
     Returns
     -------
@@ -581,16 +641,19 @@ def clean_field_type(field, row=None):
 
         return field
 
-    if row:
-        if isinstance(row, dict):
-            return row[field]
-        return getattr(row, field)
+    if row is not None:
+        return _row_value(row, field)
 
     return row
 
 
+def _mp_pool(processes: int):
+    """Use spawn to avoid fork deadlocks with Polars/BLAS worker threads."""
+    return mp.get_context("spawn").Pool(processes=processes)
+
+
 def run_backtests_parallel(
-    backtests: list, df: pd.DataFrame = pd.DataFrame(), summary=True, n_processes=None
+    backtests: list, df: pl.DataFrame = pl.DataFrame(), summary=True, n_processes=None
 ):
     """
     Run multiple backtests in parallel
@@ -598,7 +661,7 @@ def run_backtests_parallel(
     Parameters
     ----------
     backtests: list of dict, required, list of backtest configurations to run
-    df: pandas dataframe, optional, dataframe to use for all backtests
+    df: polars dataframe, optional, dataframe to use for all backtests
     summary: bool, optional, whether to generate summary statistics
     n_processes: int, optional, number of processes to use (defaults to CPU count)
 
@@ -609,18 +672,20 @@ def run_backtests_parallel(
     if n_processes is None:
         n_processes = mp.cpu_count()
 
-    # Create a partial function with fixed df and summary parameters
     run_backtest_partial = partial(run_backtest, df=df, summary=summary)
 
-    # Run backtests in parallel
-    with mp.Pool(processes=n_processes) as pool:
+    # Avoid Pool overhead / fork issues for trivial parallelism
+    if n_processes <= 1 or len(backtests) <= 1:
+        return [run_backtest_partial(bt) for bt in backtests]
+
+    with _mp_pool(n_processes) as pool:
         results = pool.map(run_backtest_partial, backtests)
 
     return results
 
 
 def run_backtest_chunked(
-    backtest: dict, df: pd.DataFrame = pd.DataFrame(), summary=True, chunk_size=None
+    backtest: dict, df: pl.DataFrame = pl.DataFrame(), summary=True, chunk_size=None
 ):
     """
     Run a backtest by splitting the dataframe into chunks and processing them in parallel
@@ -628,7 +693,7 @@ def run_backtest_chunked(
     Parameters
     ----------
     backtest: dict, required, backtest configuration
-    df: pandas dataframe, optional, dataframe to use
+    df: polars dataframe, optional, dataframe to use
     summary: bool, optional, whether to generate summary statistics
     chunk_size: int, optional, size of chunks to split the dataframe into
 
@@ -638,70 +703,39 @@ def run_backtest_chunked(
     """
     performance_start_time = datetime.datetime.utcnow()
     new_backtest = prepare_new_backtest(backtest)
-    errors = validate_backtest(new_backtest)
+    _check_backtest_errors(new_backtest)
 
-    if errors.get("has_error"):
-        error_keys = [
-            key for key, value in errors.items() if value and key != "has_error"
-        ]
-        error_msgs = extract_error_messages(errors)
-        for ek in error_keys:
-            if ek not in ["any_enter", "any_exit"]:
-                raise BacktestKeyError(error_msgs)
+    df = to_polars(df)
 
-    if df.empty:
-        # Same data loading logic as in run_backtest
-        def get_max_periods(datapoint):
-            args = datapoint.get("args", [])
-            periods = [int(arg) for arg in args if isinstance(arg, int)]
-            if len(periods) == 0:
-                return 0
-            return max(periods)
+    if is_empty(df):
+        df = _load_df_from_archive(new_backtest)
 
-        args = [get_max_periods(dp) for dp in new_backtest.get("datapoints", [])]
-        max_periods = max(args)
-        freq = new_backtest.get("freq")
-        if not freq and new_backtest.get("chart_period"):
-            freq = new_backtest.get("chart_period")
-        td_freq = pd.Timedelta(freq)
-
-        start = backtest.get("start", None)
-        if start and not isinstance(start, datetime.datetime):
-            start = datetime.datetime.fromisoformat(start)
-            start = start - td_freq * max_periods
-
-        df = get_kline(
-            backtest.get("symbol"),
-            backtest.get("exchange"),
-            start,
-            backtest.get("stop"),
-            freq=backtest.get("freq") or backtest.get("chart_period"),
-        )
-
-    if df.empty:
+    if is_empty(df):
         raise MissingData(
             f"No data found for {backtest.get('symbol')} on {backtest.get('exchange')} or in the given dataframe"
         )
 
     # Prepare the dataframe with indicators
-    df = prepare_df(df, new_backtest)
+    df = _prepare_df(df, new_backtest)
 
     # Determine chunk size if not provided
     if chunk_size is None:
         # Default to a reasonable chunk size based on dataframe length
-        chunk_size = max(1000, len(df) // mp.cpu_count())
+        chunk_size = max(1000, df.height // mp.cpu_count())
 
     # Split the dataframe into chunks
-    chunks = [df.iloc[i:i + chunk_size] for i in range(0, len(df), chunk_size)]
+    chunks = [df.slice(offset, chunk_size) for offset in range(0, df.height, chunk_size)]
 
-    # Process each chunk in parallel
-    with mp.Pool(processes=mp.cpu_count()) as pool:
-        processed_chunks = pool.map(
-            partial(apply_backtest_to_df, backtest=new_backtest), chunks
-        )
+    apply_chunk = partial(apply_backtest_to_df, backtest=new_backtest)
+    # Prefer spawn (or sequential for a single chunk) — fork deadlocks with Polars threads
+    if len(chunks) <= 1:
+        processed_chunks = [apply_chunk(chunk) for chunk in chunks]
+    else:
+        with _mp_pool(min(mp.cpu_count(), len(chunks))) as pool:
+            processed_chunks = pool.map(apply_chunk, chunks)
 
     # Combine the processed chunks
-    processed_df = pd.concat(processed_chunks)
+    processed_df = pl.concat(processed_chunks, how="vertical")
 
     # Validate the combined dataframe
     validate_backtest_with_df(new_backtest, processed_df)
@@ -716,7 +750,7 @@ def run_backtest_chunked(
                 performance_stop_time - performance_start_time
             ).total_seconds()
         }
-        trade_log = pd.DataFrame()
+        trade_log = pl.DataFrame()
 
     # Evaluate rules
     rule_eval = evaluate_rules(summary, new_backtest.get("rules", []))

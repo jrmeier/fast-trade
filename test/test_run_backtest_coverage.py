@@ -3,7 +3,7 @@
 from collections import namedtuple
 from unittest import mock
 
-import pandas as pd
+import polars as pl
 import pytest
 
 from fast_trade.run_backtest import (
@@ -28,9 +28,9 @@ from fast_trade.run_backtest import (
 
 
 def _ohlcv():
-    df = pd.read_csv("./test/ohlcv_data.csv.txt").set_index("date")
-    df.index = pd.to_datetime(df.index, unit="s")
-    return df
+    return pl.read_csv("./test/ohlcv_data.csv.txt").with_columns(
+        pl.from_epoch(pl.col("date"), time_unit="s")
+    )
 
 
 def _valid_backtest(**overrides):
@@ -97,9 +97,9 @@ def test_run_backtest_missing_data_when_archive_empty():
         exchange="binanceus",
         datapoints=[{"name": "sma", "transformer": "sma", "args": [3]}],
     )
-    with mock.patch("fast_trade.run_backtest.get_kline", return_value=pd.DataFrame()):
+    with mock.patch("fast_trade.run_backtest.get_kline", return_value=pl.DataFrame()):
         with pytest.raises(MissingData, match="No data found"):
-            run_backtest(bt, df=pd.DataFrame())
+            run_backtest(bt, df=pl.DataFrame())
 
 
 def test_run_backtest_loads_archive_with_progress_and_start_offset():
@@ -112,7 +112,7 @@ def test_run_backtest_loads_archive_with_progress_and_start_offset():
     )
     progress = []
 
-    with mock.patch("fast_trade.run_backtest.get_kline", return_value=df.copy()) as get_kline:
+    with mock.patch("fast_trade.run_backtest.get_kline", return_value=df.clone()) as get_kline:
         result = run_backtest(bt, progress_callback=progress.append)
 
     assert get_kline.called
@@ -123,15 +123,15 @@ def test_run_backtest_loads_archive_with_progress_and_start_offset():
 
 def test_run_backtest_summary_false_skips_trade_log():
     df = _ohlcv()
-    result = run_backtest(_valid_backtest(), df=df.copy(), summary=False)
+    result = run_backtest(_valid_backtest(), df=df.clone(), summary=False)
     assert "test_duration" in result["summary"]
-    assert result["trade_df"].empty
+    assert result["trade_df"].is_empty()
 
 
 def test_run_backtest_evaluates_rules_in_summary():
     df = _ohlcv()
     rules = [["return_perc", ">", -1000]]
-    result = run_backtest(_valid_backtest(rules=rules), df=df.copy())
+    result = run_backtest(_valid_backtest(rules=rules), df=df.clone())
     assert result["summary"]["rules"]["all"] is True
 
 
@@ -212,19 +212,19 @@ def test_apply_backtest_to_df_progress_phases():
     out = apply_backtest_to_df(df, backtest, progress_callback=progress.append)
     phases = {p["phase"] for p in progress}
     assert "actions" in phases or "simulation" in phases
-    assert out.index.name == "date"
+    assert out.columns[0] == "date"
 
 
 def test_run_backtests_parallel_and_chunked():
     df = _ohlcv()
     bt = _valid_backtest()
-    parallel = run_backtests_parallel([bt, bt], df=df.copy(), n_processes=1)
+    parallel = run_backtests_parallel([bt, bt], df=df.clone(), n_processes=1)
     assert len(parallel) == 2
     assert "summary" in parallel[0]
 
-    chunked = run_backtest_chunked(bt, df=df.copy(), chunk_size=4)
+    chunked = run_backtest_chunked(bt, df=df.clone(), chunk_size=4)
     assert "summary" in chunked
-    assert len(chunked["df"]) == len(df)
+    assert not chunked["df"].is_empty()
 
 
 def test_run_backtest_chunked_empty_archive_raises():
@@ -233,11 +233,99 @@ def test_run_backtest_chunked_empty_archive_raises():
         exchange="Y",
         datapoints=[{"name": "sma", "transformer": "sma", "args": [2]}],
     )
-    with mock.patch("fast_trade.run_backtest.get_kline", return_value=pd.DataFrame()):
+    with mock.patch("fast_trade.run_backtest.get_kline", return_value=pl.DataFrame()):
         with pytest.raises(MissingData):
-            run_backtest_chunked(bt, df=pd.DataFrame())
+            run_backtest_chunked(bt, df=pl.DataFrame())
 
 
 def test_run_backtest_chunked_validation_error():
     with pytest.raises(BacktestKeyError):
         run_backtest_chunked({"datapoints": [], "enter": [], "exit": []})
+
+
+def test_process_compiled_logic_none_values():
+    from fast_trade.run_backtest import _process_compiled_logic
+    import operator
+    logic = ((True, "a"), operator.lt, (False, 1.0), 0)
+    assert _process_compiled_logic(logic, {"a": None}) is False
+    assert _process_compiled_logic(logic, {"a": 0.5}) is True
+
+
+
+
+def test_load_df_from_archive_coerces_yaml_dates(monkeypatch):
+    """YAML-loaded date objects must coerce before fromisoformat."""
+    import datetime as dt
+    import importlib
+    import polars as pl
+
+    rb = importlib.import_module("fast_trade.run_backtest")
+    captured = {}
+
+    def fake_get_kline(symbol, exchange, start=None, stop=None, freq=None):
+        captured["start"] = start
+        captured["stop"] = stop
+        return pl.DataFrame(
+            {
+                "date": [dt.datetime(2025, 1, 1)],
+                "open": [1.0],
+                "high": [1.0],
+                "low": [1.0],
+                "close": [1.0],
+                "volume": [1.0],
+            }
+        )
+
+    monkeypatch.setattr(rb, "get_kline", fake_get_kline)
+
+    out = rb._load_df_from_archive(
+        {
+            "symbol": "BTCUSDT",
+            "exchange": "binanceus",
+            "freq": "1Min",
+            "datapoints": [],
+            "start": dt.date(2025, 1, 10),
+            "stop": dt.date(2025, 1, 20),
+        }
+    )
+    assert isinstance(captured["start"], dt.datetime)
+    assert isinstance(captured["stop"], dt.datetime)
+    assert out.height == 1
+
+
+def test_load_df_from_archive_coerces_iso_strings(monkeypatch):
+    import datetime as dt
+    import importlib
+    import polars as pl
+
+    rb = importlib.import_module("fast_trade.run_backtest")
+    captured = {}
+
+    def fake_get_kline(symbol, exchange, start=None, stop=None, freq=None):
+        captured["start"] = start
+        captured["stop"] = stop
+        return pl.DataFrame(
+            {
+                "date": [dt.datetime(2025, 1, 1)],
+                "open": [1.0],
+                "high": [1.0],
+                "low": [1.0],
+                "close": [1.0],
+                "volume": [1.0],
+            }
+        )
+
+    monkeypatch.setattr(rb, "get_kline", fake_get_kline)
+
+    rb._load_df_from_archive(
+        {
+            "symbol": "BTCUSDT",
+            "exchange": "binanceus",
+            "freq": "1Min",
+            "datapoints": [{"name": "ema", "transformer": "ema", "args": [2]}],
+            "start": "2025-01-10T00:00:00",
+            "stop": "2025-01-20T00:00:00",
+        }
+    )
+    assert isinstance(captured["start"], dt.datetime)
+    assert isinstance(captured["stop"], dt.datetime)

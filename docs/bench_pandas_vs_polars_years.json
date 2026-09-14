@@ -1,0 +1,106 @@
+[
+  {
+    "years": 1,
+    "start": "2025-09-12",
+    "stop": "2026-09-12",
+    "bars": 525058,
+    "polars": {
+      "mode": "polars",
+      "rows": 525602,
+      "mean_s": 0.4085,
+      "min_s": 0.3702,
+      "max_s": 0.4722,
+      "repeat": 3,
+      "num_trades": 23118
+    },
+    "pandas": {
+      "mode": "pandas",
+      "rows": 525602,
+      "mean_s": 0.8142,
+      "min_s": 0.7545,
+      "max_s": 0.8703,
+      "repeat": 3,
+      "num_trades": 28418
+    },
+    "speedup_x": 1.99,
+    "data_note": "1m BTCUSDT tiled from live 1y archive; pandas = origin/master 2.1.0, polars = current 3.0.0"
+  },
+  {
+    "years": 2,
+    "start": "2024-09-12",
+    "stop": "2026-09-12",
+    "bars": 1050115,
+    "polars": {
+      "mode": "polars",
+      "rows": 1051202,
+      "mean_s": 0.7416,
+      "min_s": 0.72,
+      "max_s": 0.7622,
+      "repeat": 3,
+      "num_trades": 24968
+    },
+    "pandas": {
+      "mode": "pandas",
+      "rows": 1051202,
+      "mean_s": 1.6488,
+      "min_s": 1.5914,
+      "max_s": 1.7047,
+      "repeat": 3,
+      "num_trades": 56830
+    },
+    "speedup_x": 2.22,
+    "data_note": "1m BTCUSDT tiled from live 1y archive; pandas = origin/master 2.1.0, polars = current 3.0.0"
+  },
+  {
+    "years": 5,
+    "start": "2021-09-13",
+    "stop": "2026-09-12",
+    "bars": 2625286,
+    "polars": {
+      "mode": "polars",
+      "rows": 2628002,
+      "mean_s": 1.8108,
+      "min_s": 1.7696,
+      "max_s": 1.8602,
+      "repeat": 3,
+      "num_trades": 24968
+    },
+    "pandas": {
+      "mode": "pandas",
+      "rows": 2628002,
+      "mean_s": 4.2935,
+      "min_s": 4.162,
+      "max_s": 4.3691,
+      "repeat": 3,
+      "num_trades": 142066
+    },
+    "speedup_x": 2.37,
+    "data_note": "1m BTCUSDT tiled from live 1y archive; pandas = origin/master 2.1.0, polars = current 3.0.0"
+  },
+  {
+    "years": 10,
+    "start": "2016-09-14",
+    "stop": "2026-09-12",
+    "bars": 5250571,
+    "polars": {
+      "mode": "polars",
+      "rows": 5256002,
+      "mean_s": 3.9859,
+      "min_s": 3.7073,
+      "max_s": 4.1286,
+      "repeat": 3,
+      "num_trades": 24968
+    },
+    "pandas": {
+      "mode": "pandas",
+      "rows": 5256002,
+      "mean_s": 9.7463,
+      "min_s": 9.5235,
+      "max_s": 10.0275,
+      "repeat": 3,
+      "num_trades": 284126
+    },
+    "speedup_x": 2.45,
+    "data_note": "1m BTCUSDT tiled from live 1y archive; pandas = origin/master 2.1.0, polars = current 3.0.0"
+  }
+]

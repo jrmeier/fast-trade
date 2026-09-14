@@ -27,11 +27,12 @@ See `docs/RELEASE.md` for the full release checklist and `AGENTS.md` for reposit
 ## Pull Request Process
 
 1. New code should be:
-   * backwards compatible
+   * backwards compatible when practical (document breaking changes; see `docs/CHANGELOG.md`)
    * fast*
    * unit tested
    * well documented
    * clean (only useful comments, no commented out branches of code using typehints, etc)
+   * Polars-native for dataframe APIs (do not reintroduce pandas)
 
 2. Once all of the above is done, please create a pull request
 

@@ -1,5 +1,6 @@
 import datetime
-import pandas as pd
+
+import polars as pl
 
 from fast_trade.build_summary import (
     build_summary,
@@ -14,35 +15,23 @@ from fast_trade.build_summary import (
 
 
 def create_mock_trade_log():
-    mock_df = pd.read_csv("./test/ohlcv_data.csv.txt", parse_dates=True).set_index(
-        "date"
+    return pl.read_csv("./test/ohlcv_data.csv.txt").with_columns(
+        pl.from_epoch("date", time_unit="s"),
+        pl.Series("in_trade", [True, False, False, False, True, True, False, False, False]),
+        pl.Series("fee", [0.0] * 9),
     )
-    mock_df.index = pd.to_datetime(mock_df.index, unit="s")
-
-    mock_df["in_trade"] = [True, False, False, False, True, True, False, False, False]
-    mock_df["fee"] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-
-    return mock_df
 
 
 def test_create_trade_log_simple():
     mock_tl = create_mock_trade_log()
 
-    mock_tl["adj_account_value_change"] = [
-        100,
-        110,
-        100,
-        115,
-        125,
-        125,
-        130,
-        125,
-        135,
-    ]
+    mock_tl = mock_tl.with_columns(
+        pl.Series("adj_account_value_change", [100, 110, 100, 115, 125, 125, 130, 125, 135])
+    )
 
     trade_log_df = create_trade_log(mock_tl)
 
-    assert list(trade_log_df.in_trade) == [True, False, True, False]
+    assert trade_log_df["in_trade"].to_list() == [True, False, True, False]
 
 
 def test_summarize_time_held():
@@ -63,17 +52,9 @@ def test_summarize_time_held():
 
 def test_summarize_trade_perc():
     mock_tl = create_mock_trade_log()
-    mock_tl["adj_account_value_change_perc"] = [
-        0,
-        0.1,
-        0.4,
-        0.20,
-        -0.30,
-        0.55,
-        0.4,
-        0.33,
-        0.54,
-    ]
+    mock_tl = mock_tl.with_columns(
+        pl.Series("adj_account_value_change_perc", [0.0, 0.1, 0.4, 0.20, -0.30, 0.55, 0.4, 0.33, 0.54])
+    )
 
     [
         max_trade_perc,
@@ -82,27 +63,19 @@ def test_summarize_trade_perc():
         median_trade_perc,
     ] = summarize_trade_perc(mock_tl)
 
-    assert max_trade_perc == round(mock_tl.adj_account_value_change_perc.max(), 4)
-    assert min_trade_perc == round(mock_tl.adj_account_value_change_perc.min(), 4)
+    assert max_trade_perc == round(mock_tl["adj_account_value_change_perc"].max(), 4)
+    assert min_trade_perc == round(mock_tl["adj_account_value_change_perc"].min(), 4)
 
-    assert median_trade_perc == round(mock_tl.adj_account_value_change_perc.median(), 4)
-    assert mean_trade_perc == round(mock_tl.adj_account_value_change_perc.mean(), 4)
+    assert median_trade_perc == round(mock_tl["adj_account_value_change_perc"].median(), 4)
+    assert mean_trade_perc == round(mock_tl["adj_account_value_change_perc"].mean(), 4)
 
 
 def test_summarize_trades():
     mock_total_trades = 100
     mock_tl = create_mock_trade_log()
-    mock_tl["adj_account_value_change_perc"] = [
-        0,
-        0.1,
-        0.4,
-        0.20,
-        -0.30,
-        0.55,
-        0.4,
-        0.33,
-        0.54,
-    ]
+    mock_tl = mock_tl.with_columns(
+        pl.Series("adj_account_value_change_perc", [0.0, 0.1, 0.4, 0.20, -0.30, 0.55, 0.4, 0.33, 0.54])
+    )
 
     [total_trades, avg_trade_perc, avg_change] = summarize_trades(
         mock_tl, mock_total_trades
@@ -111,7 +84,7 @@ def test_summarize_trades():
     assert total_trades == 9
 
     assert avg_trade_perc == round(
-        mock_tl.adj_account_value_change_perc.mean() * 100, 3
+        mock_tl["adj_account_value_change_perc"].mean() * 100, 3
     )
 
     assert avg_change == 9
@@ -120,17 +93,9 @@ def test_summarize_trades():
 def test_summarize_trades_no_trades():
     mock_total_trades = 0
     mock_tl = create_mock_trade_log()
-    mock_tl["adj_account_value_change_perc"] = [
-        0,
-        0.1,
-        0.4,
-        0.20,
-        -0.30,
-        0.55,
-        0.4,
-        0.33,
-        0.54,
-    ]
+    mock_tl = mock_tl.with_columns(
+        pl.Series("adj_account_value_change_perc", [0.0, 0.1, 0.4, 0.20, -0.30, 0.55, 0.4, 0.33, 0.54])
+    )
 
     [total_trades, avg_trade_perc, avg_change] = summarize_trades(
         mock_tl, mock_total_trades
@@ -139,7 +104,7 @@ def test_summarize_trades_no_trades():
     assert total_trades == 9
 
     assert avg_trade_perc == round(
-        mock_tl.adj_account_value_change_perc.mean() * 100, 3
+        mock_tl["adj_account_value_change_perc"].mean() * 100, 3
     )
 
     assert avg_change == 0.0
@@ -147,17 +112,9 @@ def test_summarize_trades_no_trades():
 
 def test_calculate_return_perc_simple():
     mock_tl = create_mock_trade_log()
-    mock_tl["adj_account_value"] = [
-        90,
-        150,
-        120,
-        90,
-        22,
-        64,
-        180,
-        120,
-        100,
-    ]
+    mock_tl = mock_tl.with_columns(
+        pl.Series("adj_account_value", [90, 150, 120, 90, 22, 64, 180, 120, 100])
+    )
 
     res = calculate_return_perc(mock_tl)
 
@@ -166,17 +123,9 @@ def test_calculate_return_perc_simple():
 
 def test_calculate_return_perc_rounding():
     mock_tl = create_mock_trade_log()
-    mock_tl["adj_account_value"] = [
-        94,
-        150,
-        120,
-        90,
-        22,
-        64,
-        180,
-        120,
-        104,
-    ]
+    mock_tl = mock_tl.with_columns(
+        pl.Series("adj_account_value", [94, 150, 120, 90, 22, 64, 180, 120, 104])
+    )
 
     res = calculate_return_perc(mock_tl)
 
@@ -184,7 +133,7 @@ def test_calculate_return_perc_rounding():
 
 
 def test_calculate_return_perc_empty_tl():
-    mock_tl = pd.DataFrame()
+    mock_tl = pl.DataFrame()
 
     res = calculate_return_perc(mock_tl)
 
@@ -192,11 +141,9 @@ def test_calculate_return_perc_empty_tl():
 
 
 def test_calculate_buy_and_hold_perc():
-    mock_df = pd.read_csv("./test/ohlcv_data.csv.txt", parse_dates=True).set_index(
-        "date"
+    mock_df = pl.read_csv("./test/ohlcv_data.csv.txt").with_columns(
+        pl.Series("close", [1, 3, 12, 13, 14, 15, 16, 17, 10])
     )
-
-    mock_df.close = [1, 3, 12, 13, 14, 15, 16, 17, 10]
 
     res = calculate_buy_and_hold_perc(mock_df)
 
@@ -204,10 +151,9 @@ def test_calculate_buy_and_hold_perc():
 
 
 def test_calculate_sharpe_ratio():
-    mock_df = pd.read_csv("./test/ohlcv_data.csv.txt", parse_dates=True).set_index(
-        "date"
+    mock_df = pl.read_csv("./test/ohlcv_data.csv.txt").with_columns(
+        pl.Series("adj_account_value_change_perc", [1, 2, 4, 7, 7, 6, 6, 5, 6])
     )
-    mock_df["adj_account_value_change_perc"] = [1, 2, 4, 7, 7, 6, 6, 5, 6]
 
     res = calculate_shape_ratio(mock_df)
     assert res == 6.83
@@ -215,15 +161,17 @@ def test_calculate_sharpe_ratio():
 
 def test_build_summary():
     mock_df = create_mock_trade_log()
-    mock_df.close = [10, 11, 11, 9, 9, 10, 11, 90, 11]
-    mock_df["action"] = ["e", "h", "h", "h", "x", "e", "h", "h", "x"]
-
-    mock_df["account_value"] = [90, 110, 110, 90, 90, 100, 110, 90, 100]
-    mock_df["adj_account_value"] = [90, 110, 110, 90, 90, 100, 110, 90, 100]
-    mock_df["adj_account_value_change"] = mock_df["adj_account_value"].diff()
-    mock_df["adj_account_value_change_perc"] = mock_df["account_value"].pct_change()
-    mock_df["fee"] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    mock_df["aux"] = [1, 1, 1, 1, 1, 1, 1, 1, 1]
+    mock_df = mock_df.with_columns(
+        pl.Series("close", [10, 11, 11, 9, 9, 10, 11, 90, 11]),
+        pl.Series("action", ["e", "h", "h", "h", "x", "e", "h", "h", "x"]),
+        pl.Series("account_value", [90, 110, 110, 90, 90, 100, 110, 90, 100]),
+        pl.Series("adj_account_value", [90, 110, 110, 90, 90, 100, 110, 90, 100]),
+        pl.Series("fee", [0.0] * 9),
+        pl.Series("aux", [1] * 9),
+    ).with_columns(
+        pl.col("adj_account_value").diff().alias("adj_account_value_change"),
+        pl.col("account_value").pct_change().alias("adj_account_value_change_perc"),
+    )
 
     mock_performance_start_time = datetime.datetime.utcnow()
     res, trade_df = build_summary(mock_df, mock_performance_start_time)
@@ -255,5 +203,5 @@ def test_build_summary():
     assert res["last_tic"] == "2018-04-17 04:11:03"
     assert res["total_tics"] == 9
     assert type(res["test_duration"]) is float
-    assert len(trade_df.index) == 3
+    assert trade_df.height == 3
     assert res["total_missing"] == 0

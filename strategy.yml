@@ -20,7 +20,7 @@ datapoints:
 enter:
   -
     - zlema
-    - >
+    - ">"
     - close
     - 4
 exit:
@@ -35,5 +35,5 @@ trailing_stop_loss: null
 rules:
   -
     - trade_streaks.avg_win_streak
-    - >
+    - ">"
     - 0.05

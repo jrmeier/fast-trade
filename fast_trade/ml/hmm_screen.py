@@ -10,12 +10,13 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
-import pandas as pd
+import polars as pl
 from hmmlearn.hmm import GaussianHMM
 from sklearn.preprocessing import StandardScaler
 
 
 DEFAULT_HORIZONS = (7, 30, 60)
+FEATURE_COLUMNS = ("ret", "vol", "range", "trend", "drawdown")
 
 
 def utc_now() -> dt.datetime:
@@ -63,49 +64,51 @@ def normalize_config(config: Optional[Mapping[str, Any]] = None) -> Dict[str, An
     }
 
 
-def make_features(df: pd.DataFrame) -> pd.DataFrame:
-    close = df["close"]
-    features = pd.DataFrame(index=df.index)
-    features["ret"] = close.pct_change().fillna(0.0)
-    features["vol"] = features["ret"].rolling(20).std().fillna(0.0)
-    features["range"] = (
-        ((df["high"] - df["low"]) / close).replace([np.inf, -np.inf], 0.0).fillna(0.0)
-    )
-    features["trend"] = close.pct_change(20).replace([np.inf, -np.inf], 0.0).fillna(0.0)
-    running_high = close.cummax()
-    features["drawdown"] = (
-        ((close / running_high) - 1.0).replace([np.inf, -np.inf], 0.0).fillna(0.0)
-    )
-    return features.replace([np.inf, -np.inf], 0.0).fillna(0.0)
+def _finite(expr: pl.Expr) -> pl.Expr:
+    return pl.when(expr.is_finite()).then(expr).otherwise(0.0).fill_null(0.0)
 
 
-def max_drawdown(df: pd.DataFrame, lookback: int) -> float:
+def make_features(df: pl.DataFrame) -> pl.DataFrame:
+    ret = pl.col("close").pct_change()
+    return df.select(
+        pl.col("date"),
+        _finite(ret).alias("ret"),
+        _finite(ret.rolling_std(window_size=20)).alias("vol"),
+        _finite((pl.col("high") - pl.col("low")) / pl.col("close")).alias("range"),
+        _finite(pl.col("close").pct_change(n=20)).alias("trend"),
+        _finite(pl.col("close") / pl.col("close").cum_max() - 1.0).alias("drawdown"),
+    )
+
+
+def max_drawdown(df: pl.DataFrame, lookback: int) -> float:
     close = df["close"].tail(lookback)
-    if close.empty:
+    if close.is_empty():
         return 0.0
-    return float((close / close.cummax() - 1.0).min())
+    return float((close / close.cum_max() - 1.0).min())
 
 
-def avg_quote_volume(df: pd.DataFrame, lookback: int) -> float:
+def avg_quote_volume(df: pl.DataFrame, lookback: int) -> float:
     recent = df.tail(lookback)
-    if recent.empty:
+    if recent.is_empty():
         return 0.0
-    return float((recent["close"] * recent["volume"]).mean())
+    return float((recent["close"] * recent["volume"]).mean() or 0.0)
 
 
 def simulate_returns(
     model: GaussianHMM,
     states: np.ndarray,
-    returns: pd.Series,
+    returns: pl.Series,
     horizons: Sequence[int],
     simulations: int,
     rng: np.random.Generator,
 ) -> Dict[int, Dict[str, float]]:
+    returns_array = returns.to_numpy()
+    valid_returns = np.isfinite(returns_array)
     state_returns = {
-        state: returns.iloc[np.where(states == state)[0]].dropna().to_numpy()
+        state: returns_array[(states == state) & valid_returns]
         for state in range(model.n_components)
     }
-    all_returns = returns.dropna().to_numpy()
+    all_returns = returns_array[valid_returns]
     current_state = int(states[-1])
     max_horizon = max(horizons)
     horizon_values = {int(h): [] for h in horizons}
@@ -148,7 +151,7 @@ def score_forecasts(forecasts: Mapping[int, Mapping[str, float]]) -> float:
 
 def fit_hmm_forecast(
     symbol: str,
-    df: pd.DataFrame,
+    df: pl.DataFrame,
     meta: Optional[Mapping[str, Any]] = None,
     horizons: Sequence[int] = DEFAULT_HORIZONS,
     n_states: int = 3,
@@ -162,7 +165,7 @@ def fit_hmm_forecast(
     features = make_features(df)
     returns = features["ret"]
     scaler = StandardScaler()
-    x = scaler.fit_transform(features.to_numpy())
+    x = scaler.fit_transform(features.select(FEATURE_COLUMNS).to_numpy())
     model = GaussianHMM(
         n_components=n_states,
         covariance_type="diag",
@@ -179,11 +182,11 @@ def fit_hmm_forecast(
     expected_daily = float(
         np.average(model.means_[:, 0], weights=model.predict_proba(x)[-1])
     )
-    price = float(meta.get("price") or df["close"].iloc[-1])
+    price = float(meta.get("price") or df["close"][-1])
     quote_volume_24h = float(
         meta.get("quote_volume_24h")
         or meta.get("day_notional_volume")
-        or (df["close"].iloc[-1] * df["volume"].iloc[-1])
+        or (df["close"][-1] * df["volume"][-1])
     )
 
     result = {
@@ -218,7 +221,7 @@ def fit_hmm_forecast(
 
 
 def evaluate_filters(
-    df: pd.DataFrame,
+    df: pl.DataFrame,
     meta: Mapping[str, Any],
     filters: Mapping[str, Any],
 ) -> Tuple[bool, str]:
@@ -282,7 +285,7 @@ def run_hmm_screen(
         df = item.get("df")
         meta = dict(item.get("meta") or {})
         meta.setdefault("exchange", item.get("exchange") or cfg["exchange"])
-        if df is None or not isinstance(df, pd.DataFrame) or df.empty:
+        if df is None or not isinstance(df, pl.DataFrame) or df.is_empty():
             reason = meta.get("load_error") or "missing OHLCV data"
             skipped.append({"symbol": symbol, "reason": str(reason)})
             continue

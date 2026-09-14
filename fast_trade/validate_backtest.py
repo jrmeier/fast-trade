@@ -1,7 +1,8 @@
 import re
 
-import pandas as pd
+import polars as pl
 
+from .frames import is_empty
 from .transformers_map import transformers_map
 
 TRANSFORMER_GENERATED_KEYS = [
@@ -196,14 +197,14 @@ def validate_backtest(backtest):
 
         return {"has_error": False, "msgs": []}
 
-    # process each logic
-    backtest_mirror["enter"] = process_logics(backtest.get("enter", []), "enter")
-    backtest_mirror["exit"] = process_logics(backtest.get("exit", []), "exit")
+    # process each logic (YAML nulls become None — treat as empty lists)
+    backtest_mirror["enter"] = process_logics(backtest.get("enter") or [], "enter")
+    backtest_mirror["exit"] = process_logics(backtest.get("exit") or [], "exit")
     backtest_mirror["any_enter"] = process_logics(
-        backtest.get("any_enter", []), "any_enter"
+        backtest.get("any_enter") or [], "any_enter"
     )
     backtest_mirror["any_exit"] = process_logics(
-        backtest.get("any_exit", []), "any_exit"
+        backtest.get("any_exit") or [], "any_exit"
     )
 
     lot_size = backtest.get("lot_size", 0)
@@ -236,12 +237,12 @@ def match_field_type_to_value(field):
     return field
 
 
-def validate_backtest_with_df(backtest: dict, df: pd.DataFrame) -> None:
+def validate_backtest_with_df(backtest: dict, df: pl.DataFrame) -> None:
     errors = validate_backtest(backtest)
     if errors.get("has_error"):
         raise Exception(errors)
 
-    if df.empty:
+    if is_empty(df):
         raise Exception("Dataframe is empty. Check your data source.")
 
     errors = []

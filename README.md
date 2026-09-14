@@ -5,10 +5,24 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Python application](https://github.com/jrmeier/fast-trade/workflows/Python%20application/badge.svg)](https://github.com/jrmeier/fast-trade/actions)
 
-A library built with backtest portability and performance in mind for trading strategy backtests. There is also an [Archive](#Archive), which can be used to download compatible kline data from Binance (.com or .us) and Coinbase into local parquet datasets.
+A library built with backtest portability and performance in mind for trading strategy backtests. Dataframes are Polars-native (`pl.DataFrame` with a `date` column). There is also an [Archive](#Archive), which can be used to download compatible kline data from Binance (.com or .us) and Coinbase into local parquet datasets.
 
 ## Motivations
 If backtests are fast, strategies are cheap.
+
+## Performance
+
+`3.0.0` is Polars-native end-to-end. On BTCUSDT 1m data:
+
+- **~0.43s** for a 1y EMA-cross + RSI backtest (~526k bars)
+- vs pandas `2.1.0` on the same 1m strategy: **1.99× / 2.22× / 2.37× / 2.45×** faster at 1y / 2y / 5y / 10y
+- **~0.17s** for a 2-month 1m backtest
+- FinTA indicator suite **~1.9×** faster than the previous pandas FinTA path
+- Standouts: **ATR ~5×**, **WMA ~100×**, **OBV ~3×** vs pandas FinTA; Numba accelerates account sim + SAR/PSAR/KAMA/FRAMA
+
+See `docs/PERFORMANCE.md` for stage breakdowns. Reproduce with
+`python scripts/bench_strategy_backtest.py`, `python scripts/bench_multi_year.py`,
+and `python scripts/bench_pandas_vs_polars_years.py`.
 
 ## MCP Server
 
@@ -194,9 +208,9 @@ See `docs/CHANGELOG.md`.
 
 ## Release Notes
 
-Version `2.1.0` adds FXMacroData macro/FX context, a productized HMM screener (`ft screen hmm`, MCP `hmm_screen`), and full-package test coverage with documented metrics in `docs/METRICS.md`.
+Version `3.0.0` is a **breaking** release: the library is Polars-native end-to-end. `run_backtest`, archive loaders, FinTA, and summaries accept/return `polars.DataFrame` with an explicit `date` column. pandas is no longer a dependency. Strategy YAML/dict inputs are unchanged.
 
-Upgrading from `2.0.0`: the interactive `ft terminal` UI was removed. Use `ft backtests`, `ft logs --name <NAME>`, and `ft portfolio` instead. See `docs/CHANGELOG.md` for the full change list and `docs/RELEASE.md` for the release checklist.
+Prior `2.1.0` work (FXMacroData, HMM screener, MCP coverage, terminal UI removal) remains. See `docs/CHANGELOG.md` for the full change list and `docs/RELEASE.md` for the release checklist.
 
 ## Machine Learning
 
@@ -234,7 +248,7 @@ See `regime_example.yml` for expected config structure.
 
 ### HMM Screener
 
-Rank symbols with a Gaussian HMM + Monte Carlo forecast screen. Available in `2.1.0` via `ft screen hmm` (not in PyPI `2.0.0`).
+Rank symbols with a Gaussian HMM + Monte Carlo forecast screen via `ft screen hmm`.
 
 ```bash
 # Archive-first (download candles first)
@@ -276,7 +290,7 @@ The same helper is available to agents as the MCP tool `fxmacrodata_macro_contex
 
 ## Output
 
-The output its a dictionary. The summary is a summary all the inputs and of the performace of the model. The df is a Pandas Dataframe, which contains all of the data used in the simulation. And the `trade_df` is a subset of the `df` frame which just has all the rows when there was an event. The `backtest` object is also returned, with the details of how the backtest was run.
+The output is a dictionary. The summary covers the inputs and performance of the model. The `df` is a Polars DataFrame with all simulation data (including a `date` column). The `trade_df` is a subset of `df` with only rows where an event occurred. The `backtest` object is also returned with details of how the backtest was run.
 
 Example output:
 

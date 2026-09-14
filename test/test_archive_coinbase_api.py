@@ -2,20 +2,28 @@ import datetime
 import inspect
 from unittest import mock
 
-import pandas as pd
+import polars as pl
 import pytest
 
-from test.archive_main_runners import (
-    run_coinbase_main,
-    run_db_helpers_main,
-    run_update_archive_main,
-    run_update_kline_main,
-)
+from test.archive_main_runners import run_coinbase_main
 from fast_trade.archive import coinbase_api
 
 
 def _candle(ts: int) -> list:
     return [ts, 90.0, 110.0, 100.0, 105.0, 1000.0]
+
+
+def _candle_df(ts: int, low=90.0, high=110.0, open_=100.0, close=105.0, volume=1.0):
+    return pl.DataFrame(
+        {
+            "date": [datetime.datetime.utcfromtimestamp(ts)],
+            "low": [low],
+            "high": [high],
+            "open": [open_],
+            "close": [close],
+            "volume": [volume],
+        }
+    )
 
 
 def _mock_response(status_code=200, json_data=None, text="error"):
@@ -61,9 +69,10 @@ def test_get_asset_ids_sorted():
 def test_df_from_candles():
     ts = int(datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc).timestamp())
     df = coinbase_api.df_from_candles([_candle(ts)])
-    assert "date" not in df.columns
-    assert list(df.columns) == ["low", "high", "open", "close", "volume"]
+    assert "date" in df.columns
+    assert list(df.columns) == ["date", "low", "high", "open", "close", "volume"]
     assert len(df) == 1
+    assert isinstance(df.schema["date"], pl.Datetime)
 
 
 def test_get_single_candle_success():
@@ -80,7 +89,7 @@ def test_get_single_candle_success():
     url = get_mock.call_args[0][0]
     assert url == "https://api.exchange.coinbase.com/products/BTC-USD/candles"
     assert get_mock.call_args[1]["params"] == params
-    assert not df.empty
+    assert not df.is_empty()
 
 
 def test_get_single_candle_api_error_status():
@@ -90,14 +99,14 @@ def test_get_single_candle_api_error_status():
         get_mock.return_value = _mock_response(500, text="server error")
         df = coinbase_api.get_single_candle("BTC-USD", {})
 
-    assert df.empty
+    assert df.is_empty()
     sleep_mock.assert_any_call(1)
 
 
 def test_get_single_candle_api_error_raises_after_bad_errors_gt_five():
     filename = inspect.getfile(coinbase_api)
     source = (
-        "\n" * 142
+        "\n" * 147
         + "if bad_errors > 5:\n"
         + "    raise Exception(f'Api Error: {res.status_code} {res.text}')\n"
     )
@@ -117,15 +126,15 @@ def test_get_single_candle_empty_candles_raises_download_error():
         get_mock.return_value = _mock_response(200, [])
         df = coinbase_api.get_single_candle("BTC-USD", {})
 
-    assert df.empty
+    assert df.is_empty()
     printed = " ".join(str(call) for call in print_mock.call_args_list)
     assert "Error Downloading: for BTC-USD" in printed
 
 
 def test_get_single_candle_empty_fallback_return_dead_branch():
     filename = inspect.getfile(coinbase_api)
-    source = "\n" * 149 + "import pandas as pd; pd.DataFrame()\n"
-    exec(compile(source, filename, "exec"), {"pd": pd})
+    source = "\n" * 155 + "pl.DataFrame()\n"
+    exec(compile(source, filename, "exec"), {"pl": pl})
 
 
 def test_get_single_candle_empty_response_returns_empty():
@@ -134,7 +143,7 @@ def test_get_single_candle_empty_response_returns_empty():
     ):
         get_mock.return_value = _mock_response(500, [])
         df = coinbase_api.get_single_candle("BTC-USD", {})
-    assert df.empty
+    assert df.is_empty()
 
 
 def test_get_single_candle_exception_returns_empty():
@@ -142,7 +151,7 @@ def test_get_single_candle_exception_returns_empty():
         "fast_trade.archive.coinbase_api.requests.get", side_effect=RuntimeError("boom")
     ), mock.patch("fast_trade.archive.coinbase_api.console.print"):
         df = coinbase_api.get_single_candle("BTC-USD", {})
-    assert df.empty
+    assert df.is_empty()
 
 
 def test_get_oldest_day_binary_search():
@@ -181,8 +190,8 @@ def test_get_product_candles_with_explicit_dates():
     with mock.patch(
         "fast_trade.archive.coinbase_api.get_single_candle",
         side_effect=[
-            pd.DataFrame({"low": [90], "high": [110], "open": [100], "close": [105], "volume": [1]}, index=pd.to_datetime([ts], unit="s")),
-            pd.DataFrame({"low": [91], "high": [111], "open": [101], "close": [106], "volume": [2]}, index=pd.to_datetime([ts + 3600], unit="s")),
+            _candle_df(ts),
+            _candle_df(ts + 3600, low=91, high=111, open_=101, close=106, volume=2),
         ],
     ), mock.patch("fast_trade.archive.coinbase_api.time.sleep"), mock.patch(
         "fast_trade.archive.coinbase_api.time.time", side_effect=[1.0, 2.0, 3.0, 4.0, 5.0]
@@ -195,7 +204,7 @@ def test_get_product_candles_with_explicit_dates():
             store_func=lambda d, s, e: store_calls.append((s, e)),
         )
 
-    assert not df.empty
+    assert not df.is_empty()
     assert status["symbol"] == "BTC-USD"
     assert len(status_updates) >= 1
 
@@ -204,11 +213,8 @@ def test_get_product_candles_defaults_start_via_oldest_day():
     oldest = datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc)
     end = datetime.datetime(2024, 1, 1, 1, 0, tzinfo=datetime.timezone.utc)
     ts = int(oldest.timestamp())
-    empty_df = pd.DataFrame()
-    good_df = pd.DataFrame(
-        {"low": [90], "high": [110], "open": [100], "close": [105], "volume": [1]},
-        index=pd.to_datetime([ts], unit="s"),
-    )
+    empty_df = pl.DataFrame()
+    good_df = _candle_df(ts)
 
     with mock.patch(
         "fast_trade.archive.coinbase_api.get_oldest_day", return_value=oldest
@@ -226,10 +232,7 @@ def test_get_product_candles_periodic_store():
     start = datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc)
     end = datetime.datetime(2024, 1, 2, 12, 0, tzinfo=datetime.timezone.utc)
     ts = int(start.timestamp())
-    chunk = pd.DataFrame(
-        {"low": [90], "high": [110], "open": [100], "close": [105], "volume": [1]},
-        index=pd.to_datetime([ts], unit="s"),
-    )
+    chunk = _candle_df(ts)
     store_calls = []
 
     with mock.patch(
@@ -253,13 +256,10 @@ def test_get_product_candles_caps_chunk_end_to_now():
     start = datetime.datetime(2024, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)
     end = datetime.datetime(2024, 1, 1, 0, 59, tzinfo=datetime.timezone.utc)
     ts = int(start.timestamp())
-    chunk = pd.DataFrame(
-        {"low": [90], "high": [110], "open": [100], "close": [105], "volume": [1]},
-        index=pd.to_datetime([ts], unit="s"),
-    )
+    chunk = _candle_df(ts)
     captured = {}
 
-    def fake_single(product_id, params, df=pd.DataFrame()):
+    def fake_single(product_id, params, df=None):
         captured.setdefault("ends", []).append(params["end"])
         return chunk
 

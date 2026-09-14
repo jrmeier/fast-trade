@@ -1,8 +1,5 @@
-import pytest
-
 from fast_trade.evaluate import (
     evaluate_rules,
-    extract_error_messages,
     handle_rule,
 )
 
@@ -40,19 +37,6 @@ def test_evaluate_rules_exception_is_printed_and_skipped(capsys):
     assert all_ok is False
     assert any_ok is False
     assert res == []
-
-
-def test_extract_error_messages_nested_and_non_string():
-    error_dict = {
-        "enter": {
-            "msgs": ["plain", {"nested": {"msgs": [42]}}, 99],
-        },
-        "list": [{"msgs": ["from list"]}],
-    }
-    text = extract_error_messages(error_dict)
-    assert "plain" in text
-    assert "99" in text
-    assert "from list" in text
 
 
 def test_evaluate_main_block_runs(capsys):

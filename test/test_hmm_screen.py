@@ -1,5 +1,7 @@
+import datetime
+
 import numpy as np
-import pandas as pd
+import polars as pl
 import pytest
 
 from fast_trade.ml.hmm_screen import (
@@ -18,9 +20,8 @@ from fast_trade.ml.hmm_screen import (
 from hmmlearn.hmm import GaussianHMM
 
 
-def _synthetic_ohlcv(rows: int = 220, seed: int = 7) -> pd.DataFrame:
+def _synthetic_ohlcv(rows: int = 220, seed: int = 7) -> pl.DataFrame:
     rng = np.random.default_rng(seed)
-    idx = pd.date_range("2024-01-01", periods=rows, freq="D", tz="UTC")
     rets = rng.normal(0.001, 0.02, size=rows)
     close = 100 * np.cumprod(1.0 + rets)
     high = close * (1.0 + rng.uniform(0.0, 0.01, size=rows))
@@ -28,9 +29,21 @@ def _synthetic_ohlcv(rows: int = 220, seed: int = 7) -> pd.DataFrame:
     open_ = np.roll(close, 1)
     open_[0] = close[0]
     volume = rng.uniform(1_000, 5_000, size=rows)
-    return pd.DataFrame(
-        {"open": open_, "high": high, "low": low, "close": close, "volume": volume},
-        index=idx,
+    return pl.DataFrame(
+        {
+            "date": pl.datetime_range(
+                start=datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc),
+                end=datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc)
+                + datetime.timedelta(days=rows - 1),
+                interval="1d",
+                eager=True,
+            ),
+            "open": open_,
+            "high": high,
+            "low": low,
+            "close": close,
+            "volume": volume,
+        }
     )
 
 
@@ -45,7 +58,7 @@ def test_normalize_config_defaults():
 
 
 def test_empty_helpers_and_money():
-    empty = pd.DataFrame(columns=["close", "volume"])
+    empty = pl.DataFrame(schema={"close": pl.Float64, "volume": pl.Float64})
     assert max_drawdown(empty, 60) == 0.0
     assert avg_quote_volume(empty, 30) == 0.0
     assert money(2_500_000_000) == "$2.50B"
@@ -57,11 +70,11 @@ def test_empty_helpers_and_money():
 def test_make_features_and_fit_hmm_forecast():
     df = _synthetic_ohlcv()
     features = make_features(df)
-    assert list(features.columns) == ["ret", "vol", "range", "trend", "drawdown"]
+    assert features.columns == ["date", "ret", "vol", "range", "trend", "drawdown"]
     result = fit_hmm_forecast(
         "BTC-USD",
         df,
-        meta={"exchange": "coinbase", "price": float(df["close"].iloc[-1])},
+        meta={"exchange": "coinbase", "price": float(df["close"][-1])},
         horizons=(7, 30),
         n_states=2,
         simulations=50,
@@ -95,7 +108,7 @@ def test_run_hmm_screen_ranks_and_skips(tmp_path):
             {
                 "symbol": "CCC-USD",
                 "exchange": "coinbase",
-                "df": pd.DataFrame(),
+                "df": pl.DataFrame(),
                 "meta": {"load_error": "missing archive"},
             },
         ],
@@ -125,7 +138,7 @@ def test_screen_from_config_uses_loader(monkeypatch, tmp_path):
                 "symbol": "BTC-USD",
                 "exchange": "coinbase",
                 "df": df,
-                "meta": {"exchange": "coinbase", "price": float(df["close"].iloc[-1])},
+                "meta": {"exchange": "coinbase", "price": float(df["close"][-1])},
             }
         ]
 
@@ -172,7 +185,7 @@ def test_simulate_returns_fallback_paths():
     model.fit(x)
     model.transmat_ = np.array([[0.0, 0.0], [np.nan, np.nan]])
     states = np.zeros(120, dtype=int)
-    returns = pd.Series(np.random.default_rng(1).normal(0, 0.01, size=120))
+    returns = pl.Series(np.random.default_rng(1).normal(0, 0.01, size=120))
     out = simulate_returns(model, states, returns, [7], simulations=5, rng=np.random.default_rng(2))
     assert "p50" in out[7]
 
@@ -180,7 +193,7 @@ def test_simulate_returns_fallback_paths():
     empty_state_returns = simulate_returns(
         model,
         np.ones(120, dtype=int),
-        pd.Series([np.nan] * 120),
+        pl.Series([np.nan] * 120),
         [7],
         simulations=3,
         rng=np.random.default_rng(3),

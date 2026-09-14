@@ -1,19 +1,32 @@
-import pandas as pd
+import datetime
+
 import numpy as np
+import polars as pl
 from hmmlearn import hmm
 
 
-def create_hmm(kline_df: pd.DataFrame):
+STATES = [
+    "Strong Increase",
+    "Moderate Increase",
+    "Slight Increase",
+    "Stable",
+    "Slight Decrease",
+    "Moderate Decrease",
+    "Strong Decrease",
+]
+
+
+def create_hmm(kline_df: pl.DataFrame) -> pl.DataFrame:
     """Create a Hidden Markov Model (HMM) from a strategy
 
     Args:
         strategy (dict): A dictionary containing the strategy parameters
     """
-    # Get the historical data
-    
     # Calculate percentage change as observations
-    kline_df['pct_change'] = kline_df['close'].pct_change().fillna(0) * 100
-    observations = kline_df['pct_change'].values.reshape(-1, 1)
+    kline_df = kline_df.with_columns(
+        (pl.col("close").pct_change().fill_null(0.0) * 100).alias("pct_change")
+    )
+    observations = kline_df["pct_change"].to_numpy().reshape(-1, 1)
 
     # Define the HMM model
     model = hmm.GaussianHMM(n_components=3, covariance_type="full", n_iter=100)
@@ -23,94 +36,78 @@ def create_hmm(kline_df: pd.DataFrame):
 
     # Predict hidden states
     hidden_states = model.predict(observations)
-    kline_df['hidden_state'] = hidden_states
-    # print("Hidden States:\n", hidden_states)
+    kline_df = kline_df.with_columns(pl.Series("hidden_state", hidden_states))
 
     # Predict future states
     future_states_seq, _ = model.sample(24)
-    # print("Predicted Future States:\n", future_states)
-    
-    # Create a separate DataFrame for future predictions
-    last_date = kline_df.index[-1]
-    future_dates = pd.date_range(start=last_date, periods=25)[1:]  # Exclude the last known date
-    
-    future_df = pd.DataFrame({
-        'future_state': future_states_seq.flatten(),
-        'date': future_dates
-    })
-    future_df.set_index('date', inplace=True)
-    
-    # Create future price predictions based on the last closing price
-    last_price = kline_df['close'].iloc[-1]
-    means = model.means_.flatten()
-    
-    # Convert states to integers and use them as indices
     future_states_int = future_states_seq.flatten().astype(int)
-    future_df['predicted_pct_change'] = [means[state] for state in future_states_int]
-    
-    # Calculate predicted prices
-    future_df['predicted_price'] = last_price
-    for i in range(len(future_df)):
-        if i == 0:
-            # Calculate first predicted price based on last known price
-            pct_change = future_df['predicted_pct_change'].iloc[i]
-            future_df.loc[future_df.index[i], 'predicted_price'] = last_price * (1 + pct_change/100)
-        else:
-            # Calculate subsequent prices based on previous prediction
-            pct_change = future_df['predicted_pct_change'].iloc[i]
-            prev_price = future_df['predicted_price'].iloc[i-1]
-            future_df.loc[future_df.index[i], 'predicted_price'] = prev_price * (1 + pct_change/100)
+    last_date = kline_df["date"][-1]
+    future_dates = [last_date + datetime.timedelta(days=step) for step in range(1, 25)]
 
-    # add the future_df to the kline_df
-    kline_df = pd.concat([kline_df, future_df], axis=1)
-    return kline_df
+    # Create future price predictions based on the last closing price
+    last_price = float(kline_df["close"][-1])
+    means = model.means_.flatten()
+    predicted_changes = means[future_states_int]
+    predicted_prices = last_price * np.cumprod(1.0 + predicted_changes / 100.0)
+    future_df = pl.DataFrame(
+        {
+            "date": future_dates,
+            "future_state": future_states_int,
+            "predicted_pct_change": predicted_changes,
+            "predicted_price": predicted_prices,
+        },
+        schema_overrides={"date": kline_df.schema["date"]},
+    )
+    return pl.concat([kline_df, future_df], how="diagonal_relaxed")
 
 
-def define_granular_states(kline_df):
+def define_granular_states(kline_df: pl.DataFrame) -> pl.DataFrame:
     # Calculate percentage change
-    kline_df['pct_change'] = kline_df['close'].pct_change() * 100
+    pct = pl.col("close").pct_change() * 100
+    return kline_df.with_columns(pct.alias("pct_change")).with_columns(
+        pl.when(pl.col("pct_change") > 2)
+        .then(pl.lit("Strong Increase"))
+        .when((pl.col("pct_change") > 1) & (pl.col("pct_change") <= 2))
+        .then(pl.lit("Moderate Increase"))
+        .when((pl.col("pct_change") > 0) & (pl.col("pct_change") <= 1))
+        .then(pl.lit("Slight Increase"))
+        .when((pl.col("pct_change") > -0.5) & (pl.col("pct_change") <= 0.5))
+        .then(pl.lit("Stable"))
+        .when((pl.col("pct_change") > -1) & (pl.col("pct_change") <= -0.5))
+        .then(pl.lit("Slight Decrease"))
+        .when((pl.col("pct_change") > -2) & (pl.col("pct_change") <= -1))
+        .then(pl.lit("Moderate Decrease"))
+        .when(pl.col("pct_change") <= -2)
+        .then(pl.lit("Strong Decrease"))
+        .otherwise(pl.lit("Stable"))
+        .alias("state")
+    )
 
-    # Define states based on percentage change
-    conditions = [
-        (kline_df['pct_change'] > 2),
-        (kline_df['pct_change'] > 1) & (kline_df['pct_change'] <= 2),
-        (kline_df['pct_change'] > 0) & (kline_df['pct_change'] <= 1),
-        (kline_df['pct_change'] > -0.5) & (kline_df['pct_change'] <= 0.5),
-        (kline_df['pct_change'] > -1) & (kline_df['pct_change'] <= -0.5),
-        (kline_df['pct_change'] > -2) & (kline_df['pct_change'] <= -1),
-        (kline_df['pct_change'] <= -2)
-    ]
-    choices = [
-        'Strong Increase', 'Moderate Increase', 'Slight Increase',
-        'Stable', 'Slight Decrease', 'Moderate Decrease', 'Strong Decrease'
-    ]
-    kline_df['state'] = np.select(conditions, choices, default='Stable')
-    return kline_df
 
-
-def calculate_transition_matrix(kline_df):
+def calculate_transition_matrix(kline_df: pl.DataFrame) -> pl.DataFrame:
     # Calculate transition probabilities
-    states = ['Strong Increase', 'Moderate Increase', 'Slight Increase',
-              'Stable', 'Slight Decrease', 'Moderate Decrease', 'Strong Decrease']
-    transition_matrix = pd.DataFrame(0, index=states, columns=states)
+    state_index = {state: index for index, state in enumerate(STATES)}
+    counts = np.zeros((len(STATES), len(STATES)), dtype=float)
+    values = kline_df["state"].to_list()
+    for previous, current in zip(values, values[1:]):
+        counts[state_index[previous], state_index[current]] += 1
+    totals = counts.sum(axis=1)
+    for index, total in enumerate(totals):
+        if total:
+            counts[index] /= total
+        else:
+            counts[index, index] = 1.0
+    return pl.DataFrame({state: counts[:, index] for index, state in enumerate(STATES)})
 
-    for i in range(1, len(kline_df)):
-        prev_state = kline_df.iloc[i-1]['state']
-        current_state = kline_df.iloc[i]['state']
-        transition_matrix.loc[prev_state, current_state] += 1
 
-    # Normalize to get probabilities
-    transition_matrix = transition_matrix.div(transition_matrix.sum(axis=1), axis=0)
-    return transition_matrix
-
-
-def simulate_markov_chain(transition_matrix, initial_state, num_steps):
+def simulate_markov_chain(transition_matrix: pl.DataFrame, initial_state, num_steps):
     states = transition_matrix.columns
     current_state = initial_state
     chain = [current_state]
 
     for _ in range(num_steps):
-        current_state = np.random.choice(states, p=transition_matrix.loc[current_state])
+        probabilities = np.asarray(transition_matrix.row(states.index(current_state)), dtype=float)
+        current_state = np.random.choice(states, p=probabilities)
         chain.append(current_state)
 
     return chain
@@ -140,7 +137,6 @@ if __name__ == "__main__":
     # Create test data for the HMM
     from fast_trade.archive.db_helpers import get_kline
     from fast_trade import prepare_df
-    import time
     strat_config = {
         "symbol": "BTC-USDT",
         "exchange": "coinbase",
@@ -167,7 +163,6 @@ if __name__ == "__main__":
     }
     
     # Get the data
-    start = time.time()
     kline_data = get_kline(
         symbol=strat_config["symbol"],
         exchange=strat_config["exchange"],

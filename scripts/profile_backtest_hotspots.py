@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+"""Profile backtest hotspots against archive data (Polars-native)."""
+
+from __future__ import annotations
 
 import argparse
 import cProfile
@@ -7,6 +10,7 @@ import pstats
 import statistics
 import time
 from collections import deque
+from types import SimpleNamespace
 
 from fast_trade.archive.db_helpers import get_kline
 from fast_trade.build_data_frame import prepare_df
@@ -83,10 +87,15 @@ def run_simulation_mode(args):
     df = process_logic_and_generate_actions(df, backtest)
 
     print("rows", len(df))
-    print("action_counts", df["action"].value_counts().to_dict())
+    counts = df["action"].value_counts()
+    print(
+        "action_counts",
+        dict(zip(counts["action"].to_list(), counts["count"].to_list())),
+    )
 
-    benchmark("apply_logic_to_df", lambda: apply_logic_to_df(df.copy(), backtest), args.repeat)
-    profile("apply_logic_to_df", lambda: apply_logic_to_df(df.copy(), backtest), args.top_n)
+    clone = getattr(df, "clone", None) or getattr(df, "copy")
+    benchmark("apply_logic_to_df", lambda: apply_logic_to_df(clone(), backtest), args.repeat)
+    profile("apply_logic_to_df", lambda: apply_logic_to_df(clone(), backtest), args.top_n)
 
 
 def run_action_mode(args):
@@ -96,7 +105,8 @@ def run_action_mode(args):
 
     df = get_kline(args.symbol, args.exchange, args.start, args.stop, freq=args.freq)
     df = prepare_df(df, backtest)
-    frames = list(df.itertuples())
+    # Polars has no itertuples; attribute-style access via SimpleNamespace.
+    frames = [SimpleNamespace(**row) for row in df.to_dicts()]
     compiled = compile_action_logic(backtest)
     max_last = 3
 
@@ -145,8 +155,9 @@ def main():
     parser.add_argument("--mode", choices=["simulation", "action"], default="simulation")
     parser.add_argument("--symbol", default="BTCUSDT")
     parser.add_argument("--exchange", default="binanceus")
-    parser.add_argument("--start", default="2024-01-01")
-    parser.add_argument("--stop", default="2024-03-01")
+    # Archive currently holds ~2025-09-12 → 2026-09-12
+    parser.add_argument("--start", default="2025-09-12")
+    parser.add_argument("--stop", default="2025-11-12")
     parser.add_argument("--freq", default="1Min")
     parser.add_argument("--repeat", type=int, default=5)
     parser.add_argument("--top-n", type=int, default=30)

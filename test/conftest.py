@@ -1,8 +1,9 @@
 """Shared fixtures for CLI tests."""
 
+import datetime
 from pathlib import Path
 
-import pandas as pd
+import polars as pl
 import pytest
 import yaml
 from typer.testing import CliRunner
@@ -32,22 +33,16 @@ def _write_summary(run_dir: Path, summary: dict) -> None:
         yaml.safe_dump(summary, fh, sort_keys=False)
 
 
-def _write_parquet_frames(run_dir: Path, df: pd.DataFrame, trade_df: pd.DataFrame) -> None:
-    df_out = df.copy()
-    if df_out.index.name != "date":
-        df_out = df_out.reset_index().rename(columns={"index": "date"})
-    trade_out = trade_df.copy()
-    if trade_out.index.name != "date":
-        trade_out = trade_out.reset_index().rename(columns={"index": "date"})
-    df_out.to_parquet(run_dir / "dataframe.parquet", index=False)
-    trade_out.to_parquet(run_dir / "trade_log.parquet", index=False)
+def _write_parquet_frames(run_dir: Path, df: pl.DataFrame, trade_df: pl.DataFrame) -> None:
+    df.write_parquet(run_dir / "dataframe.parquet")
+    trade_df.write_parquet(run_dir / "trade_log.parquet")
 
 
 @pytest.fixture
 def sample_ohlcv():
-    df = pd.read_csv("./test/ohlcv_data.csv.txt").set_index("date")
-    df.index = pd.to_datetime(df.index, unit="s")
-    return df
+    return pl.read_csv("./test/ohlcv_data.csv.txt").with_columns(
+        pl.from_epoch("date", time_unit="s")
+    )
 
 
 @pytest.fixture
@@ -79,15 +74,19 @@ def backtest_run(archive_env, sample_ohlcv):
         },
     }
     _write_summary(run_dir, summary)
-    trade_df = pd.DataFrame(
+    trade_df = pl.DataFrame(
         {
+            "date": pl.datetime_range(
+                start=datetime.datetime(2024, 1, 1),
+                end=datetime.datetime(2024, 1, 1, 2),
+                interval="1h",
+                eager=True,
+            ),
             "close": [100.0, 101.0, 102.0],
             "in_trade": [True, False, True],
             "action": ["e", "x", "e"],
-        },
-        index=pd.date_range("2024-01-01", periods=3, freq="h"),
+        }
     )
-    trade_df.index.name = "date"
     _write_parquet_frames(run_dir, sample_ohlcv.head(50), trade_df)
     return run_id, run_dir, summary
 
@@ -115,11 +114,16 @@ def strategy_file(archive_env):
 
 @pytest.fixture
 def mock_backtest_result(sample_ohlcv):
-    trade_df = pd.DataFrame(
-        {"close": [100.0, 101.0], "in_trade": [True, False]},
-        index=pd.date_range("2024-01-01", periods=2, freq="h"),
+    trade_df = pl.DataFrame(
+        {
+            "date": [
+                datetime.datetime(2024, 1, 1),
+                datetime.datetime(2024, 1, 1, 1),
+            ],
+            "close": [100.0, 101.0],
+            "in_trade": [True, False],
+        }
     )
-    trade_df.index.name = "date"
     return {
         "df": sample_ohlcv.head(20),
         "trade_df": trade_df,

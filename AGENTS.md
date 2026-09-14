@@ -21,6 +21,7 @@
 - HMM screen: `ft screen hmm hmm_screen_example.yml` (see `docs/RELEASE.md` before tagging)
 
 ## Agent Usage Notes
+- Dataframes are Polars (`pl.DataFrame` with a `date` column); do not introduce pandas.
 - Prefer YAML for strategies and configs (`.yml/.yaml`). JSON is deprecated in examples.
 - Use `ft backtests list` / `ft backtests show --index N` for browsing saved runs.
 - Use `ft evolve evolver_example.yml` for GA runs (config is YAML).

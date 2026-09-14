@@ -1,12 +1,13 @@
 """CLI tests for backtest, archive, logs, evolve, and related commands."""
 
+import datetime
 import json
 import os
 import signal
 import sqlite3
 from unittest import mock
 
-import pandas as pd
+import polars as pl
 import pytest
 import typer
 import yaml
@@ -91,8 +92,7 @@ def test_backtest_live_paths(cli_runner, strategy_file, mock_backtest_result, ar
     monkeypatch.setattr(cli_mod, "run_backtest", lambda *a, **k: mock_backtest_result)
     monkeypatch.setattr(cli_mod, "update_kline", mock.Mock())
     parquet = archive_env / "binanceus" / "BTCUSDT.parquet"
-    df = sample_ohlcv.head(20).reset_index().rename(columns={"index": "date"})
-    df.to_parquet(parquet, index=False)
+    sample_ohlcv.head(20).write_parquet(parquet)
 
     result = _invoke(cli_runner, ["backtest", str(strategy_file), "--live"])
     assert result.exit_code == 0
@@ -104,13 +104,14 @@ def test_backtest_live_paths(cli_runner, strategy_file, mock_backtest_result, ar
     assert bad.exit_code != 0
 
     # up to date path
-    recent = sample_ohlcv.tail(5).reset_index().rename(columns={"index": "date"})
-    recent["date"] = pd.Timestamp.now(tz="UTC")
-    recent.to_parquet(parquet, index=False)
+    recent = sample_ohlcv.tail(5).with_columns(
+        pl.lit(datetime.datetime.now(datetime.timezone.utc)).alias("date")
+    )
+    recent.write_parquet(parquet)
     _invoke(cli_runner, ["backtest", str(strategy_file), "--live"])
 
     # corrupt parquet start from strategy start string
-    monkeypatch.setattr(cli_mod.pd, "read_parquet", mock.Mock(side_effect=OSError("bad")))
+    monkeypatch.setattr(cli_mod.pl, "read_parquet", mock.Mock(side_effect=OSError("bad")))
     strat_start = archive_env / "strategies" / "start.yml"
     strat_start.write_text(
         yaml.safe_dump(
@@ -188,12 +189,13 @@ def test_migrate_backtests(cli_runner, archive_env, backtest_run, sample_ohlcv):
     # create sqlite dbs
     df_db = run_dir / "dataframe.db"
     con = sqlite3.connect(df_db)
-    df = sample_ohlcv.head(10).reset_index()
-    df.to_sql("dataframe", con, index=False)
+    con.execute("CREATE TABLE dataframe (date TEXT, open REAL, high REAL, low REAL, close REAL, volume REAL)")
+    con.execute("INSERT INTO dataframe VALUES ('2024-01-01', 1, 1, 1, 1, 1)")
     con.close()
     trade_db = run_dir / "trade_log.db"
     con2 = sqlite3.connect(trade_db)
-    pd.DataFrame({"date": ["2024-01-01"], "close": [1.0]}).to_sql("trade_log", con2, index=False)
+    con2.execute("CREATE TABLE trade_log (date TEXT, close REAL)")
+    con2.execute("INSERT INTO trade_log VALUES ('2024-01-01', 1)")
     con2.close()
     (run_dir / "summary.json").write_text(json.dumps(summary))
     os.remove(run_dir / "summary.yml")
@@ -206,8 +208,8 @@ def test_migrate_archive(cli_runner, archive_env, sample_ohlcv):
     ex_path = archive_env / "binanceus"
     sqlite_path = ex_path / "BTCUSDT.sqlite"
     con = sqlite3.connect(sqlite_path)
-    df = sample_ohlcv.head(5).reset_index()
-    df.to_sql("kline", con, index=False)
+    con.execute("CREATE TABLE kline (date TEXT, open REAL, high REAL, low REAL, close REAL, volume REAL)")
+    con.execute("INSERT INTO kline VALUES ('2024-01-01', 1, 1, 1, 1, 1)")
     con.close()
 
     with mock.patch("fast_trade.cli.migrate_sqlite_to_parquet") as mig:
@@ -223,7 +225,7 @@ def test_regime_commands(cli_runner, tmp_path, sample_ohlcv):
     cfg = tmp_path / "regime.yml"
     cfg.write_text("states: 2\n")
     data = tmp_path / "data.csv"
-    sample_ohlcv.reset_index().to_csv(data, index=False)
+    sample_ohlcv.write_csv(data)
 
     with mock.patch("fast_trade.cli.train_regime_model", return_value={"m": 1}), mock.patch(
         "fast_trade.cli.save_regime_model"
@@ -232,7 +234,7 @@ def test_regime_commands(cli_runner, tmp_path, sample_ohlcv):
         assert r1.exit_code == 0
 
     with mock.patch("fast_trade.cli.load_regime_model", return_value={}), mock.patch(
-        "fast_trade.cli.apply_regime_model", return_value=pd.DataFrame({"x": [1]})
+        "fast_trade.cli.apply_regime_model", return_value=pl.DataFrame({"x": [1]})
     ):
         r2 = _invoke(cli_runner, ["regime_apply", "model.pkl", str(data)])
         assert r2.exit_code == 0
@@ -417,7 +419,13 @@ def test_portfolio_loop_sleep(cli_runner, strategy_file, monkeypatch):
         sleeps.append(sec)
         raise KeyboardInterrupt()
 
-    monkeypatch.setattr(cli_mod, "_load_latest_ohlcv", lambda *a, **k: pd.DataFrame({"close": [1.0]}, index=pd.date_range("2024-01-01", periods=1, freq="min")))
+    monkeypatch.setattr(
+        cli_mod,
+        "_load_latest_ohlcv",
+        lambda *a, **k: pl.DataFrame(
+            {"date": [datetime.datetime(2024, 1, 1)], "close": [1.0]}
+        ),
+    )
     monkeypatch.setattr(cli_mod, "prepare_df", lambda df, s: df)
     monkeypatch.setattr(cli_mod, "compile_action_logic", lambda s: {})
     monkeypatch.setattr(cli_mod, "determine_action_compiled", lambda *a, **k: "h")

@@ -207,3 +207,22 @@ def test_validate_any_exit_logic_invalid_1():
     print(backtest_mirror)
 
     assert backtest_mirror["any_exit"].get("error") is True
+
+def test_validate_backtest_null_optional_logic_lists():
+    """YAML empty keys load as None; validation must treat them as []."""
+    from fast_trade.validate_backtest import validate_backtest
+
+    backtest = {
+        "freq": "1Min",
+        "base_balance": 1000,
+        "comission": 0.01,
+        "datapoints": [{"name": "ema", "transformer": "ema", "args": [9]}],
+        "enter": [["ema", ">", "close"]],
+        "exit": [["ema", "<", "close"]],
+        "any_enter": None,
+        "any_exit": None,
+        "trailing_stop_loss": None,
+    }
+    errors = validate_backtest(backtest)
+    # Should not raise; optional lists may be absent/None without hard error
+    assert isinstance(errors, dict)

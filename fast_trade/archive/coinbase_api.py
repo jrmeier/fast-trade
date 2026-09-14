@@ -5,21 +5,25 @@ import random
 import time
 import typing
 
-import pandas as pd
+import polars as pl
 import requests
 from rich.console import Console
+
+from ..utils import DATE_COL
 
 API_DELAY = os.getenv("API_DELAY", 0.3)
 BASE_URL = "https://api.exchange.coinbase.com"
 console = Console()
-CB_REST_HEADER_MATCH = [
-    "date",
-    "low",
-    "high",
-    "open",
-    "close",
-    "volume",
-]
+CB_REST_SCHEMA = {
+    "date": pl.Int64,
+    "low": pl.Float64,
+    "high": pl.Float64,
+    "open": pl.Float64,
+    "close": pl.Float64,
+    "volume": pl.Float64,
+}
+
+CB_REST_HEADER_MATCH = list(CB_REST_SCHEMA.keys())
 
 
 def get_products() -> typing.List[dict]:
@@ -69,7 +73,7 @@ def get_product_candles(
     # return
     # while datetime.datetime.fromisoformat(
     currentDate = start
-    df = pd.DataFrame()
+    df = pl.DataFrame()
 
     # calculate the estimated number of calls
     total_duration_hours = (end - start).total_seconds() / 3600
@@ -96,7 +100,7 @@ def get_product_candles(
         }
 
         df = get_single_candle(product_id, params, df)
-        if df.empty:
+        if df.is_empty():
             console.print(f"[red]Error downloading {product_id}[/red]")
             bad_errors += 1
             if bad_errors > 4:
@@ -123,13 +127,15 @@ def get_product_candles(
         }
         update_status(status_obj)
         currentDate = next_end
-    if not df.empty:
-        df.sort_index(inplace=True, ascending=False)
+    if not df.is_empty():
+        df = df.sort(DATE_COL)
 
     return df, status_obj
 
 
-def get_single_candle(product_id: str, params: dict = {}, df=pd.DataFrame()):
+def get_single_candle(
+    product_id: str, params: dict = {}, df: typing.Optional[pl.DataFrame] = None
+) -> pl.DataFrame:
     url = f"{BASE_URL}/products/{product_id}/candles"
     headers = {"Content-Type": "application/json"}
     try:
@@ -143,30 +149,30 @@ def get_single_candle(product_id: str, params: dict = {}, df=pd.DataFrame()):
                 raise Exception(f"Api Error: {res.status_code} {res.text}")
         res = res.json()
         new_df = df_from_candles(res)
-        if new_df.empty:
+        if new_df.is_empty():
             bad_errors += 1
             if bad_errors > 0:
                 raise Exception(f"Error Downloading: for {product_id}")
-            return pd.DataFrame()
+            return pl.DataFrame()
         sleep_time = random.random() * 0.5 + 0.1
         time.sleep(sleep_time)
-        df = pd.concat([df, new_df])
-        df.drop_duplicates(inplace=True)
-        return df
+        if df is None or df.width == 0:
+            return new_df.unique(maintain_order=True)
+        return pl.concat([df, new_df]).unique(maintain_order=True)
     except Exception as e:
         console.print(f"[red]Coinbase candle error: {e}[/red]")
-        return pd.DataFrame()
+        return pl.DataFrame()
 
 
-def df_from_candles(klines):
-    new_df = pd.DataFrame(klines, columns=CB_REST_HEADER_MATCH)
-    new_df = new_df.drop_duplicates()
-    new_df.index = pd.to_datetime(new_df.date, unit="s")
+def df_from_candles(klines) -> pl.DataFrame:
+    """Turn the REST candle rows into a frame with a datetime "date" column."""
+    if not klines:
+        return pl.DataFrame(schema={**CB_REST_SCHEMA, DATE_COL: pl.Datetime})
 
-    if "date" in new_df.columns:
-        new_df = new_df.drop(columns=["date"])
+    new_df = pl.DataFrame(klines, schema=CB_REST_SCHEMA, orient="row")
+    new_df = new_df.unique(maintain_order=True)
 
-    return new_df
+    return new_df.with_columns(pl.from_epoch(DATE_COL, time_unit="s"))
 
 
 def get_oldest_day(
@@ -206,7 +212,3 @@ def get_oldest_day(
 if __name__ == "__main__":
     start = datetime.datetime(2024, 2, 7)
     get_product_candles("BTC-USD", start=start)
-
-    # res.to_csv("btc.csv")
-    # print(res)
-    # print(res[0], res[1])

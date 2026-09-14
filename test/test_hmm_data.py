@@ -4,24 +4,31 @@ from pathlib import Path
 from unittest import mock
 
 import numpy as np
-import pandas as pd
+import polars as pl
 import pytest
 
 from fast_trade.ml import hmm_data
 
 
-def _ohlcv(rows: int = 120, seed: int = 1) -> pd.DataFrame:
+def _ohlcv(rows: int = 120, seed: int = 1) -> pl.DataFrame:
     rng = np.random.default_rng(seed)
-    idx = pd.date_range(end=pd.Timestamp.now(tz="UTC"), periods=rows, freq="D")
+    end = dt.datetime.now(dt.timezone.utc)
+    dates = [end - dt.timedelta(days=rows - index - 1) for index in range(rows)]
     close = 100 * np.cumprod(1.0 + rng.normal(0.001, 0.02, size=rows))
     high = close * 1.01
     low = close * 0.99
     open_ = np.roll(close, 1)
     open_[0] = close[0]
     volume = rng.uniform(1000, 5000, size=rows)
-    return pd.DataFrame(
-        {"open": open_, "high": high, "low": low, "close": close, "volume": volume},
-        index=idx,
+    return pl.DataFrame(
+        {
+            "date": dates,
+            "open": open_,
+            "high": high,
+            "low": low,
+            "close": close,
+            "volume": volume,
+        }
     )
 
 
@@ -30,15 +37,15 @@ def test_utc_now():
 
 
 def test_ensure_ohlcv_branches():
-    assert hmm_data._ensure_ohlcv(None).empty
-    assert hmm_data._ensure_ohlcv(pd.DataFrame()).empty
+    assert hmm_data._ensure_ohlcv(None).is_empty()
+    assert hmm_data._ensure_ohlcv(pl.DataFrame()).is_empty()
 
-    dated = _ohlcv(5).reset_index().rename(columns={"index": "date"})
+    dated = _ohlcv(5)
     out = hmm_data._ensure_ohlcv(dated)
-    assert list(out.columns) == ["open", "high", "low", "close", "volume"]
+    assert out.columns == ["date", "open", "high", "low", "close", "volume"]
 
     with pytest.raises(ValueError, match="missing columns"):
-        hmm_data._ensure_ohlcv(pd.DataFrame({"close": [1.0]}))
+        hmm_data._ensure_ohlcv(pl.DataFrame({"date": [dt.datetime.now()], "close": [1.0]}))
 
 
 def test_load_archive_candles(tmp_path, monkeypatch):
@@ -48,7 +55,7 @@ def test_load_archive_candles(tmp_path, monkeypatch):
     exchange_dir = archive / exchange
     exchange_dir.mkdir(parents=True)
     df = _ohlcv(30)
-    df.to_parquet(exchange_dir / f"{symbol}.parquet")
+    df.write_parquet(exchange_dir / f"{symbol}.parquet")
 
     monkeypatch.setattr(hmm_data, "ARCHIVE_PATH", str(archive))
     loaded = hmm_data.load_archive_candles(symbol, exchange, lookback_days=365, freq="1D")
@@ -102,7 +109,7 @@ def test_fetch_coinbase_candles_cache_hit(tmp_path, monkeypatch):
     cache_dir = tmp_path / "cache"
     cache_dir.mkdir()
     cache_path = hmm_data._candle_cache_path(cache_dir, "BTC-USD", "1d")
-    df.to_parquet(cache_path)
+    df.write_parquet(cache_path)
 
     monkeypatch.setattr(hmm_data.time, "time", lambda: cache_path.stat().st_mtime)
     loaded = hmm_data.fetch_coinbase_candles(
@@ -123,7 +130,7 @@ def test_fetch_coinbase_candles_live_fetch(tmp_path, monkeypatch):
 
     monkeypatch.setattr(hmm_data, "_coinbase_request", fake_request)
     df = hmm_data.fetch_coinbase_candles("BTC-USD", lookback_days=1, cache_dir=tmp_path / "cb")
-    assert not df.empty
+    assert not df.is_empty()
 
     monkeypatch.setattr(hmm_data, "_coinbase_request", lambda *a, **k: [])
     with pytest.raises(RuntimeError, match="No candles"):
@@ -166,7 +173,7 @@ def test_hyperliquid_helpers(monkeypatch, tmp_path):
     monkeypatch.setattr(hmm_data, "utc_now", lambda: now)
     monkeypatch.setattr(hmm_data.time, "sleep", lambda _s: None)
     df = hmm_data.fetch_hyperliquid_candles("BTC", lookback_days=1, cache_dir=tmp_path / "hl")
-    assert not df.empty
+    assert not df.is_empty()
 
     monkeypatch.setattr(hmm_data, "_hyperliquid_post", lambda payload, timeout=30: [])
     with pytest.raises(RuntimeError, match="No candles"):
@@ -178,7 +185,7 @@ def test_fetch_hyperliquid_candles_cache_hit(tmp_path, monkeypatch):
     cache_dir = tmp_path / "hlcache"
     cache_dir.mkdir()
     cache_path = hmm_data._candle_cache_path(cache_dir, "BTC", "1d")
-    df.to_parquet(cache_path)
+    df.write_parquet(cache_path)
     monkeypatch.setattr(hmm_data.time, "time", lambda: cache_path.stat().st_mtime)
     loaded = hmm_data.fetch_hyperliquid_candles("BTC", cache_dir=cache_dir, cache_max_age_hours=24.0)
     assert len(loaded) == 8
@@ -201,13 +208,13 @@ def test_load_universe_coinbase_archive(tmp_path, monkeypatch):
     archive = tmp_path / "archive"
     exchange_dir = archive / exchange
     exchange_dir.mkdir(parents=True)
-    _ohlcv(100).to_parquet(exchange_dir / f"{symbol}.parquet")
+    _ohlcv(100).write_parquet(exchange_dir / f"{symbol}.parquet")
     monkeypatch.setattr(hmm_data, "ARCHIVE_PATH", str(archive))
 
     series = hmm_data.load_universe({"exchange": exchange, "symbols": [symbol]})
     assert len(series) == 1
     assert series[0]["symbol"] == symbol
-    assert not series[0]["df"].empty
+    assert not series[0]["df"].is_empty()
     assert "price" in series[0]["meta"]
 
 
@@ -239,7 +246,7 @@ def test_load_universe_coinbase_load_error(monkeypatch):
     series = hmm_data.load_universe(
         {"exchange": "coinbase", "symbols": ["BTC-USD"], "live": True}
     )
-    assert series[0]["df"].empty
+    assert series[0]["df"].is_empty()
     assert "down" in series[0]["meta"]["load_error"]
 
 
@@ -254,7 +261,7 @@ def test_load_universe_hyperliquid_archive(tmp_path, monkeypatch):
     archive = tmp_path / "archive"
     exchange_dir = archive / exchange
     exchange_dir.mkdir(parents=True)
-    _ohlcv(100).to_parquet(exchange_dir / f"{symbol}.parquet")
+    _ohlcv(100).write_parquet(exchange_dir / f"{symbol}.parquet")
     monkeypatch.setattr(hmm_data, "ARCHIVE_PATH", str(archive))
 
     series = hmm_data.load_universe({"exchange": exchange, "symbols": [symbol]})
@@ -340,8 +347,8 @@ def test_load_universe_auto_symbols_from_archive(tmp_path, monkeypatch):
     archive = tmp_path / "archive"
     exchange_dir = archive / exchange
     exchange_dir.mkdir(parents=True)
-    _ohlcv(50).to_parquet(exchange_dir / "BTC-USD.parquet")
-    _ohlcv(50, seed=2).to_parquet(exchange_dir / "ETH-USD.parquet")
+    _ohlcv(50).write_parquet(exchange_dir / "BTC-USD.parquet")
+    _ohlcv(50, seed=2).write_parquet(exchange_dir / "ETH-USD.parquet")
     monkeypatch.setattr(hmm_data, "ARCHIVE_PATH", str(archive))
 
     series = hmm_data.load_universe({"exchange": exchange, "settings": {"max_products": 1}})
@@ -349,7 +356,7 @@ def test_load_universe_auto_symbols_from_archive(tmp_path, monkeypatch):
 
     hl_dir = archive / "hyperliquid"
     hl_dir.mkdir(parents=True)
-    _ohlcv(50, seed=3).to_parquet(hl_dir / "BTC.parquet")
+    _ohlcv(50, seed=3).write_parquet(hl_dir / "BTC.parquet")
     series_hl = hmm_data.load_universe({"exchange": "hyperliquid", "settings": {"max_products": 2}})
     assert len(series_hl) == 1
 

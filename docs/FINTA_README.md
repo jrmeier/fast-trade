@@ -5,14 +5,14 @@ This is a fork of the [FinTA](https://github.com/peerchemist/finta) library. It 
 # FinTA (Financial Technical Analysis)
 
 [![License: LGPL v3](https://img.shields.io/badge/License-LGPL%20v3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0)
-[![](https://img.shields.io/badge/python-3.6+-blue.svg)](https://www.python.org/download/releases/3.6.0/)
+[![](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
 [![Build Status](https://travis-ci.org/peerchemist/finta.svg?branch=master)](https://travis-ci.org/peerchemist/finta)
 [![Patrons](https://img.shields.io/liberapay/patrons/peerchemist.svg?logo=liberapay)](https://img.shields.io/liberapay/patrons/peerchemist.svg?logo=liberapay)
 [![Bitcoin Donate](https://badgen.net/badge/Bitcoin/Donate/F19537?icon=bitcoin)](https://blockstream.info/address/3Jp1RjKZdQjb1Ui4o5MVqhfch3rD1xUynn)
 [![Peercoin Donate](https://badgen.net/badge/peercoin/Donate/green?icon=https://raw.githubusercontent.com/peercoin/media/84710cca6c3c8d2d79676e5260cc8d1cd729a427/Peercoin%202020%20Logo%20Files/01.%20Icon%20Only/Inside%20Circle/Transparent/Green%20Icon/peercoin-icon-green-transparent.svg)](https://chainz.cryptoid.info/ppc/address.dws?PWzpZ5igHDSA76gNZ9DwE7aeCbfLsZbDkJ)
 
-Common financial technical indicators implemented in Pandas.
+Common financial technical indicators. Fast Trade's fork is **Polars-native**: methods expect a `polars.DataFrame` OHLC frame and return `polars.Series` / `polars.DataFrame` results.
 
 ![example](examples/plot.png)
 
@@ -108,55 +108,55 @@ Finta supports over 80 trading indicators:
 
 ## Dependencies:
 
--   python (3.6+)
--   pandas (1.0.0+)
+-   python (3.10+)
+-   polars (1.0.0+)
 
 TA class is very well documented and there should be no trouble
-exploring it and using with your data. Each class method expects proper `ohlc` DataFrame as input.
+exploring it and using with your data. Each class method expects a Polars `ohlc` DataFrame as input.
 
 ## Install:
 
-`pip install finta`
+Use Fast Trade (this fork ships inside the package):
 
-or latest development version:
-
-`pip install git+git://github.com/peerchemist/finta.git`
+`pip install fast-trade`
 
 ## Import
 
-`from finta import TA`
+`from fast_trade.finta import TA`
 
 Prepare data to use with finta:
 
-finta expects properly formated `ohlc` DataFrame, with column names in `lowercase`:
-["open", "high", "low", "close"] and ["volume"] for indicators that expect `ohlcv` input.
+finta expects a properly formatted Polars `ohlc` DataFrame, with column names in `lowercase`:
+`["open", "high", "low", "close"]` and `["volume"]` for indicators that expect `ohlcv` input.
+A datetime `date` column is preferred when working with the rest of Fast Trade.
 
-### to resample by time period (you can choose different time period)
-`ohlc = resample(df, "24h")`
+### You can also load an OHLC DataFrame from CSV / parquet
 
-### You can also load a ohlc DataFrame from .csv file
+```python
+import polars as pl
 
-`data_file = ("data/bittrex:btc-usdt.csv")`
-
-`ohlc = pd.read_csv(data_file, index_col="date", parse_dates=True)`
+ohlc = pl.read_csv("data/example.csv", try_parse_dates=True)
+# or
+ohlc = pl.read_parquet("ft_archive/binanceus/BTCUSDT.parquet")
+```
 
 ____________________________________________________________________________
 
 ## Examples:
 
-### will return Pandas Series object with the Simple moving average for 42 periods
+### will return a Polars Series with the Simple moving average for 42 periods
 `TA.SMA(ohlc, 42)`
 
-### will return Pandas Series object with "Awesome oscillator" values
+### will return a Polars Series with "Awesome oscillator" values
 `TA.AO(ohlc)`
 
 ### expects ["volume"] column as input
 `TA.OBV(ohlc)`
 
-### will return Series with Bollinger Bands columns [BB_UPPER, BB_LOWER]
+### will return a DataFrame with Bollinger Bands columns [BB_UPPER, BB_LOWER]
 `TA.BBANDS(ohlc)`
 
-### will return Series with calculated BBANDS values but will use KAMA instead of MA for calculation, other types of Moving Averages are allowed as well.
+### will return BBANDS values but will use KAMA instead of MA for calculation; other moving averages are allowed as well
 `TA.BBANDS(ohlc, MA=TA.KAMA(ohlc, 20))`
 
 

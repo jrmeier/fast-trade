@@ -1,0 +1,128 @@
+[
+  {
+    "years": 2,
+    "start": "2024-09-12",
+    "stop": "2026-09-12",
+    "freq": "1Min",
+    "input_rows": 1050115,
+    "output_rows": 1051202,
+    "run_backtest_e2e": {
+      "mean_s": 1.1427,
+      "min_s": 1.1372,
+      "max_s": 1.1528,
+      "repeat": 3
+    },
+    "stages": {
+      "prepare_indicators": {
+        "mean_s": 0.1624,
+        "min_s": 0.1598,
+        "max_s": 0.1675,
+        "repeat": 3
+      },
+      "generate_actions": {
+        "mean_s": 0.0405,
+        "min_s": 0.0401,
+        "max_s": 0.041,
+        "repeat": 3
+      },
+      "simulate_account": {
+        "mean_s": 0.7044,
+        "min_s": 0.6837,
+        "max_s": 0.719,
+        "repeat": 3
+      },
+      "build_summary": {
+        "mean_s": 0.1072,
+        "min_s": 0.1055,
+        "max_s": 0.1099,
+        "repeat": 3
+      }
+    },
+    "stage_rows": 1051201,
+    "data_note": "1m BTCUSDT bars tiled from live 1y archive (date-shifted) to match calendar length; throughput benchmark"
+  },
+  {
+    "years": 5,
+    "start": "2021-09-13",
+    "stop": "2026-09-12",
+    "freq": "1Min",
+    "input_rows": 2625286,
+    "output_rows": 2628002,
+    "run_backtest_e2e": {
+      "mean_s": 2.7303,
+      "min_s": 2.6842,
+      "max_s": 2.7851,
+      "repeat": 3
+    },
+    "stages": {
+      "prepare_indicators": {
+        "mean_s": 0.4415,
+        "min_s": 0.4075,
+        "max_s": 0.4782,
+        "repeat": 3
+      },
+      "generate_actions": {
+        "mean_s": 0.1047,
+        "min_s": 0.103,
+        "max_s": 0.1066,
+        "repeat": 3
+      },
+      "simulate_account": {
+        "mean_s": 1.8567,
+        "min_s": 1.7822,
+        "max_s": 1.9569,
+        "repeat": 3
+      },
+      "build_summary": {
+        "mean_s": 0.2682,
+        "min_s": 0.264,
+        "max_s": 0.2726,
+        "repeat": 3
+      }
+    },
+    "stage_rows": 2628001,
+    "data_note": "1m BTCUSDT bars tiled from live 1y archive (date-shifted) to match calendar length; throughput benchmark"
+  },
+  {
+    "years": 10,
+    "start": "2016-09-14",
+    "stop": "2026-09-12",
+    "freq": "1Min",
+    "input_rows": 5250571,
+    "output_rows": 5256002,
+    "run_backtest_e2e": {
+      "mean_s": 5.519,
+      "min_s": 5.4144,
+      "max_s": 5.7074,
+      "repeat": 3
+    },
+    "stages": {
+      "prepare_indicators": {
+        "mean_s": 0.8673,
+        "min_s": 0.8054,
+        "max_s": 0.9593,
+        "repeat": 3
+      },
+      "generate_actions": {
+        "mean_s": 0.2607,
+        "min_s": 0.2469,
+        "max_s": 0.2739,
+        "repeat": 3
+      },
+      "simulate_account": {
+        "mean_s": 3.6624,
+        "min_s": 3.6151,
+        "max_s": 3.7395,
+        "repeat": 3
+      },
+      "build_summary": {
+        "mean_s": 0.562,
+        "min_s": 0.5445,
+        "max_s": 0.5881,
+        "repeat": 3
+      }
+    },
+    "stage_rows": 5256001,
+    "data_note": "1m BTCUSDT bars tiled from live 1y archive (date-shifted) to match calendar length; throughput benchmark"
+  }
+]

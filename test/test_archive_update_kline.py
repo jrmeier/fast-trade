@@ -1,7 +1,7 @@
 import datetime
 from unittest import mock
 
-import pandas as pd
+import polars as pl
 import pytest
 
 from test.archive_main_runners import run_update_kline_main
@@ -9,15 +9,15 @@ from fast_trade.archive import update_kline
 
 
 def _sample_df():
-    return pd.DataFrame(
+    return pl.DataFrame(
         {
+            "date": [datetime.datetime(2024, 1, 1)],
             "open": [100.0],
             "high": [110.0],
             "low": [90.0],
             "close": [105.0],
             "volume": [1000.0],
-        },
-        index=pd.to_datetime(["2024-01-01"]),
+        }
     )
 
 

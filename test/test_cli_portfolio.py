@@ -1,9 +1,10 @@
 """CLI tests for portfolio commands."""
 
+import datetime
 import os
 from unittest import mock
 
-import pandas as pd
+import polars as pl
 import pytest
 from typer.testing import CliRunner
 
@@ -55,12 +56,12 @@ def test_portfolio_start_error_paths(cli_runner, strategy_file, archive_env, mon
     monkeypatch.setattr(cli_mod, "_load_portfolio_state", lambda path, default: default)
     _invoke(cli_runner, ["portfolio", "start", str(strategy_file), "--no-daemon", "--once", "--name", "errpf"])
 
-    monkeypatch.setattr(cli_mod, "_load_latest_ohlcv", lambda *a, **k: pd.DataFrame())
+    monkeypatch.setattr(cli_mod, "_load_latest_ohlcv", lambda *a, **k: pl.DataFrame())
     _invoke(cli_runner, ["portfolio", "start", str(strategy_file), "--no-daemon", "--once", "--name", "empty"])
 
-    df = pd.DataFrame({"close": [1.0]}, index=pd.date_range("2024-01-01", periods=1, freq="min"))
+    df = pl.DataFrame({"date": [datetime.datetime(2024, 1, 1)], "close": [1.0]})
     monkeypatch.setattr(cli_mod, "_load_latest_ohlcv", lambda *a, **k: df)
-    monkeypatch.setattr(cli_mod, "prepare_df", lambda df, s: pd.DataFrame())
+    monkeypatch.setattr(cli_mod, "prepare_df", lambda df, s: pl.DataFrame())
     _invoke(cli_runner, ["portfolio", "start", str(strategy_file), "--no-daemon", "--once", "--name", "prep"])
 
     monkeypatch.setattr(cli_mod, "prepare_df", lambda df, s: df)

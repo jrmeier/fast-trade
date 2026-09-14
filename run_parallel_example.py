@@ -177,13 +177,13 @@ def compare_performance():
 
     # Time standard method
     start_time = time.time()
-    run_backtest(base_strategy, prepared_df.copy())
+    run_backtest(base_strategy, prepared_df.clone())
     standard_time = time.time() - start_time
     print(f"Standard method: {standard_time:.2f} seconds")
 
     # Time chunked method
     start_time = time.time()
-    run_backtest_chunked(base_strategy, prepared_df.copy())
+    run_backtest_chunked(base_strategy, prepared_df.clone())
     chunked_time = time.time() - start_time
     print(f"Chunked method: {chunked_time:.2f} seconds")
 

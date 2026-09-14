@@ -2,9 +2,10 @@
 
 import json
 import os
+import datetime
 from unittest import mock
 
-import pandas as pd
+import polars as pl
 import pytest
 
 from fast_trade.cli_helpers import (
@@ -37,7 +38,7 @@ def test_parse_simple_yaml_quotes_and_list_items():
 
 
 def test_render_plot_preview_from_data_empty_series(capsys):
-    df = pd.DataFrame({"close": []}, index=pd.DatetimeIndex([]))
+    df = pl.DataFrame(schema={"date": pl.Datetime, "close": pl.Float64})
     render_plot_preview_from_data(df, None)
 
 
@@ -124,15 +125,19 @@ def test_open_strat_file_local_and_url(tmp_path):
 
 
 def test_create_plot_with_and_without_trades(capsys):
-    df = pd.DataFrame({"close": [1.0, 2.0, 3.0]}, index=pd.date_range("2024-01-01", periods=3, freq="h"))
-    trade_df = pd.DataFrame(
-        {"close": [2.0], "in_trade": [True]},
-        index=pd.date_range("2024-01-02", periods=1, freq="h"),
+    df = pl.DataFrame(
+        {
+            "date": [datetime.datetime(2024, 1, 1, hour) for hour in range(3)],
+            "close": [1.0, 2.0, 3.0],
+        }
+    )
+    trade_df = pl.DataFrame(
+        {"date": [datetime.datetime(2024, 1, 2)], "close": [2.0], "in_trade": [True]}
     )
     fig = create_plot(df, trade_df, show=False)
     assert fig is not None
 
-    empty_trades = pd.DataFrame()
+    empty_trades = pl.DataFrame()
     fig2 = create_plot(df, empty_trades, show=False)
     assert fig2 is not None
 
@@ -144,21 +149,25 @@ def test_create_plot_with_and_without_trades(capsys):
 
 def test_render_plot_preview_from_data_paths(capsys, sample_ohlcv):
     render_plot_preview_from_data(None, None)
-    render_plot_preview_from_data(pd.DataFrame(), None)
-    no_close = pd.DataFrame({"open": [1.0]}, index=pd.date_range("2024-01-01", periods=1, freq="h"))
+    render_plot_preview_from_data(pl.DataFrame(), None)
+    no_close = pl.DataFrame({"date": [datetime.datetime(2024, 1, 1)], "open": [1.0]})
     render_plot_preview_from_data(no_close, None)
 
     df = sample_ohlcv.head(30)
-    indices = df.index[::10][:3]
-    trade_df = pd.DataFrame(
-        {"close": df.loc[indices, "close"].values, "in_trade": [True] * len(indices)},
-        index=indices,
+    trade_df = df[::10].head(3).select("date", "close").with_columns(
+        pl.lit(True).alias("in_trade")
     )
     render_plot_preview_from_data(df, trade_df, width=20, height=6)
     out = capsys.readouterr().out
     assert out
 
-    bad_trade = pd.DataFrame({"close": [1.0], "in_trade": [True]}, index=["not-in-df"])
+    bad_trade = pl.DataFrame(
+        {
+            "date": [datetime.datetime(1999, 1, 1)],
+            "close": [1.0],
+            "in_trade": [True],
+        }
+    )
     render_plot_preview_from_data(df, bad_trade)
 
 

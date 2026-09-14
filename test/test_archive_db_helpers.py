@@ -3,25 +3,26 @@ import os
 import sqlite3
 from unittest import mock
 
-import pandas as pd
+import polars as pl
 import pytest
 
 from test.archive_main_runners import run_db_helpers_main
 from fast_trade.archive import db_helpers
 
 
-def _sample_df(index=None):
-    if index is None:
-        index = pd.to_datetime(["2024-01-01", "2024-01-02"])
-    return pd.DataFrame(
+def _sample_df(dates=None):
+    if dates is None:
+        dates = [datetime.datetime(2024, 1, 1), datetime.datetime(2024, 1, 2)]
+    n = len(dates)
+    return pl.DataFrame(
         {
-            "open": [100.0, 101.0],
-            "high": [110.0, 111.0],
-            "low": [90.0, 91.0],
-            "close": [105.0, 106.0],
-            "volume": [1000.0, 1100.0],
-        },
-        index=index,
+            "date": dates,
+            "open": [100.0 + i for i in range(n)],
+            "high": [110.0 + i for i in range(n)],
+            "low": [90.0 + i for i in range(n)],
+            "close": [105.0 + i for i in range(n)],
+            "volume": [1000.0 + i * 100 for i in range(n)],
+        }
     )
 
 
@@ -102,30 +103,21 @@ def test_update_klines_to_db_creates_archive_path(archive_path, monkeypatch):
 def test_update_klines_to_db_merges_existing_indexed_parquet(archive_path):
     exchange_dir = archive_path / "binanceus"
     exchange_dir.mkdir(parents=True)
-    existing = pd.DataFrame(
+    existing = pl.DataFrame(
         {
+            "__index_level_0__": [datetime.datetime(2024, 1, 1)],
             "open": [100.0],
             "high": [110.0],
             "low": [90.0],
             "close": [105.0],
             "volume": [1000.0],
-        },
-        index=pd.to_datetime(["2024-01-01"]),
+        }
     )
-    db_helpers._atomic_write_parquet(existing, str(exchange_dir / "BTCUSDT.parquet"))
+    existing.write_parquet(str(exchange_dir / "BTCUSDT.parquet"))
 
-    new_df = pd.DataFrame(
-        {
-            "open": [101.0],
-            "high": [111.0],
-            "low": [91.0],
-            "close": [106.0],
-            "volume": [1100.0],
-        },
-        index=pd.to_datetime(["2024-01-02"]),
-    )
+    new_df = _sample_df(dates=[datetime.datetime(2024, 1, 2)])
     path = db_helpers.update_klines_to_db(new_df, "BTCUSDT", "binanceus")
-    merged = pd.read_parquet(path)
+    merged = pl.read_parquet(path)
     assert len(merged) == 2
 
 
@@ -133,37 +125,28 @@ def test_update_klines_to_db_creates_new_parquet(archive_path):
     df = _sample_df()
     path = db_helpers.update_klines_to_db(df, "BTCUSDT", "binanceus")
     assert path.endswith("binanceus/BTCUSDT.parquet")
-    loaded = pd.read_parquet(path)
+    loaded = pl.read_parquet(path)
     assert len(loaded) == 2
 
 
 def test_update_klines_to_db_merges_existing_with_date_column(archive_path):
     exchange_dir = archive_path / "binanceus"
     exchange_dir.mkdir(parents=True)
-    existing = pd.DataFrame(
+    existing = pl.DataFrame(
         {
+            "date": [datetime.datetime(2024, 1, 1)],
             "open": [100.0],
             "high": [110.0],
             "low": [90.0],
             "close": [105.0],
             "volume": [1000.0],
-            "date": pd.to_datetime(["2024-01-01"]),
         }
     )
-    existing.to_parquet(exchange_dir / "BTCUSDT.parquet", index=False)
+    existing.write_parquet(str(exchange_dir / "BTCUSDT.parquet"))
 
-    new_df = pd.DataFrame(
-        {
-            "open": [101.0],
-            "high": [111.0],
-            "low": [91.0],
-            "close": [106.0],
-            "volume": [1100.0],
-        },
-        index=pd.to_datetime(["2024-01-02"]),
-    )
+    new_df = _sample_df(dates=[datetime.datetime(2024, 1, 2)])
     path = db_helpers.update_klines_to_db(new_df, "BTCUSDT", "binanceus")
-    merged = pd.read_parquet(path)
+    merged = pl.read_parquet(path)
     assert len(merged) == 2
 
 
@@ -174,7 +157,7 @@ def test_update_klines_to_db_recover_from_corrupt_existing(archive_path):
     corrupt.write_text("bad")
 
     path = db_helpers.update_klines_to_db(_sample_df(), "BTCUSDT", "binanceus")
-    loaded = pd.read_parquet(path)
+    loaded = pl.read_parquet(path)
     assert len(loaded) == 2
     assert path == str(corrupt)
 
@@ -214,26 +197,30 @@ def test_migrate_sqlite_to_parquet(archive_path):
     conn.close()
 
     db_helpers.migrate_sqlite_to_parquet(sqlite_path, parquet_path)
-    df = pd.read_parquet(parquet_path)
+    df = pl.read_parquet(parquet_path)
     assert len(df) == 1
 
 
 def test_standardize_df_drops_extra_columns_and_dedupes():
-    idx = pd.to_datetime(["2024-01-01", "2024-01-01", "2024-01-02"])
-    df = pd.DataFrame(
+    df = pl.DataFrame(
         {
+            "date": [
+                datetime.datetime(2024, 1, 1),
+                datetime.datetime(2024, 1, 1),
+                datetime.datetime(2024, 1, 2),
+            ],
             "open": ["1", "2", "3"],
             "high": ["2", "3", "4"],
             "low": ["0.5", "1", "2"],
             "close": ["1.5", "2.5", "3.5"],
             "volume": ["10", "20", "30"],
             "extra": ["x", "y", "z"],
-        },
-        index=idx,
+        }
     )
     result = db_helpers.standardize_df(df)
-    assert list(result.columns) == ["open", "close", "high", "low", "volume"]
+    assert list(result.columns) == ["date", "open", "high", "low", "close", "volume"]
     assert len(result) == 2
+    assert result["open"][0] == 2.0
 
 
 def test_get_kline_from_parquet(archive_path):
@@ -244,7 +231,7 @@ def test_get_kline_from_parquet(archive_path):
     start = datetime.datetime(2024, 1, 1)
     end = datetime.datetime(2024, 1, 2)
     df = db_helpers.get_kline("BTCUSDT", "binanceus", start, end)
-    assert not df.empty
+    assert not df.is_empty()
 
 
 def test_get_kline_string_dates(archive_path):
@@ -258,7 +245,7 @@ def test_get_kline_string_dates(archive_path):
         start_date="2024-01-01T00:00:00",
         end_date="2024-01-02T00:00:00",
     )
-    assert not df.empty
+    assert not df.is_empty()
 
 
 def test_get_kline_triggers_update_when_missing(archive_path):
@@ -267,7 +254,7 @@ def test_get_kline_triggers_update_when_missing(archive_path):
             _sample_df(), kwargs["symbol"], kwargs["exchange"]
         )
         df = db_helpers.get_kline("BTCUSDT", "binanceus")
-    assert not df.empty
+    assert not df.is_empty()
     assert update_mock.called
 
 
@@ -287,7 +274,7 @@ def test_get_kline_sqlite_fallback_and_migrates(archive_path):
 
     start = datetime.datetime(2024, 1, 1)
     df = db_helpers.get_kline("BTCUSDT", "binanceus", start_date=start)
-    assert not df.empty
+    assert not df.is_empty()
     assert (exchange_dir / "BTCUSDT.parquet").exists()
 
 
@@ -314,7 +301,7 @@ def test_get_kline_sqlite_with_end_date_filter(archive_path):
         start_date=datetime.datetime(2024, 1, 1),
         end_date=datetime.datetime(2024, 1, 2),
     )
-    assert not df.empty
+    assert not df.is_empty()
 
 
 def test_get_kline_parquet_corrupt_then_update_retry(archive_path):
@@ -328,17 +315,16 @@ def test_get_kline_parquet_corrupt_then_update_retry(archive_path):
             _sample_df(), kwargs["symbol"], kwargs["exchange"]
         )
         df = db_helpers.get_kline("BTCUSDT", "binanceus")
-    assert not df.empty
+    assert not df.is_empty()
 
 
 def test_get_kline_parquet_with_date_column_index(archive_path):
     exchange_dir = archive_path / "binanceus"
     exchange_dir.mkdir(parents=True)
-    df = _sample_df().reset_index().rename(columns={"index": "date"})
-    df.to_parquet(exchange_dir / "BTCUSDT.parquet", index=False)
+    _sample_df().write_parquet(str(exchange_dir / "BTCUSDT.parquet"))
 
     loaded = db_helpers.get_kline("BTCUSDT", "binanceus")
-    assert not loaded.empty
+    assert not loaded.is_empty()
 
 
 def test_get_kline_runtime_error_when_still_missing(archive_path):
@@ -360,17 +346,17 @@ def test_get_kline_after_update_reads_date_column_parquet(archive_path):
     def exists(path):
         return str(path) == str(parquet_path)
 
-    stored = _sample_df().reset_index().rename(columns={"index": "date"})
+    stored = _sample_df()
 
     def fake_update(**kwargs):
         parquet_path.parent.mkdir(parents=True, exist_ok=True)
-        stored.to_parquet(parquet_path, index=False)
+        stored.write_parquet(str(parquet_path))
 
     with mock.patch("fast_trade.archive.db_helpers.os.path.exists", side_effect=exists), mock.patch(
         "fast_trade.archive.update_kline.update_kline", side_effect=fake_update
     ), mock.patch("fast_trade.archive.db_helpers._safe_read_parquet", side_effect=[None, stored]):
         df = db_helpers.get_kline("BTCUSDT", "binanceus")
-    assert not df.empty
+    assert not df.is_empty()
 
 
 def test_main_block_runs(archive_path):

@@ -10,12 +10,13 @@ Three layers that mostly work well together:
 
 | Layer | What exists | Maturity |
 |---|---|---|
-| **Core engine** | YAML strategies → indicators → enter/exit logic → rich summary metrics | Strong; recently optimized (~3x on hot paths) |
+| **Core engine** | YAML strategies → Polars indicators → enter/exit logic → rich summary metrics | Strong; Polars-native in `3.0.0` |
 | **Data + CLI** | Archive download (Binance/Coinbase), `ft backtest`, saved runs, logs | Solid |
 | **Research tooling** | Evolver (GA), regime models, HMM screener, FXMacroData, MCP server | Growing, uneven |
 
 Recent history reinforces a specific bias:
 
+- **3.0.0** migrated the library from pandas to Polars-native dataframes (breaking) — ~0.58s for a year of 1m BTC backtests.
 - **2.1.0** added agent-facing tools (MCP, HMM screen, macro context).
 - **Terminal UI was removed** — a deliberate simplification toward headless CLI + agents.
 - **`Live.plan.md` exists but `fast_trade/live/` does not** — live execution is planned, not shipped.
@@ -102,27 +103,28 @@ Avoid becoming “yet another AutoML trading framework.” The edge is **speed +
 - **Rebuilding the interactive terminal** — removed for good reasons (complexity, CI pain, limited value)
 - **Competing with full bots** (Freqtrade, Jesse, etc.) on live order management
 - **Broad exchange support** before one exchange’s paper path is rock-solid
-- **Heavy dependencies** (Numba, TA-Lib, XGBoost) unless gated as optional extras
+- **Heavy dependencies** (TA-Lib, XGBoost) unless gated as optional extras. Numba is a core dependency for the simulation / SAR hotpaths.
 
 ## Concrete Roadmap
 
-### Near term (stabilize 2.1, sharpen the loop)
+### Near term (stabilize 3.0, sharpen the loop)
 
-1. Ship 2.1.0 (release prep)
+1. Ship 3.0.0 (Polars-native release prep)
 2. Document an end-to-end “research workflow” (screen → backtest → evolve → compare)
 3. Add batch backtest + summary ranking CLI
 4. Extend MCP with evolve and backtest-comparison tools
 
-### Medium term (close the simulation gap)
+### Medium term (close remaining bottlenecks)
 
 5. Candle-close paper runner wired to archive updates + portfolio
 6. Walk-forward / train-test split in evolver config
-7. Optional Numba JIT for simulation kernel (already teed up in `RUN_ANALYSIS_PLAN.md`)
+7. Re-profile summary / trade-log builders now that simulation is Numba-accelerated
+8. Optional Rust/Cython only if Numba stops being enough for a measured hotspot
 
 ### Long term (only if paper path is solid)
 
-8. Implement `fast_trade/live/` per `Live.plan.md`, paper first
-9. Hyperliquid integration (already referenced in HMM screen)
+9. Implement `fast_trade/live/` per `Live.plan.md`, paper first
+10. Hyperliquid integration (already referenced in HMM screen)
 
 ## Strategic Positioning
 
