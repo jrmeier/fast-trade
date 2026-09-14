@@ -14,17 +14,10 @@ if os.path.isfile(ARCHIVE_PATH):
 KLINE_COLUMNS = [DATE_COL, "open", "high", "low", "close", "volume"]
 
 
-def _atomic_write_parquet(df, path: str, index: bool = True) -> None:
-    """Write a frame to parquet, swapping it in only once it is complete.
-
-    ``index`` is ignored for Polars frames (the usual path). Kept for
-    callers that still pass objects with ``to_parquet``.
-    """
+def _atomic_write_parquet(df: pl.DataFrame, path: str) -> None:
+    """Write a frame to parquet, swapping it in only once it is complete."""
     tmp_path = path + ".tmp"
-    if hasattr(df, "write_parquet"):
-        df.write_parquet(tmp_path)
-    else:
-        df.to_parquet(tmp_path, index=index)
+    df.write_parquet(tmp_path)
     os.replace(tmp_path, path)
 
 

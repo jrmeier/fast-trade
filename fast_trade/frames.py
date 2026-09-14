@@ -1,9 +1,7 @@
 """Polars frame helpers shared across fast-trade.
 
 Frames are ``pl.DataFrame`` with an explicit ``date`` column holding datetimes;
-there is no index. ``to_polars`` additionally accepts frames handed over by
-producers that have not been ported yet, so that branch can be dropped once
-everything upstream emits Polars.
+there is no index.
 """
 
 from __future__ import annotations
@@ -13,8 +11,6 @@ import re
 from typing import Any, Optional
 
 import polars as pl
-
-_INDEX_COLUMNS = ("index", "__index_level_0__", "level_0")
 
 _UNIT_ALIASES = {
     "ns": "ns",
@@ -69,7 +65,7 @@ _UNIT_SECONDS = {
 
 
 def to_polars(frame: Any) -> pl.DataFrame:
-    """Return ``frame`` as a ``pl.DataFrame`` with a ``date`` column when possible."""
+    """Return ``frame`` as a ``pl.DataFrame``."""
     if frame is None:
         return pl.DataFrame()
     if isinstance(frame, pl.DataFrame):
@@ -78,20 +74,9 @@ def to_polars(frame: Any) -> pl.DataFrame:
         return frame.collect()
     if isinstance(frame, dict):
         return pl.DataFrame(frame)
-
-    # Producers that still hand over pandas frames keep the dates on the index.
-    if hasattr(frame, "reset_index") and hasattr(frame, "columns"):
-        frame = frame.reset_index()
-    return _normalize_date_column(pl.from_pandas(frame))
-
-
-def _normalize_date_column(df: pl.DataFrame) -> pl.DataFrame:
-    if "date" in df.columns or df.is_empty():
-        return df
-    for name in _INDEX_COLUMNS:
-        if name in df.columns and df.schema[name] in (pl.Date, pl.Datetime):
-            return df.rename({name: "date"})
-    return df
+    raise TypeError(
+        f"Expected a Polars DataFrame/LazyFrame or dict, got {type(frame).__name__}"
+    )
 
 
 def is_empty(frame: Any) -> bool:
@@ -102,24 +87,10 @@ def is_empty(frame: Any) -> bool:
         return frame.is_empty()
     if isinstance(frame, pl.LazyFrame):
         return frame.limit(1).collect().is_empty()
-    empty = getattr(frame, "empty", None)
-    if empty is not None:
-        return bool(empty)
     try:
         return len(frame) == 0
     except TypeError:
         return False
-
-
-def has_column(frame: Any, column: str) -> bool:
-    columns = getattr(frame, "columns", ())
-    return column in columns
-
-
-def sort_by_date(df: pl.DataFrame) -> pl.DataFrame:
-    if "date" in df.columns:
-        return df.sort("date")
-    return df
 
 
 def parse_freq(freq: Optional[str]) -> tuple:
@@ -145,12 +116,6 @@ def parse_freq(freq: Optional[str]) -> tuple:
     return int(count) if count.is_integer() else count, unit
 
 
-def freq_to_polars(freq: Optional[str]) -> str:
-    """Convert a pandas-style frequency to a Polars duration string."""
-    count, unit = parse_freq(freq)
-    return f"{count}{unit}"
-
-
 def freq_to_timedelta(freq: Optional[str]) -> datetime.timedelta:
     """Convert a pandas-style frequency to a ``datetime.timedelta``.
 
@@ -159,12 +124,3 @@ def freq_to_timedelta(freq: Optional[str]) -> datetime.timedelta:
     """
     count, unit = parse_freq(freq)
     return datetime.timedelta(seconds=count * _UNIT_SECONDS[unit])
-
-
-def write_parquet(df: pl.DataFrame, path: str) -> None:
-    """Write ``df`` to ``path`` via a temporary file so readers never see a partial write."""
-    import os
-
-    tmp_path = f"{path}.tmp"
-    to_polars(df).write_parquet(tmp_path)
-    os.replace(tmp_path, path)

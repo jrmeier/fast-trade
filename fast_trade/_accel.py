@@ -9,10 +9,7 @@ import numpy as np
 
 try:
     from numba import njit
-
-    HAS_NUMBA = True
 except ImportError:  # pragma: no cover
-    HAS_NUMBA = False
 
     def njit(*args, **kwargs):  # type: ignore[misc]
         def wrap(fn):

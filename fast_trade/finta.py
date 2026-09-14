@@ -65,13 +65,6 @@ def _to_np(series: Any) -> np.ndarray:
     return np.asarray(series, dtype=float)
 
 
-def _window_np(x: Any) -> np.ndarray:
-    """Convert rolling_map window (polars Series) to float ndarray."""
-    if isinstance(x, pl.Series):
-        return x.to_numpy()
-    return np.asarray(x, dtype=float)
-
-
 def _ewm_mean(
     series: Any,
     *,
