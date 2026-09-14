@@ -103,29 +103,31 @@ def bench_stages(backtest: dict, repeat: int) -> dict:
 
     _, load_stats = timed(load, repeat)
 
-    prepared = prepare_df(raw.clone(), backtest)
+    prepared = prepare_df(raw, backtest)
 
     def indicators():
-        return prepare_df(raw.clone(), backtest)
+        # prepare_df builds a new frame; no need to clone the input each time.
+        return prepare_df(raw, backtest)
 
     _, ind_stats = timed(indicators, repeat)
 
-    with_actions = process_logic_and_generate_actions(prepared.clone(), backtest)
+    with_actions = process_logic_and_generate_actions(prepared, backtest)
 
     def actions():
-        return process_logic_and_generate_actions(prepared.clone(), backtest)
+        return process_logic_and_generate_actions(prepared, backtest)
 
     _, action_stats = timed(actions, repeat)
 
     def simulate():
-        return _with_summary_cols(apply_logic_to_df(with_actions.clone(), backtest))
+        return _with_summary_cols(apply_logic_to_df(with_actions, backtest))
 
     simulated, sim_stats = timed(simulate, repeat)
 
     started = datetime.datetime.utcnow()
 
     def summary():
-        return build_summary(simulated.clone(), started)
+        # build_summary only reads the frame.
+        return build_summary(simulated, started)
 
     _, summary_stats = timed(summary, repeat)
 

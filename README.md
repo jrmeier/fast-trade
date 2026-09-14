@@ -14,11 +14,11 @@ If backtests are fast, strategies are cheap.
 
 `3.0.0` is Polars-native end-to-end. On BTCUSDT 1m data:
 
-- **~0.62s** for a 1y EMA-cross + RSI backtest (~526k bars)
-- vs pandas `2.1.0` on the same 1m strategy: **1.31× / 1.46× / 1.58× / 1.68×** faster at 1y / 2y / 5y / 10y
+- **~0.43s** for a 1y EMA-cross + RSI backtest (~526k bars)
+- vs pandas `2.1.0` on the same 1m strategy: **1.99× / 2.22× / 2.37× / 2.45×** faster at 1y / 2y / 5y / 10y
 - **~0.17s** for a 2-month 1m backtest
 - FinTA indicator suite **~1.9×** faster than the previous pandas FinTA path
-- Standouts: **ATR ~5×**, **WMA ~100×**, **OBV ~3×** vs pandas FinTA
+- Standouts: **ATR ~5×**, **WMA ~100×**, **OBV ~3×** vs pandas FinTA; Numba accelerates account sim + SAR/PSAR/KAMA/FRAMA
 
 See `docs/PERFORMANCE.md` for stage breakdowns. Reproduce with
 `python scripts/bench_strategy_backtest.py`, `python scripts/bench_multi_year.py`,

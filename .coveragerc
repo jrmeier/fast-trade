@@ -4,6 +4,8 @@ source =
 omit =
     ./fast_trade/__main__.py
     ./fast_trade/__init__.py
+    # Numba-compiled kernels — coverage cannot see executed bytecode inside @njit.
+    ./fast_trade/_accel.py
 
 [report]
 show_missing = True

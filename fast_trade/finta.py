@@ -453,19 +453,13 @@ class TA:
         sma_shift = np.roll(sma_arr, 1)
         sma_shift[0] = np.nan
 
-        kama = []
-        for i in range(len(price_arr)):
-            s_val = sc_arr[i]
-            ma_val = sma_shift[i]
-            price_val = price_arr[i]
-            try:
-                kama.append(kama[-1] + s_val * (price_val - kama[-1]))
-            except (IndexError, TypeError):
-                if ma_val == ma_val:  # not NaN
-                    kama.append(ma_val + s_val * (price_val - ma_val))
-                else:
-                    kama.append(None)
+        from fast_trade._accel import kama_kernel
 
+        kama = kama_kernel(
+            np.ascontiguousarray(price_arr, dtype=np.float64),
+            np.ascontiguousarray(sc_arr, dtype=np.float64),
+            np.ascontiguousarray(sma_shift, dtype=np.float64),
+        )
         return _series_out(
             kama, "{0} period KAMA.".format(period)
         )
@@ -626,15 +620,11 @@ class TA:
             D = (np.log(n1_a + n2_a) - np.log(n3_a)) / np.log(2)
             alp = np.clip(np.exp(-4.6 * (D - 1)), 0.01, 1)
 
-        filt = _to_np(c).copy()
-        for i, x in enumerate(alp):
-            cl = filt[i]
-            if i < window:
-                continue
-            if x != x:  # NaN alpha
-                continue
-            filt[i] = cl * x + (1 - x) * filt[i - 1]
+        from fast_trade._accel import frama_filter_kernel
 
+        close_a = np.ascontiguousarray(_to_np(c), dtype=np.float64)
+        alp_a = np.ascontiguousarray(alp, dtype=np.float64)
+        filt = frama_filter_kernel(close_a, alp_a, int(window))
         return _series_out(
             filt, "{0} period FRAMA.".format(period)
         )
@@ -909,48 +899,12 @@ class TA:
         SAR trails price as the trend extends over time. The indicator is below prices when prices are rising and above prices when prices are falling.
         In this regard, the indicator stops and reverses when the price trend reverses and breaks above or below the indicator.
         """
+        from fast_trade._accel import sar_kernel
+
         pl_df = ohlc
-        high = _to_np(_col(pl_df, "high"))
-        low = _to_np(_col(pl_df, "low"))
-        n = len(high)
-
-        sig0, xpt0, af0 = True, high[0], af
-        hl_std = float(np.nanstd(high - low, ddof=1)) if n > 1 else 0.0
-        # pandas (ohlc.high - ohlc.low).std() uses ddof=1
-        sar = np.empty(n, dtype=float)
-        sar[0] = low[0] - hl_std
-        sar_prev = sar[0]
-
-        for i in range(1, n):
-            sig1, xpt1, af1 = sig0, xpt0, af0
-
-            lmin = min(low[i - 1], low[i])
-            lmax = max(high[i - 1], high[i])
-
-            if sig1:
-                sig0 = low[i] > sar_prev
-                xpt0 = max(lmax, xpt1)
-            else:
-                sig0 = high[i] >= sar_prev
-                xpt0 = min(lmin, xpt1)
-
-            if sig0 == sig1:
-                sari = sar_prev + (xpt1 - sar_prev) * af1
-                af0 = min(amax, af1 + af)
-
-                if sig0:
-                    af0 = af0 if xpt0 > xpt1 else af1
-                    sari = min(sari, lmin)
-                else:
-                    af0 = af0 if xpt0 < xpt1 else af1
-                    sari = max(sari, lmax)
-            else:
-                af0 = af
-                sari = xpt0
-
-            sar[i] = sari
-            sar_prev = sari
-
+        high = np.ascontiguousarray(_to_np(_col(pl_df, "high")), dtype=np.float64)
+        low = np.ascontiguousarray(_to_np(_col(pl_df, "low")), dtype=np.float64)
+        sar = sar_kernel(high, low, float(af), float(amax))
         return _series_out(sar, None)
 
     @classmethod
@@ -962,70 +916,18 @@ class TA:
         https://www.investopedia.com/terms/p/parabolicindicator.asp
         https://virtualizedfrog.wordpress.com/2014/12/09/parabolic-sar-implementation-in-python/
         """
+        from fast_trade._accel import psar_kernel
+
         pl_df = ohlc
-        length = len(pl_df)
-        high = _to_np(_col(pl_df, "high"))
-        low = _to_np(_col(pl_df, "low"))
-        close = _to_np(_col(pl_df, "close"))
-        psar = close.copy()
-        psarbull = [None] * length
-        psarbear = [None] * length
-        bull = True
-        af = iaf
-        hp = high[0]
-        lp = low[0]
-
-        for i in range(2, length):
-            if bull:
-                psar[i] = psar[i - 1] + af * (hp - psar[i - 1])
-            else:
-                psar[i] = psar[i - 1] + af * (lp - psar[i - 1])
-
-            reverse = False
-
-            if bull:
-                if low[i] < psar[i]:
-                    bull = False
-                    reverse = True
-                    psar[i] = hp
-                    lp = low[i]
-                    af = iaf
-            else:
-                if high[i] > psar[i]:
-                    bull = True
-                    reverse = True
-                    psar[i] = lp
-                    hp = high[i]
-                    af = iaf
-
-            if not reverse:
-                if bull:
-                    if high[i] > hp:
-                        hp = high[i]
-                        af = min(af + iaf, maxaf)
-                    if low[i - 1] < psar[i]:
-                        psar[i] = low[i - 1]
-                    if low[i - 2] < psar[i]:
-                        psar[i] = low[i - 2]
-                else:
-                    if low[i] < lp:
-                        lp = low[i]
-                        af = min(af + iaf, maxaf)
-                    if high[i - 1] > psar[i]:
-                        psar[i] = high[i - 1]
-                    if high[i - 2] > psar[i]:
-                        psar[i] = high[i - 2]
-
-            if bull:
-                psarbull[i] = psar[i]
-            else:
-                psarbear[i] = psar[i]
-
+        high = np.ascontiguousarray(_to_np(_col(pl_df, "high")), dtype=np.float64)
+        low = np.ascontiguousarray(_to_np(_col(pl_df, "low")), dtype=np.float64)
+        close = np.ascontiguousarray(_to_np(_col(pl_df, "close")), dtype=np.float64)
+        psar, psarbull, _psarbear = psar_kernel(
+            high, low, close, float(iaf), float(maxaf)
+        )
         # Preserve pandas-ref swap quirk: both columns get bull list values
-        bear_col = psarbull
-        bull_col = psarbull
         return _frame_out(
-            {"psar": psar, "psarbull": bull_col, "psarbear": bear_col}
+            {"psar": psar, "psarbull": psarbull, "psarbear": psarbull}
         )
 
     @classmethod
@@ -1679,13 +1581,21 @@ class TA:
         tp = cls.TP(pl_df)
         tp_mean = _rolling_mean(tp, period, min_periods=0)
 
-        def _mad(x) -> float:
-            arr = _window_np(x)
-            return float(np.mean(np.abs(arr - np.mean(arr))))
-
-        mad = tp.rolling_map(_mad, window_size=period, min_samples=1)
-        # pandas min_periods=0 still needs at least 1 sample for apply
-        result = (tp - tp_mean) / (constant * mad)
+        tp_arr = np.asarray(_to_np(tp), dtype=float)
+        mad = np.full(len(tp_arr), np.nan, dtype=float)
+        if len(tp_arr):
+            # Early windows (min_samples=1) — match rolling_map length growth.
+            for i in range(min(period - 1, len(tp_arr))):
+                window = tp_arr[: i + 1]
+                finite = window[np.isfinite(window)]
+                if finite.size:
+                    mad[i] = float(np.mean(np.abs(finite - finite.mean())))
+            if len(tp_arr) >= period:
+                windows = np.lib.stride_tricks.sliding_window_view(tp_arr, period)
+                mu = np.nanmean(windows, axis=1)
+                mad[period - 1 :] = np.nanmean(np.abs(windows - mu[:, None]), axis=1)
+        mad_s = pl.Series(mad)
+        result = (tp - tp_mean) / (constant * mad_s)
         return _series_out(result, "{0} period CCI".format(period))
 
     @classmethod
@@ -1984,14 +1894,8 @@ class TA:
         mf_a = _to_np(mf)
         close_a = _to_np(_col(pl_df, "close"))
         vol_a = _to_np(_col(pl_df, "volume"))
-        vol_shift = np.zeros(len(mf_a))
-        for i in range(len(mf_a)):
-            if mf_a[i] > factor * close_a[i] / 100:
-                vol_shift[i] = vol_a[i]
-            elif mf_a[i] < -factor * close_a[i] / 100:
-                vol_shift[i] = -vol_a[i]
-            else:
-                vol_shift[i] = 0
+        thr = factor * close_a / 100.0
+        vol_shift = np.where(mf_a > thr, vol_a, np.where(mf_a < -thr, -vol_a, 0.0))
         _sum = _rolling_sum(pl.Series(vol_shift), period)
         return _series_out((_sum / smav) / period * 100, None)
 
@@ -2155,22 +2059,15 @@ class TA:
         """
         pl_df = ohlc
         window_size = period * 2 + 1
-        high = _to_np(_col(pl_df, "high"))
-        low = _to_np(_col(pl_df, "low"))
-        n = len(high)
-        bearish = np.full(n, np.nan)
-        bullish = np.full(n, np.nan)
-        # center=True rolling: first valid at period, last at n-period-1
-        half = period
-        for i in range(n):
-            start = i - half
-            end = i + half + 1
-            if start < 0 or end > n:
-                continue
-            window_h = high[start:end]
-            window_l = low[start:end]
-            bearish[i] = 1.0 if window_h[period] == np.max(window_h) else 0.0
-            bullish[i] = 1.0 if window_l[period] == np.min(window_l) else 0.0
+        high = _col(pl_df, "high")
+        low = _col(pl_df, "low")
+        # Centered rolling max/min — same as the previous O(n*window) scan.
+        bearish = (
+            high == high.rolling_max(window_size=window_size, center=True, min_samples=window_size)
+        ).cast(pl.Float64)
+        bullish = (
+            low == low.rolling_min(window_size=window_size, center=True, min_samples=window_size)
+        ).cast(pl.Float64)
         return _frame_out(
             {"BearishFractal": bearish, "BullishFractal": bullish}
         )
@@ -2295,28 +2192,38 @@ class TA:
             Series: Linear regression line values
         """
         pl_df = ohlc
+        y = np.asarray(_to_np(_col(pl_df, column)), dtype=float)
+        out = np.full(len(y), np.nan, dtype=float)
 
-        def calculate_lr_point(values):
-            arr = _window_np(values)
-            if len(arr) < 2:
-                return arr[-1] if len(arr) > 0 else np.nan
-
-            x = np.arange(len(arr))
-            y = arr
-
-            n = len(x)
-            x_mean = np.mean(x)
-            y_mean = np.mean(y)
+        def _lr_end(arr: np.ndarray) -> float:
+            finite = arr[np.isfinite(arr)]
+            if finite.size == 0:
+                return np.nan
+            if finite.size < 2:
+                return float(finite[-1])
+            x = np.arange(finite.size, dtype=float)
+            x_mean = x.mean()
+            y_mean = finite.mean()
             denom = np.sum((x - x_mean) ** 2)
-            slope = np.sum((x - x_mean) * (y - y_mean)) / denom
+            slope = np.sum((x - x_mean) * (finite - y_mean)) / denom
             intercept = y_mean - slope * x_mean
-            return slope * (n - 1) + intercept
+            return float(slope * (finite.size - 1) + intercept)
 
-        result = _col(pl_df, column).rolling_map(
-            calculate_lr_point, window_size=period, min_samples=1
-        )
+        for i in range(min(period - 1, len(y))):
+            out[i] = _lr_end(y[: i + 1])
+        if period == 1:
+            out[:] = y
+        elif len(y) >= period:
+            w = np.arange(period, dtype=float)
+            w_mean = w.mean()
+            denom = np.sum((w - w_mean) ** 2)
+            windows = np.lib.stride_tricks.sliding_window_view(y, period)
+            y_mean = windows.mean(axis=1)
+            slope = ((windows - y_mean[:, None]) * (w - w_mean)).sum(axis=1) / denom
+            intercept = y_mean - slope * w_mean
+            out[period - 1 :] = slope * (period - 1) + intercept
         return _series_out(
-            result,
+            out,
             "{0} period LINEAR_REGRESSION".format(period)
         )
 
