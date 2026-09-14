@@ -16,10 +16,10 @@ _COMPARISONS = {
 
 def max_last_frames(backtest: dict) -> int:
     logics = [
-        backtest.get("enter", []),
-        backtest.get("exit", []),
-        backtest.get("any_exit", []),
-        backtest.get("any_enter", []),
+        backtest.get("enter") or [],
+        backtest.get("exit") or [],
+        backtest.get("any_exit") or [],
+        backtest.get("any_enter") or [],
     ]
     flat = list(itertools.chain(*logics))
     max_frames = 0
@@ -32,10 +32,10 @@ def max_last_frames(backtest: dict) -> int:
 def can_vectorize_logic(df: pl.DataFrame, backtest: dict) -> bool:
     columns = df.columns
     for logic_group in [
-        backtest.get("enter", []),
-        backtest.get("exit", []),
-        backtest.get("any_enter", []),
-        backtest.get("any_exit", []),
+        backtest.get("enter") or [],
+        backtest.get("exit") or [],
+        backtest.get("any_enter") or [],
+        backtest.get("any_exit") or [],
     ]:
         for logic in logic_group:
             if not (
@@ -89,10 +89,10 @@ def vectorized_actions(df: pl.DataFrame, backtest: dict) -> pl.Series:
     height = df.height
     actions = np.full(height, "h", dtype="<U3")
 
-    exit_mask = _mask_array(df, backtest.get("exit", []), combine_any=False)
-    any_exit_mask = _mask_array(df, backtest.get("any_exit", []), combine_any=True)
-    enter_mask = _mask_array(df, backtest.get("enter", []), combine_any=False)
-    any_enter_mask = _mask_array(df, backtest.get("any_enter", []), combine_any=True)
+    exit_mask = _mask_array(df, backtest.get("exit") or [], combine_any=False)
+    any_exit_mask = _mask_array(df, backtest.get("any_exit") or [], combine_any=True)
+    enter_mask = _mask_array(df, backtest.get("enter") or [], combine_any=False)
+    any_enter_mask = _mask_array(df, backtest.get("any_enter") or [], combine_any=True)
 
     if backtest.get("trailing_stop_loss"):
         tsl_mask = _column_values(df, "close") <= _column_values(df, "trailing_stop_loss")

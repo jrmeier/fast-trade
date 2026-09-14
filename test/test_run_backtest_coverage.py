@@ -241,3 +241,11 @@ def test_run_backtest_chunked_empty_archive_raises():
 def test_run_backtest_chunked_validation_error():
     with pytest.raises(BacktestKeyError):
         run_backtest_chunked({"datapoints": [], "enter": [], "exit": []})
+
+
+def test_process_compiled_logic_none_values():
+    from fast_trade.run_backtest import _process_compiled_logic
+    import operator
+    logic = ((True, "a"), operator.lt, (False, 1.0), 0)
+    assert _process_compiled_logic(logic, {"a": None}) is False
+    assert _process_compiled_logic(logic, {"a": 0.5}) is True

@@ -438,7 +438,9 @@ def test_render_plot_preview_print_exception(tmp_path):
     img.convert.return_value = img
     img.resize.return_value = img
     img.getdata.return_value = [128] * 16
-    with mock.patch("PIL.Image.open", return_value=img), mock.patch(
+    pil = mock.Mock()
+    pil.Image.open.return_value = img
+    with mock.patch.dict("sys.modules", {"PIL": pil, "PIL.Image": pil.Image}), mock.patch(
         "builtins.print", side_effect=OSError("print fail")
     ):
         render_plot_preview(str(tmp_path / "x.png"), width=4)
@@ -582,7 +584,9 @@ def test_render_plot_preview_inner_exception(tmp_path, capsys):
         def getdata(self):
             raise RuntimeError("pixels fail")
 
-    with mock.patch("PIL.Image.open", return_value=BadImage()):
+    pil = mock.Mock()
+    pil.Image.open.return_value = BadImage()
+    with mock.patch.dict("sys.modules", {"PIL": pil, "PIL.Image": pil.Image}):
         render_plot_preview(str(img_path))
 
 # --- ftv remainders ---
@@ -634,7 +638,9 @@ def test_render_plot_preview_line_loop_exception(tmp_path):
     img.resize.return_value = img
     img.getdata.side_effect = OSError("pixels fail")
 
-    with mock.patch("PIL.Image.open", return_value=img):
+    pil = mock.Mock()
+    pil.Image.open.return_value = img
+    with mock.patch.dict("sys.modules", {"PIL": pil, "PIL.Image": pil.Image}):
         render_plot_preview(str(img_path), width=4)
 
 def test_ftv_dump_yaml_plain_string(tmp_path, monkeypatch):

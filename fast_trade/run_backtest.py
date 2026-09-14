@@ -129,14 +129,27 @@ def _load_df_from_archive(backtest: dict, progress_callback=None) -> pl.DataFram
 
     start = backtest.get("start", None)
     if start and not isinstance(start, datetime.datetime):
-        start = datetime.datetime.fromisoformat(start)
+        # YAML may load bare dates as datetime.date
+        if isinstance(start, datetime.date):
+            start = datetime.datetime.combine(start, datetime.time.min)
+        else:
+            start = datetime.datetime.fromisoformat(str(start))
         start = start - td_freq * max_periods
+
+    stop = backtest.get("stop", None)
+    if stop and not isinstance(stop, datetime.datetime):
+        if isinstance(stop, datetime.date):
+            stop = datetime.datetime.combine(stop, datetime.time.max)
+        else:
+            stop = datetime.datetime.fromisoformat(str(stop))
+    else:
+        stop = backtest.get("stop")
 
     df = get_kline(
         backtest.get("symbol"),
         backtest.get("exchange"),
         start,
-        backtest.get("stop"),
+        stop,
         freq=freq,
     )
 
@@ -246,12 +259,16 @@ def prepare_new_backtest(backtest):
     new_backtest["base_balance"] = backtest.get("base_balance", 1000)
     new_backtest["exit_on_end"] = backtest.get("exit_on_end", False)
     new_backtest["comission"] = backtest.get("comission", 0)
-    new_backtest["trailing_stop_loss"] = backtest.get("trailing_stop_loss", 0)
-    # new_backtest["any_enter"] = backtest.get("any_enter", [])
-    # new_backtest["any_exit"] = backtest.get("any_exit", [])
+    # YAML `trailing_stop_loss: null` must not stay as None
+    new_backtest["trailing_stop_loss"] = backtest.get("trailing_stop_loss") or 0
+    # YAML empty keys (`any_enter:`) load as None — normalize to lists
+    new_backtest["any_enter"] = backtest.get("any_enter") or []
+    new_backtest["any_exit"] = backtest.get("any_exit") or []
+    new_backtest["enter"] = backtest.get("enter") or []
+    new_backtest["exit"] = backtest.get("exit") or []
     new_backtest["lot_size_perc"] = float(backtest.get("lot_size", 1))
     new_backtest["max_lot_size"] = int(backtest.get("max_lot_size", 0))
-    new_backtest["rules"] = backtest.get("rules", [])
+    new_backtest["rules"] = backtest.get("rules") or []
 
     # if chart_start and chart_stop are provided, use them
     if backtest.get("chart_start"):
@@ -403,10 +420,10 @@ def compile_action_logic(backtest: dict) -> dict:
 
     return {
         "trailing_stop_loss": bool(backtest.get("trailing_stop_loss")),
-        "exit": compile_group(backtest.get("exit", [])),
-        "any_exit": compile_group(backtest.get("any_exit", [])),
-        "enter": compile_group(backtest.get("enter", [])),
-        "any_enter": compile_group(backtest.get("any_enter", [])),
+        "exit": compile_group(backtest.get("exit") or []),
+        "any_exit": compile_group(backtest.get("any_exit") or []),
+        "enter": compile_group(backtest.get("enter") or []),
+        "any_enter": compile_group(backtest.get("any_enter") or []),
     }
 
 
@@ -428,6 +445,9 @@ def _process_compiled_logic(compiled_logic, row):
     left_accessor, op, right_accessor, _frames = compiled_logic
     left_value = _resolve_compiled_field(left_accessor, row)
     right_value = _resolve_compiled_field(right_accessor, row)
+    # Warmup / missing indicator values should not raise — treat as no-signal.
+    if left_value is None or right_value is None:
+        return False
     return bool(op(left_value, right_value))
 
 

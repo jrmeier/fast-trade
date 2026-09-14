@@ -197,14 +197,14 @@ def validate_backtest(backtest):
 
         return {"has_error": False, "msgs": []}
 
-    # process each logic
-    backtest_mirror["enter"] = process_logics(backtest.get("enter", []), "enter")
-    backtest_mirror["exit"] = process_logics(backtest.get("exit", []), "exit")
+    # process each logic (YAML nulls become None — treat as empty lists)
+    backtest_mirror["enter"] = process_logics(backtest.get("enter") or [], "enter")
+    backtest_mirror["exit"] = process_logics(backtest.get("exit") or [], "exit")
     backtest_mirror["any_enter"] = process_logics(
-        backtest.get("any_enter", []), "any_enter"
+        backtest.get("any_enter") or [], "any_enter"
     )
     backtest_mirror["any_exit"] = process_logics(
-        backtest.get("any_exit", []), "any_exit"
+        backtest.get("any_exit") or [], "any_exit"
     )
 
     lot_size = backtest.get("lot_size", 0)
