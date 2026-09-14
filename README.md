@@ -15,13 +15,14 @@ If backtests are fast, strategies are cheap.
 `3.0.0` is Polars-native end-to-end. On BTCUSDT 1m data:
 
 - **~0.62s** for a 1y EMA-cross + RSI backtest (~526k bars)
-- **~1.14s / ~2.73s / ~5.52s** for 2y / 5y / 10y 1m lengths (~1.05M / ~2.63M / ~5.25M bars)
+- vs pandas `2.1.0` on the same 1m strategy: **1.31× / 1.46× / 1.58× / 1.68×** faster at 1y / 2y / 5y / 10y
 - **~0.17s** for a 2-month 1m backtest
 - FinTA indicator suite **~1.9×** faster than the previous pandas FinTA path
 - Standouts: **ATR ~5×**, **WMA ~100×**, **OBV ~3×** vs pandas FinTA
 
 See `docs/PERFORMANCE.md` for stage breakdowns. Reproduce with
-`python scripts/bench_strategy_backtest.py` and `python scripts/bench_multi_year.py`.
+`python scripts/bench_strategy_backtest.py`, `python scripts/bench_multi_year.py`,
+and `python scripts/bench_pandas_vs_polars_years.py`.
 
 ## MCP Server
 
