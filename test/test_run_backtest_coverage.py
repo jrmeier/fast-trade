@@ -249,3 +249,83 @@ def test_process_compiled_logic_none_values():
     logic = ((True, "a"), operator.lt, (False, 1.0), 0)
     assert _process_compiled_logic(logic, {"a": None}) is False
     assert _process_compiled_logic(logic, {"a": 0.5}) is True
+
+
+
+
+def test_load_df_from_archive_coerces_yaml_dates(monkeypatch):
+    """YAML-loaded date objects must coerce before fromisoformat."""
+    import datetime as dt
+    import importlib
+    import polars as pl
+
+    rb = importlib.import_module("fast_trade.run_backtest")
+    captured = {}
+
+    def fake_get_kline(symbol, exchange, start=None, stop=None, freq=None):
+        captured["start"] = start
+        captured["stop"] = stop
+        return pl.DataFrame(
+            {
+                "date": [dt.datetime(2025, 1, 1)],
+                "open": [1.0],
+                "high": [1.0],
+                "low": [1.0],
+                "close": [1.0],
+                "volume": [1.0],
+            }
+        )
+
+    monkeypatch.setattr(rb, "get_kline", fake_get_kline)
+
+    out = rb._load_df_from_archive(
+        {
+            "symbol": "BTCUSDT",
+            "exchange": "binanceus",
+            "freq": "1Min",
+            "datapoints": [],
+            "start": dt.date(2025, 1, 10),
+            "stop": dt.date(2025, 1, 20),
+        }
+    )
+    assert isinstance(captured["start"], dt.datetime)
+    assert isinstance(captured["stop"], dt.datetime)
+    assert out.height == 1
+
+
+def test_load_df_from_archive_coerces_iso_strings(monkeypatch):
+    import datetime as dt
+    import importlib
+    import polars as pl
+
+    rb = importlib.import_module("fast_trade.run_backtest")
+    captured = {}
+
+    def fake_get_kline(symbol, exchange, start=None, stop=None, freq=None):
+        captured["start"] = start
+        captured["stop"] = stop
+        return pl.DataFrame(
+            {
+                "date": [dt.datetime(2025, 1, 1)],
+                "open": [1.0],
+                "high": [1.0],
+                "low": [1.0],
+                "close": [1.0],
+                "volume": [1.0],
+            }
+        )
+
+    monkeypatch.setattr(rb, "get_kline", fake_get_kline)
+
+    rb._load_df_from_archive(
+        {
+            "symbol": "BTCUSDT",
+            "exchange": "binanceus",
+            "freq": "1Min",
+            "datapoints": [{"name": "ema", "transformer": "ema", "args": [2]}],
+            "start": "2025-01-10T00:00:00",
+            "stop": "2025-01-20T00:00:00",
+        }
+    )
+    assert isinstance(captured["start"], dt.datetime)
+    assert isinstance(captured["stop"], dt.datetime)
