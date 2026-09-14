@@ -18,24 +18,30 @@ Measured on Binance.US `BTCUSDT` 1m archive data (**525,058** bars, `2025-09-12`
 ### Multi-year 1m throughput (EMA-cross + RSI)
 
 Local archive holds ~1y of live 1m bars. Longer windows tile that real series
-with date shifts so bar counts match 2y / 5y / 10y calendar lengths (engine
-throughput, not live multi-year PnL).
+with date shifts so bar counts match calendar lengths (engine throughput, not
+live multi-year PnL).
 
-| Horizon | Bars | End-to-end (mean of 3) |
-|---|---:|---:|
-| 1 year | ~526k | **~0.62s** |
-| 2 years | ~1.05M | **~1.14s** |
-| 5 years | ~2.63M | **~2.73s** |
-| 10 years | ~5.25M | **~5.52s** |
+Same strategy and bars, **pandas `2.1.0` (`origin/master`)** vs **Polars `3.0.0`**
+(mean of 3):
 
-Scaling is roughly linear (~0.55–0.62s per year of 1m bars). Simulation remains
-~60–65% of wall time at every horizon.
+| Horizon | Bars | pandas 2.1 | Polars 3.0 | Speedup |
+|---|---:|---:|---:|---:|
+| 1 year | ~526k | 0.80s | **0.61s** | **1.31×** |
+| 2 years | ~1.05M | 1.70s | **1.16s** | **1.46×** |
+| 5 years | ~2.63M | 4.51s | **2.86s** | **1.58×** |
+| 10 years | ~5.25M | 10.18s | **6.07s** | **1.68×** |
+
+Polars stays roughly linear and the gap widens with length (more time in
+frame/indicator work where Polars helps; simulation is still a shared Python
+loop). Raw JSON: `docs/bench_pandas_vs_polars_years.json`.
 
 Reproduce:
 
 ```bash
 python scripts/bench_strategy_backtest.py --start 2025-09-12 --stop 2026-09-12 --freq 1Min --repeat 3
 python scripts/bench_multi_year.py --years 2 5 10 --repeat 3
+# needs a master worktree, e.g. git worktree add /tmp/ft_pandas origin/master
+python scripts/bench_pandas_vs_polars_years.py --years 1 2 5 10 --repeat 3
 ```
 
 ## FinTA indicator table (pandas FinTA snapshot vs Polars)
