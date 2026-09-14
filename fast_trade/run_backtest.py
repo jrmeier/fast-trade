@@ -122,7 +122,7 @@ def _load_df_from_archive(backtest: dict, progress_callback=None) -> pl.DataFram
         return max(periods)
 
     args = [get_max_periods(dp) for dp in backtest.get("datapoints", [])]
-    max_periods = max(args)
+    max_periods = max(args) if args else 0
 
     freq = backtest.get("freq") or backtest.get("chart_period")
     td_freq = freq_to_timedelta(freq)
