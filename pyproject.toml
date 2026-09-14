@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "fast-trade"
 version = "2.1.0"
-description = "Low code backtesting library utilizing pandas and technical analysis indicators"
+description = "Low code backtesting library utilizing pandas/polars and technical analysis indicators"
 readme = "README.md"
 authors = [
     { name = "Jed Meier", email = "fast_trade@jedm.dev" }
@@ -24,10 +24,11 @@ classifiers = [
     "Operating System :: OS Independent",
     "Natural Language :: English",
 ]
-keywords = ["backtesting", "currency", "ta", "pandas", "finance", "numpy", "analysis", "technical analysis"]
+keywords = ["backtesting", "currency", "ta", "pandas", "polars", "finance", "numpy", "analysis", "technical analysis"]
 requires-python = ">=3.10"
 dependencies = [
     "pandas>=2.3.3",
+    "polars>=1.0.0",
     "matplotlib>=3.10.8",
     "requests>=2.32.5",
     "numpy>=2.2.6",

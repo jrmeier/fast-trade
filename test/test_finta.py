@@ -112,6 +112,22 @@ def test_inputvalidator_standalone_decorator():
     assert "close" in out.columns
 
 
+def test_polars_input_returns_polars(simple_ohlc):
+    """Polars OHLC in → Polars Series/DataFrame out; values match pandas path."""
+    import polars as pl
+
+    pl_df = pl.from_pandas(simple_ohlc.reset_index(drop=True))
+    sma_pl = TA.SMA(pl_df, period=3)
+    sma_pd = TA.SMA(simple_ohlc, period=3)
+    assert isinstance(sma_pl, pl.Series)
+    assert len(sma_pl) == len(simple_ohlc)
+    assert sma_pl[-1] == pytest.approx(float(sma_pd.iloc[-1]))
+
+    macd_pl = TA.MACD(pl_df, period_fast=3, period_slow=5, signal=2)
+    assert isinstance(macd_pl, pl.DataFrame)
+    assert macd_pl.columns == ["MACD", "SIGNAL"]
+
+
 def test_finta_main_block(capsys):
     runpy.run_module("fast_trade.finta", run_name="__main__")
     captured = capsys.readouterr()

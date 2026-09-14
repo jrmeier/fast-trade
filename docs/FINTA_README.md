@@ -12,7 +12,7 @@ This is a fork of the [FinTA](https://github.com/peerchemist/finta) library. It 
 [![Bitcoin Donate](https://badgen.net/badge/Bitcoin/Donate/F19537?icon=bitcoin)](https://blockstream.info/address/3Jp1RjKZdQjb1Ui4o5MVqhfch3rD1xUynn)
 [![Peercoin Donate](https://badgen.net/badge/peercoin/Donate/green?icon=https://raw.githubusercontent.com/peercoin/media/84710cca6c3c8d2d79676e5260cc8d1cd729a427/Peercoin%202020%20Logo%20Files/01.%20Icon%20Only/Inside%20Circle/Transparent/Green%20Icon/peercoin-icon-green-transparent.svg)](https://chainz.cryptoid.info/ppc/address.dws?PWzpZ5igHDSA76gNZ9DwE7aeCbfLsZbDkJ)
 
-Common financial technical indicators implemented in Pandas.
+Common financial technical indicators. Fast Trade's fork computes indicators with **Polars** internally, while still accepting pandas or Polars OHLC frames and returning the same type as the input (pandas in → pandas out with index preserved).
 
 ![example](examples/plot.png)
 
