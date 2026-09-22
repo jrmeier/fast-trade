@@ -8,6 +8,7 @@ from fast_trade.logic_utils import (
     max_last_frames,
     vectorized_actions,
 )
+from fast_trade.run_backtest import compile_action_logic, determine_action_compiled
 
 
 def _sample_df():
@@ -98,6 +99,35 @@ def test_build_mask_treats_nulls_as_false():
     mask = build_mask(df, [["close", ">", 1.0]], combine_any=False)
 
     assert mask.to_list() == [True, False, True]
+
+
+def test_build_mask_not_equal_ignores_null_warmup():
+    """`!=` against a null must not fire: a warmup row has no signal."""
+    df = _sample_df().with_columns(pl.Series("slow_ma", [None, None, 3.0]))
+    mask = build_mask(df, [["slow_ma", "!=", 3.0]], combine_any=False)
+
+    assert mask.to_list() == [False, False, False]
+
+    col_mask = build_mask(df, [["close", "!=", "slow_ma"]], combine_any=False)
+    assert col_mask.to_list() == [False, False, True]
+
+
+def test_vectorized_actions_match_row_path_during_warmup():
+    df = _sample_df().with_columns(pl.Series("slow_ma", [None, None, 3.0]))
+    backtest = {
+        "trailing_stop_loss": 0,
+        "exit": [],
+        "any_exit": [],
+        "enter": [["close", "!=", "slow_ma"]],
+        "any_enter": [],
+    }
+
+    compiled = compile_action_logic(backtest)
+    by_row = [
+        determine_action_compiled(row, compiled) for row in df.iter_rows(named=True)
+    ]
+
+    assert vectorized_actions(df, backtest).to_list() == by_row
 
 
 def test_vectorized_actions_priority_and_any_enter():
