@@ -55,6 +55,15 @@ def _column_values(df: pl.DataFrame, column: str) -> np.ndarray:
     return df[column].to_numpy()
 
 
+def _missing_mask(values: np.ndarray) -> np.ndarray:
+    """True where a value is null/NaN and so cannot produce a signal."""
+    if values.dtype == object:
+        return np.array([value is None or value != value for value in values], dtype=bool)
+    if np.issubdtype(values.dtype, np.floating):
+        return np.isnan(values)
+    return np.zeros(len(values), dtype=bool)
+
+
 def _mask_array(df: pl.DataFrame, logic_list: List, combine_any: bool) -> np.ndarray:
     height = df.height
     if not logic_list:
@@ -68,14 +77,23 @@ def _mask_array(df: pl.DataFrame, logic_list: List, combine_any: bool) -> np.nda
 
         if compare is None or left not in columns:
             condition = np.zeros(height, dtype=bool)
+            missing = np.zeros(height, dtype=bool)
         elif isinstance(right, (int, float)):
-            condition = compare(_column_values(df, left), right)
+            left_values = _column_values(df, left)
+            condition = compare(left_values, right)
+            missing = _missing_mask(left_values)
         elif isinstance(right, str) and right in columns:
-            condition = compare(_column_values(df, left), _column_values(df, right))
+            left_values = _column_values(df, left)
+            right_values = _column_values(df, right)
+            condition = compare(left_values, right_values)
+            missing = _missing_mask(left_values) | _missing_mask(right_values)
         else:
             condition = np.zeros(height, dtype=bool)
+            missing = np.zeros(height, dtype=bool)
 
-        condition = np.asarray(condition, dtype=bool)
+        # Warmup rows have null indicators. The row-by-row path returns False
+        # for those, and `!=` would otherwise be True against a NaN.
+        condition = np.asarray(condition, dtype=bool) & ~missing
         mask = mask | condition if combine_any else mask & condition
 
     return mask
