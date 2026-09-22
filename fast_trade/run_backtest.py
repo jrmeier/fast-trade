@@ -266,8 +266,8 @@ def prepare_new_backtest(backtest):
     new_backtest["any_exit"] = backtest.get("any_exit") or []
     new_backtest["enter"] = backtest.get("enter") or []
     new_backtest["exit"] = backtest.get("exit") or []
-    new_backtest["lot_size_perc"] = float(backtest.get("lot_size", 1))
-    new_backtest["max_lot_size"] = int(backtest.get("max_lot_size", 0))
+    new_backtest["lot_size_perc"] = float(backtest.get("lot_size") or 1)
+    new_backtest["max_lot_size"] = float(backtest.get("max_lot_size") or 0)
     new_backtest["rules"] = backtest.get("rules") or []
 
     # if chart_start and chart_stop are provided, use them
@@ -281,6 +281,17 @@ def prepare_new_backtest(backtest):
         print("Warning: chart_stop is deprecated, use stop instead.")
 
     return new_backtest
+
+
+def _phase_progress(progress_callback, phase: str):
+    """Tag a progress callback with a phase, keeping None as None.
+
+    Returning None when there is no callback matters: the simulation only takes
+    the Numba kernel when ``progress_callback is None``.
+    """
+    if progress_callback is None:
+        return None
+    return lambda payload: progress_callback({**payload, "phase": phase})
 
 
 def apply_backtest_to_df(df: pl.DataFrame, backtest: dict, progress_callback=None):
@@ -299,25 +310,13 @@ def apply_backtest_to_df(df: pl.DataFrame, backtest: dict, progress_callback=Non
     df = process_logic_and_generate_actions(
         df,
         backtest,
-        progress_callback=(
-            lambda payload: progress_callback(
-                {**payload, "phase": "actions"}
-            )
-            if progress_callback
-            else None
-        ),
+        progress_callback=_phase_progress(progress_callback, "actions"),
     )
 
     df = apply_logic_to_df(
         df,
         backtest,
-        progress_callback=(
-            lambda payload: progress_callback(
-                {**payload, "phase": "simulation"}
-            )
-            if progress_callback
-            else None
-        ),
+        progress_callback=_phase_progress(progress_callback, "simulation"),
     )
 
     df = df.with_columns(

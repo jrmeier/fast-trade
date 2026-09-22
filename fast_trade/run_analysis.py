@@ -278,13 +278,17 @@ def apply_logic_to_df(df: pl.DataFrame, backtest: dict, progress_callback=None):
         fee_array = sim["fee"]
         adj_account_value_array = sim["adj_account_value"]
 
+        # Keep the input frame untouched until every column lines up, otherwise
+        # a failure here would hand the fallback path an already-extended frame
+        # and it would append the exit row a second time.
+        sim_df = df
         if backtest.get("exit_on_end") and len(in_trade_array) and in_trade_array[-1]:
             close = close_prices[-1]
             new_base = aux_array[-1] * close if aux_array[-1] else 0.0
             fee = new_base * fee_rate if fee_rate and new_base else 0.0
             new_account_value = account_value_array[-1] + new_base - fee
 
-            df = append_exit_on_end_row(df)
+            sim_df = append_exit_on_end_row(df)
 
             in_trade_array = np.append(in_trade_array, False)
             aux_array = np.append(aux_array, 0.0)
@@ -299,7 +303,7 @@ def apply_logic_to_df(df: pl.DataFrame, backtest: dict, progress_callback=None):
                 adj_account_value_array, adj_account_value
             )
 
-        df = df.with_columns(
+        df = sim_df.with_columns(
             pl.Series("aux", aux_array),
             pl.Series("account_value", account_value_array),
             pl.Series("adj_account_value", adj_account_value_array),
@@ -312,8 +316,8 @@ def apply_logic_to_df(df: pl.DataFrame, backtest: dict, progress_callback=None):
         in_trade = False
         account_value = float(backtest.get("base_balance"))
         comission = float(backtest.get("comission") or 0.0)
-        lot_size = backtest.get("lot_size_perc")
-        max_lot_size = backtest.get("max_lot_size")
+        lot_size = float(backtest.get("lot_size_perc") or 1.0)
+        max_lot_size = float(backtest.get("max_lot_size") or 0.0)
 
         new_account_value = account_value
 
