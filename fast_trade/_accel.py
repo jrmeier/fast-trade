@@ -23,22 +23,32 @@ except ImportError:  # pragma: no cover
 @njit(cache=True)
 def sar_kernel(high: np.ndarray, low: np.ndarray, af: float, amax: float) -> np.ndarray:
     n = len(high)
+    if n == 0:
+        return np.empty(0, dtype=np.float64)
+
     sig0 = True
     xpt0 = high[0]
     af0 = af
     hl_std = 0.0
     if n > 1:
         diffs = high - low
+        # pandas Series.std skips NaN and uses ddof=1 over the remaining count
+        count = 0
         mean = 0.0
         for i in range(n):
-            mean += diffs[i]
-        mean /= n
-        var = 0.0
-        for i in range(n):
-            d = diffs[i] - mean
-            var += d * d
-        # pandas Series.std uses ddof=1
-        hl_std = (var / (n - 1)) ** 0.5 if n > 1 else 0.0
+            d = diffs[i]
+            if d == d:
+                mean += d
+                count += 1
+        if count > 1:
+            mean /= count
+            var = 0.0
+            for i in range(n):
+                d = diffs[i]
+                if d == d:
+                    delta = d - mean
+                    var += delta * delta
+            hl_std = (var / (count - 1)) ** 0.5
 
     sar = np.empty(n, dtype=np.float64)
     sar[0] = low[0] - hl_std
@@ -87,6 +97,9 @@ def psar_kernel(
     psar = close.copy()
     psarbull = np.full(length, np.nan)
     psarbear = np.full(length, np.nan)
+    if length == 0:
+        return psar, psarbull, psarbear
+
     bull = True
     af = iaf
     hp = high[0]
@@ -149,8 +162,8 @@ def frama_filter_kernel(close: np.ndarray, alp: np.ndarray, window: int) -> np.n
         x = alp[i]
         if i < window:
             continue
-        if x != x:  # NaN
-            continue
+        # A NaN alpha poisons the rest of the series, which is what the
+        # reference implementation does; don't skip it.
         filt[i] = close[i] * x + (1.0 - x) * filt[i - 1]
     return filt
 
