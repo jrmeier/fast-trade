@@ -48,7 +48,9 @@ _UNIT_ALIASES = {
 
 # Month/year aliases that pandas spells with capitals, where a lowercase match
 # would mean something else ("M" is a month, "m" is a minute).
-_CALENDAR_UNITS = {"M": "mo", "ME": "mo", "MS": "mo", "Y": "y", "YE": "y", "A": "y"}
+# Case-sensitive pandas calendar aliases. "M" is a month, while "m" and "Min"
+# are minutes, so these have to be checked before lowercasing.
+CALENDAR_UNITS = {"M": "mo", "ME": "mo", "MS": "mo", "Y": "y", "YE": "y", "A": "y"}
 
 _UNIT_SECONDS = {
     "ns": 1e-9,
@@ -107,8 +109,8 @@ def parse_freq(freq: Optional[str]) -> tuple:
 
     count_text, unit_text = match.groups()
     count = float(count_text) if count_text else 1.0
-    if unit_text in _CALENDAR_UNITS:
-        unit = _CALENDAR_UNITS[unit_text]
+    if unit_text in CALENDAR_UNITS:
+        unit = CALENDAR_UNITS[unit_text]
     else:
         unit = _UNIT_ALIASES.get(unit_text.lower())
     if unit is None:
