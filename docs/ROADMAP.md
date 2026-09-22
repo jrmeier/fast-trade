@@ -16,7 +16,7 @@ Three layers that mostly work well together:
 
 Recent history reinforces a specific bias:
 
-- **3.0.0** migrated the library from pandas to Polars-native dataframes (breaking) — ~0.58s for a year of 1m BTC backtests.
+- **3.0.0** migrated the library from pandas to Polars-native dataframes (breaking) — ~0.43s for a year of 1m BTC backtests.
 - **2.1.0** added agent-facing tools (MCP, HMM screen, macro context).
 - **Terminal UI was removed** — a deliberate simplification toward headless CLI + agents.
 - **`Live.plan.md` exists but `fast_trade/live/` does not** — live execution is planned, not shipped.

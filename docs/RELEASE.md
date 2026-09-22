@@ -10,7 +10,7 @@ This project is prepared for the `3.0.0` release.
 - Removal of the pandas dependency
 - Explicit `date` column instead of a DatetimeIndex
 - Multiprocessing spawn pools for parallel/chunked backtests
-- Headline speed: ~0.58s for a 1-year BTCUSDT 1m strategy backtest; FinTA suite ~1.9× vs pandas (see `docs/PERFORMANCE.md`)
+- Headline speed: ~0.43s for a 1-year BTCUSDT 1m strategy backtest (~2× vs pandas 2.1); FinTA suite ~1.9× vs pandas (see `docs/PERFORMANCE.md`)
 - Prior `2.1.0` work (FXMacroData, HMM screener, MCP coverage, terminal UI removal) remains in tree
 
 ## Pre-Release Checklist
@@ -71,7 +71,7 @@ Use this summary for GitHub or PyPI:
 - Removed pandas from package dependencies.
 - OHLC data uses an explicit `date` column; strategy YAML inputs are unchanged.
 - Fixed parallel/chunked backtests to use spawn pools under Polars.
-- **Speed:** ~0.58s for a 1-year BTCUSDT 1m EMA-cross+RSI backtest; FinTA suite ~1.9× vs pandas (ATR ~5×, WMA ~100×, OBV ~3×).
+- **Speed:** ~0.43s for a 1-year BTCUSDT 1m EMA-cross+RSI backtest; FinTA suite ~1.9× vs pandas (ATR ~5×, WMA ~100×, OBV ~3×).
 
 ## Release Steps
 

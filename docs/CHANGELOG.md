@@ -8,7 +8,7 @@
 - Library is **Polars-native end-to-end**: indicators (FinTA), archive IO, frame prep, backtest engine, summary, CLI, and ML helpers.
 - Strategy YAML/dict inputs are unchanged; OHLC frames are `polars.DataFrame` with an explicit `date` column (no DatetimeIndex).
 - **pandas is removed** as a package dependency.
-- **Speed:** ~0.58s for a 1-year BTCUSDT 1m EMA-cross+RSI backtest; FinTA suite ~1.9× vs pandas FinTA (ATR ~5×, WMA ~100×, OBV ~3×). See `docs/PERFORMANCE.md`.
+- **Speed:** ~0.43s for a 1-year BTCUSDT 1m EMA-cross+RSI backtest (~2× vs pandas 2.1 on the same strategy); FinTA suite ~1.9× vs pandas FinTA (ATR ~5×, WMA ~100×, OBV ~3×). Account simulation and SAR/PSAR/KAMA/FRAMA use Numba. See `docs/PERFORMANCE.md`.
 
 ### Breaking Changes (vs 2.1.0)
 - Public dataframe APIs (`run_backtest`, archive loaders, FinTA, summaries) accept/return **Polars** frames, not pandas.
@@ -20,6 +20,8 @@
 - Prefer `pl.read_parquet` / archive helpers that already return Polars.
 - Column names remain lowercase `open`, `high`, `low`, `close`, `volume`, plus `date`.
 - YAML strategies, datapoints, enter/exit logic, and CLI command shapes are the same.
+- Quote comparison operators in YAML (`">"`, `"<"`). A bare `>` is a YAML folded scalar and loads as an empty string.
+- Empty `any_enter:` / `any_exit:` keys and bare dates such as `2025-12-01` are accepted.
 
 ## 2.1.0
 
