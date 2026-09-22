@@ -12,7 +12,7 @@
 
 ### Breaking Changes (vs 2.1.0)
 - Public dataframe APIs (`run_backtest`, archive loaders, FinTA, summaries) accept/return **Polars** frames, not pandas.
-- Call sites that passed `pd.DataFrame` must pass `pl.DataFrame` (or convert at the edge with `pl.from_pandas(...)`).
+- Call sites that passed `pd.DataFrame` must pass `pl.DataFrame`. `pl.from_pandas(...)` converts at the edge, but it needs pandas installed in your own environment since fast-trade no longer ships it.
 - FinTA no longer returns pandas Series/DataFrames or preserves a pandas index; use a `date` column.
 - Parallel/chunked backtests use multiprocessing **spawn** (fork + Polars worker threads could deadlock).
 
