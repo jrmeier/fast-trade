@@ -2,7 +2,7 @@
 
 Project documentation lives in this directory.
 
-Library dataframes are Polars (`pl.DataFrame` with a `date` column) as of `3.0.0`. Headline speed: ~0.58s for a full-year 1m backtest — see `PERFORMANCE.md`.
+Library dataframes are Polars (`pl.DataFrame` with a `date` column) as of `3.0.0`. Headline speed: ~0.43s for a full-year 1m backtest — see `PERFORMANCE.md`.
 
 ## Core Docs
 
