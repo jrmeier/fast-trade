@@ -112,6 +112,20 @@ def test_build_mask_not_equal_ignores_null_warmup():
     assert col_mask.to_list() == [False, False, True]
 
 
+def test_build_mask_handles_null_object_columns():
+    """String/bool columns come back as object arrays, nulls and all."""
+    df = _sample_df().with_columns(
+        pl.Series("regime", ["bull", None, "bear"]),
+        pl.Series("prev_regime", ["bull", "bull", "bull"]),
+    )
+
+    mask = build_mask(df, [["regime", "!=", "prev_regime"]], combine_any=False)
+    assert mask.to_list() == [False, False, True]
+
+    same = build_mask(df, [["regime", "=", "prev_regime"]], combine_any=False)
+    assert same.to_list() == [True, False, False]
+
+
 def test_vectorized_actions_match_row_path_during_warmup():
     df = _sample_df().with_columns(pl.Series("slow_ma", [None, None, 3.0]))
     backtest = {
