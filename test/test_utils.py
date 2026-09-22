@@ -3,7 +3,7 @@ import datetime
 import polars as pl
 import pytest
 
-from fast_trade import utils
+from fast_trade import frames, utils
 
 
 def _ohlcv(dates, **columns):
@@ -87,6 +87,24 @@ def test_parse_freq_aliases():
 
     with pytest.raises(ValueError, match="Invalid frequency"):
         utils.freq_to_polars("not_a_freq")
+
+
+def test_parse_freq_calendar_units_are_case_sensitive():
+    """Capital "M" is a month, lowercase "m" and "Min" stay minutes."""
+    assert utils.parse_freq("1M") == "1mo"
+    assert utils.parse_freq("3ME") == "3mo"
+    assert utils.parse_freq("1MS") == "1mo"
+    assert utils.parse_freq("1Y") == "1y"
+    assert utils.parse_freq("1A") == "1y"
+
+    assert utils.parse_freq("1m") == "1m"
+    assert utils.parse_freq("1Min") == "1m"
+    assert utils.parse_freq("15m") == "15m"
+
+    # utils and frames agree on the unit for the same alias
+    for alias in ["1M", "1Min", "1m", "1Y", "1D", "30S"]:
+        count, unit = frames.parse_freq(alias)
+        assert utils.parse_freq(alias) == f"{count}{unit}"
 
 
 def test_infer_frequency_all_branches():

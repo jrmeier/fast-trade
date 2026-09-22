@@ -15,6 +15,8 @@ import typing
 
 import polars as pl
 
+from .frames import CALENDAR_UNITS as _CALENDAR_UNITS
+
 DATE_COL = "date"
 OHLCV_COLUMNS = ("open", "high", "low", "close", "volume")
 
@@ -95,8 +97,9 @@ def parse_freq(freq: typing.Any) -> typing.Optional[str]:
     if not match:
         return None
 
-    count, unit = match.groups()
-    unit = _FREQ_ALIASES.get(unit.lower())
+    count, unit_text = match.groups()
+    # Case matters for pandas calendar aliases: "M" is a month, "m"/"Min" a minute.
+    unit = _CALENDAR_UNITS.get(unit_text) or _FREQ_ALIASES.get(unit_text.lower())
     if unit is None:
         return None
 
