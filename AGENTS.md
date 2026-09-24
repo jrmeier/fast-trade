@@ -29,7 +29,8 @@
 - MCP server (`python -m fast_trade.mcp_server`) exposes a dedicated tool for every `ft` CLI command; see `docs/FEATURES.md`.
 
 ## Coding Style & Naming Conventions
-- Python 3.10+; 4‑space indentation; prefer type hints where practical.
+- Python 3.11+; supported and tested on 3.11–3.13. Python 3.14 is experimental (`hmmlearn` requires a source build).
+- 4‑space indentation; prefer type hints where practical.
 - Use snake_case for modules/functions/variables; CapWords for classes.
 - Keep functions small and fast; avoid unnecessary allocations in hot paths.
 - Lint with `flake8` (line length 122; excludes build/dist/test per `.flake8`).

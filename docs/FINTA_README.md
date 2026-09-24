@@ -5,7 +5,7 @@ This is a fork of the [FinTA](https://github.com/peerchemist/finta) library. It 
 # FinTA (Financial Technical Analysis)
 
 [![License: LGPL v3](https://img.shields.io/badge/License-LGPL%20v3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0)
-[![](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
 [![Build Status](https://travis-ci.org/peerchemist/finta.svg?branch=master)](https://travis-ci.org/peerchemist/finta)
 [![Patrons](https://img.shields.io/liberapay/patrons/peerchemist.svg?logo=liberapay)](https://img.shields.io/liberapay/patrons/peerchemist.svg?logo=liberapay)
@@ -108,7 +108,7 @@ Finta supports over 80 trading indicators:
 
 ## Dependencies:
 
--   python (3.10+)
+-   python (3.11+; supported and tested on 3.11–3.13)
 -   polars (1.0.0+)
 
 TA class is very well documented and there should be no trouble

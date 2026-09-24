@@ -17,11 +17,12 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union
 
 import numpy as np
-import pandas as pd
+import polars as pl
 from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.metrics import accuracy_score, roc_auc_score
 
 from fast_trade.build_data_frame import infer_frequency
+from fast_trade.frames import freq_to_timedelta, parse_freq
 from fast_trade.run_backtest import run_backtest
 
 
@@ -57,59 +58,71 @@ class ClassifierFitResult:
 @dataclass
 class ClassifierBacktestResult:
     summary: Dict[str, Any]
-    df: pd.DataFrame
-    trade_df: pd.DataFrame
+    df: pl.DataFrame
+    trade_df: pl.DataFrame
     fit: ClassifierFitResult
     strategy: Dict[str, Any]
     extras: Dict[str, Any] = field(default_factory=dict)
 
 
-def build_classifier_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Build a small tabular feature set from OHLCV columns."""
-    required = {"open", "high", "low", "close", "volume"}
+def build_classifier_features(df: pl.DataFrame) -> pl.DataFrame:
+    """Build OHLCV features, retaining ``date`` for prediction alignment.
+
+    Rows remain in input order. Warmup rows and nonfinite calculations have
+    null features and are excluded when fitting the classifier.
+    """
+    required = {"date", "open", "high", "low", "close", "volume"}
     missing = required - set(df.columns)
     if missing:
         raise ValueError(f"Dataframe missing required columns: {sorted(missing)}")
 
-    out = pd.DataFrame(index=df.index)
-    close = df["close"].astype(float)
-    high = df["high"].astype(float)
-    low = df["low"].astype(float)
-    volume = df["volume"].astype(float)
-
-    out["ret_1"] = close.pct_change(1)
-    out["ret_5"] = close.pct_change(5)
-    out["ret_10"] = close.pct_change(10)
-    out["vol_20"] = out["ret_1"].rolling(20).std()
-    out["range_pct"] = (high - low) / close.replace(0, np.nan)
-    sma_20 = close.rolling(20).mean()
-    out["sma_ratio"] = close / sma_20 - 1.0
-    vol_mean = volume.rolling(20).mean()
-    vol_std = volume.rolling(20).std()
-    out["volume_z"] = (volume - vol_mean) / vol_std.replace(0, np.nan)
-    return out.replace([np.inf, -np.inf], np.nan)
+    df = df.with_columns(
+        pl.when(pl.col(name).cast(pl.Float64).is_finite())
+        .then(pl.col(name).cast(pl.Float64)).otherwise(None).alias(name)
+        for name in ("close", "high", "low", "volume")
+    )
+    close = pl.col("close").cast(pl.Float64)
+    high = pl.col("high").cast(pl.Float64)
+    low = pl.col("low").cast(pl.Float64)
+    volume = pl.col("volume").cast(pl.Float64)
+    ret_1 = close / close.shift(1) - 1.0
+    ret_1 = pl.when(ret_1.is_finite()).then(ret_1).otherwise(None)
+    out = df.select(
+        "date",
+        ret_1.alias("ret_1"),
+        (close / close.shift(5) - 1.0).alias("ret_5"),
+        (close / close.shift(10) - 1.0).alias("ret_10"),
+        ret_1.rolling_std(20, ddof=1).alias("vol_20"),
+        ((high - low) / close).alias("range_pct"),
+        (close / close.rolling_mean(20) - 1.0).alias("sma_ratio"),
+        ((volume - volume.rolling_mean(20)) / volume.rolling_std(20, ddof=1)).alias("volume_z"),
+    )
+    return out.with_columns(
+        pl.when(pl.col(name).is_finite()).then(pl.col(name)).otherwise(None).alias(name)
+        for name in DEFAULT_FEATURE_COLUMNS
+    )
 
 
 def label_forward_return(
-    close: pd.Series,
+    close: pl.Series,
     horizon: int = 5,
     threshold: float = 0.01,
-) -> pd.Series:
+) -> pl.Series:
     """Label 1 when forward return over ``horizon`` bars exceeds ``threshold``."""
     if horizon < 1:
         raise ValueError("horizon must be >= 1")
-    forward = close.shift(-horizon) / close - 1.0
-    labels = (forward > threshold).astype("float")
-    labels[forward.isna()] = np.nan
-    return labels
+    future = close.shift(-horizon)
+    forward = future / close - 1.0
+    valid = close.is_finite() & future.is_finite() & forward.is_finite()
+    return (forward > threshold).cast(pl.Float64).set(~valid.fill_null(False), None).rename("y")
 
 
 def _time_split_index(
-    index: pd.Index,
+    index: pl.Series,
     train_frac: float,
     *,
     purge_bars: int = 0,
-) -> Tuple[pd.Index, pd.Index, int]:
+) -> Tuple[pl.Series, pl.Series, int]:
     """Chronological train/test split with an optional purge gap.
 
     Forward-return labels at time ``t`` depend on prices through ``t + horizon``.
@@ -150,20 +163,23 @@ def _canonical_freq_str(freq: Any) -> str:
 
 
 def _freqs_compatible(a: Any, b: Any) -> bool:
-    """True when two pandas freq-like values represent the same offset.
+    """True when two frequency aliases represent the same bar size.
 
     Handles aliases such as ``1h`` vs ``h`` / ``1H``.
     """
     try:
-        from pandas.tseries.frequencies import to_offset
-
-        return to_offset(a) == to_offset(b)
+        count_a, unit_a = parse_freq(a)
+        count_b, unit_b = parse_freq(b)
+        # Calendar intervals must not compare equal to approximate day counts.
+        if unit_a in {"mo", "y"} or unit_b in {"mo", "y"}:
+            return (count_a, unit_a) == (count_b, unit_b)
+        return freq_to_timedelta(a) == freq_to_timedelta(b)
     except (ValueError, TypeError):
         return _canonical_freq_str(a).lower() == _canonical_freq_str(b).lower()
 
 
 def resolve_backtest_freq(
-    df: pd.DataFrame,
+    df: pl.DataFrame,
     strategy: Mapping[str, Any],
     *,
     allow_resample: bool = False,
@@ -204,7 +220,7 @@ def resolve_backtest_freq(
 
 
 def fit_return_classifier(
-    df: pd.DataFrame,
+    df: pl.DataFrame,
     *,
     horizon: int = 5,
     threshold: float = 0.01,
@@ -212,11 +228,11 @@ def fit_return_classifier(
     feature_columns: Optional[Sequence[str]] = None,
     random_state: int = 42,
     signal_threshold: float = 0.5,
-) -> Tuple[ClassifierFitResult, pd.DataFrame, pd.Series]:
+) -> Tuple[ClassifierFitResult, pl.DataFrame, pl.Series]:
     """Fit a classifier on time-ordered features/labels.
 
-    Returns the fit result plus aligned feature matrix and labels for the full
-    usable index (train + test rows with no NaNs).
+    Returns the fit result, a feature frame retaining ``date``, and a label
+    series aligned by row, for all usable rows (including the purge gap).
 
     Training rows whose forward-return label window overlaps the holdout are
     purged (embargo of ``horizon`` bars) so holdout metrics stay out-of-sample.
@@ -224,28 +240,30 @@ def fit_return_classifier(
     if not 0.0 < signal_threshold < 1.0:
         raise ValueError("signal_threshold must be between 0 and 1")
 
+    df = df.sort("date")
     features = build_classifier_features(df)
     labels = label_forward_return(df["close"], horizon=horizon, threshold=threshold)
     cols = list(feature_columns or DEFAULT_FEATURE_COLUMNS)
-    missing = [c for c in cols if c not in features.columns]
+    missing = [c for c in cols if c not in DEFAULT_FEATURE_COLUMNS]
     if missing:
         raise ValueError(f"Unknown feature columns: {missing}")
 
-    frame = features[cols].copy()
-    frame["y"] = labels
-    usable = frame.dropna()
-    if usable.empty:
+    frame = features.select("date", *cols).with_columns(labels.alias("y"))
+    usable = frame.filter(pl.all_horizontal(pl.col(name).is_finite() for name in [*cols, "y"]))
+    if usable.is_empty():
         raise ValueError("No usable rows after dropping NaN features/labels")
 
     train_idx, test_idx, purged = _time_split_index(
-        usable.index, train_frac, purge_bars=horizon
+        usable["date"], train_frac, purge_bars=horizon
     )
-    x_train = usable.loc[train_idx, cols]
-    y_train = usable.loc[train_idx, "y"].astype(int)
-    x_test = usable.loc[test_idx, cols]
-    y_test = usable.loc[test_idx, "y"].astype(int)
+    train = usable.head(len(train_idx))
+    test = usable.tail(len(test_idx))
+    x_train = train.select(cols).to_numpy()
+    y_train = train["y"].cast(pl.Int64).to_numpy()
+    x_test = test.select(cols).to_numpy()
+    y_test = test["y"].cast(pl.Int64).to_numpy()
 
-    if y_train.nunique() < 2:
+    if np.unique(y_train).size < 2:
         raise ValueError("Training labels must include both classes; loosen threshold")
 
     model = HistGradientBoostingClassifier(random_state=random_state)
@@ -254,7 +272,7 @@ def fit_return_classifier(
     train_pred = _predict_with_threshold(model, x_train, signal_threshold)
     test_pred = _predict_with_threshold(model, x_test, signal_threshold)
     test_auc: Optional[float] = None
-    if hasattr(model, "predict_proba") and y_test.nunique() > 1:
+    if hasattr(model, "predict_proba") and np.unique(y_test).size > 1:
         test_proba = model.predict_proba(x_test)[:, 1]
         test_auc = float(roc_auc_score(y_test, test_proba))
 
@@ -271,12 +289,12 @@ def fit_return_classifier(
         purged_train_rows=purged,
         signal_threshold=signal_threshold,
     )
-    return fit, usable[cols], usable["y"].astype(int)
+    return fit, usable.select("date", *cols), usable["y"].cast(pl.Int64)
 
 
 def _predict_with_threshold(
     model: Any,
-    x: pd.DataFrame,
+    x: np.ndarray,
     threshold: float,
 ) -> np.ndarray:
     if hasattr(model, "predict_proba"):
@@ -287,12 +305,12 @@ def _predict_with_threshold(
 
 def predict_ml_signal(
     model: Any,
-    features: pd.DataFrame,
+    features: pl.DataFrame,
     feature_columns: Sequence[str],
     *,
     threshold: float = 0.5,
-) -> pd.Series:
-    """Return a 0/1 signal series aligned to ``features`` index.
+) -> pl.DataFrame:
+    """Return a ``date`` / ``ml_signal`` frame aligned to the feature rows.
 
     Uses ``predict_proba`` when available and marks 1 when P(class=1) >=
     ``threshold`` (default 0.5). Falls back to ``predict`` otherwise.
@@ -300,9 +318,9 @@ def predict_ml_signal(
     if not 0.0 < threshold < 1.0:
         raise ValueError("threshold must be between 0 and 1")
     cols = list(feature_columns)
-    x = features[cols]
+    x = features.select(cols).to_numpy()
     pred = _predict_with_threshold(model, x, threshold)
-    return pd.Series(pred.astype(int), index=features.index, name="ml_signal")
+    return features.select("date").with_columns(pl.Series("ml_signal", pred, dtype=pl.Int64))
 
 
 def ml_signal_datapoint(column: str = "ml_signal") -> Dict[str, Any]:
@@ -348,20 +366,28 @@ def default_classifier_strategy(
 
 
 def attach_ml_signal(
-    df: pd.DataFrame,
-    signal: pd.Series,
+    df: pl.DataFrame,
+    signal: pl.DataFrame,
     column: str = "ml_signal",
-) -> pd.DataFrame:
-    """Copy OHLCV frame and attach a classifier signal column."""
-    out = df.copy()
-    out[column] = signal.reindex(out.index)
+) -> pl.DataFrame:
+    """Attach date-keyed predictions, preserving OHLCV row order.
+
+    ``signal`` has ``date`` and ``ml_signal`` columns. ``column`` chooses the
+    output name, replacing that column if it is already present.
+    """
+    row_order = "__signal_row_order"
+    while row_order in df.columns:
+        row_order = "_" + row_order
+    out = df.select(pl.exclude(column)).with_row_index(row_order).join(
+        signal.select("date", pl.col("ml_signal").alias(column)),
+        on="date", how="left", validate="m:1",
+    ).sort(row_order).drop(row_order)
     # Holding flat when the model has no prediction keeps the sim deterministic.
-    out[column] = out[column].fillna(0).astype(int)
-    return out
+    return out.with_columns(pl.col(column).fill_nan(0).fill_null(0).cast(pl.Int64))
 
 
 def run_classifier_backtest(
-    df: pd.DataFrame,
+    df: pl.DataFrame,
     *,
     horizon: int = 5,
     threshold: float = 0.01,
@@ -407,13 +433,14 @@ def run_classifier_backtest(
         fit.feature_columns,
         threshold=signal_threshold,
     )
-    signaled = attach_ml_signal(df.reindex(features.index), signal)
+    usable_df = features.select("date").join(df, on="date", how="left", validate="1:1").sort("date")
+    signaled = attach_ml_signal(usable_df, signal)
 
     train_idx, test_idx, _purged = _time_split_index(
-        features.index, train_frac, purge_bars=horizon
+        features["date"], train_frac, purge_bars=horizon
     )
     if backtest_on == "test":
-        backtest_df = signaled.loc[test_idx]
+        backtest_df = signaled.tail(len(test_idx))
     else:
         backtest_df = signaled
 

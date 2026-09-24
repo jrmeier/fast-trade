@@ -27,15 +27,16 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from fast_trade.build_data_frame import prepare_df
-from fast_trade.build_summary import build_summary
-from fast_trade.run_analysis import apply_logic_to_df
-from fast_trade.run_backtest import (
+# These imports need the repository root on sys.path when run as a script.
+from fast_trade.build_data_frame import prepare_df  # noqa: E402
+from fast_trade.build_summary import build_summary  # noqa: E402
+from fast_trade.run_analysis import apply_logic_to_df  # noqa: E402
+from fast_trade.run_backtest import (  # noqa: E402
     prepare_new_backtest,
     process_logic_and_generate_actions,
     run_backtest,
 )
-from scripts.bench_strategy_backtest import basic_strategy
+from scripts.bench_strategy_backtest import basic_strategy  # noqa: E402
 
 DEFAULT_SRC = Path("ft_archive/binanceus/BTCUSDT.parquet")
 DEFAULT_STOP = dt.datetime(2026, 9, 12)

@@ -1,14 +1,30 @@
 name: Python application
 
-on: [push]
+on:
+  push:
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
 
 jobs:
-  build:
+  test:
+    name: Test Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        include:
+          - python-version: "3.11"
+            experimental: false
+          - python-version: "3.12"
+            experimental: false
+          - python-version: "3.13"
+            experimental: false
+          - python-version: "3.14"
+            experimental: true
     env:
       OMP_NUM_THREADS: "1"
       OPENBLAS_NUM_THREADS: "1"
@@ -22,25 +38,76 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: 'pip'
-      
-      - name: Install dependencies
+          cache: pip
+
+      - name: Install dependencies in a clean environment
+        run: |
+          python -m venv "$RUNNER_TEMP/test-venv"
+          "$RUNNER_TEMP/test-venv/bin/python" -m pip install --upgrade pip
+          "$RUNNER_TEMP/test-venv/bin/python" -m pip install -e ".[dev]"
+
+      - name: Verify pandas is absent
+        run: |
+          "$RUNNER_TEMP/test-venv/bin/python" - <<'PY'
+          import importlib.util
+          assert importlib.util.find_spec("pandas") is None, "pandas unexpectedly installed"
+          PY
+
+      - name: Run tests and enforce coverage
+        run: |
+          "$RUNNER_TEMP/test-venv/bin/python" -m coverage run -m pytest
+          "$RUNNER_TEMP/test-venv/bin/python" -m coverage report -m
+
+  package:
+    name: Lint and build distributions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install lint and packaging tools
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          python -m pip install build twine flake8
 
       - name: Lint with flake8
-        run: |
-          # stop the build if there are Python syntax errors or undefined names
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-          # exit-zero treats all errors as warnings
-          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        run: python -m flake8
 
-      - name: Test with pytest
+      - name: Build and validate distributions
         run: |
-          python -m pytest
+          python -m build
+          python -m twine check --strict dist/*
 
-      - name: Check coverage
+      - name: Smoke test the installed wheel without pandas
         run: |
-          coverage run -m pytest
-          coverage report -m
+          python -m venv "$RUNNER_TEMP/wheel-smoke"
+          "$RUNNER_TEMP/wheel-smoke/bin/python" -m pip install --upgrade pip
+          "$RUNNER_TEMP/wheel-smoke/bin/python" -m pip install dist/*.whl
+          "$RUNNER_TEMP/wheel-smoke/bin/python" -m pip check
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/wheel-smoke/bin/python" -I - <<'PY'
+          import importlib.util
+          from pathlib import Path
+          import sys
+
+          assert importlib.util.find_spec("pandas") is None, "pandas unexpectedly installed"
+          import fast_trade
+          from fast_trade.ml.classifier import run_classifier_backtest
+          from fast_trade.transformers_map import COLUMN
+
+          assert Path(fast_trade.__file__).resolve().is_relative_to(Path(sys.prefix).resolve())
+          assert callable(run_classifier_backtest) and callable(COLUMN)
+          PY
+          "$RUNNER_TEMP/wheel-smoke/bin/ft" --help
+
+      - name: Upload validated distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 7
