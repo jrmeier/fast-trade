@@ -1,4 +1,4 @@
-import pandas as pd
+import polars as pl
 
 from .finta import TA
 
@@ -8,7 +8,7 @@ Any function can be implimented as an transformer.
 """
 
 
-def COLUMN(df: pd.DataFrame, column: str) -> pd.Series:
+def COLUMN(df: pl.DataFrame, column: str) -> pl.Series:
     """Expose a precomputed dataframe column as a named datapoint.
 
     Useful for ML signals (or any external series) that are attached before

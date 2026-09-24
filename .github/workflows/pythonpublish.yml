@@ -2,26 +2,65 @@ name: Upload Python Package
 
 on:
   release:
-    types: [created]
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pypi-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  deploy:
+  validate:
+    uses: ./.github/workflows/pythonapp.yml
+
+  publish:
+    needs: validate
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.x'
-        cache: 'pip'
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install build twine
-    - name: Build and publish
-      env:
-        TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
-        TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
-      run: |
-        python -m build
-        twine upload dist/*
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Download validated distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist
+
+      - name: Check release version
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          python - <<'PY'
+          import os
+          import tarfile
+          import zipfile
+          from email.parser import BytesParser
+          from pathlib import Path
+
+          wheels = list(Path("dist").glob("*.whl"))
+          sdists = list(Path("dist").glob("*.tar.gz"))
+          assert len(wheels) == len(sdists) == 1, "Expected one wheel and one sdist"
+          with zipfile.ZipFile(wheels[0]) as wheel:
+              metadata = next(name for name in wheel.namelist() if name.endswith(".dist-info/METADATA"))
+              wheel_version = BytesParser().parsebytes(wheel.read(metadata))["Version"]
+          with tarfile.open(sdists[0]) as sdist:
+              metadata = next(member for member in sdist.getmembers() if member.name.count("/") == 1
+                              and member.name.endswith("/PKG-INFO"))
+              sdist_version = BytesParser().parsebytes(sdist.extractfile(metadata).read())["Version"]
+          assert wheel_version == sdist_version, "Distribution versions differ"
+          assert os.environ["RELEASE_TAG"] == f"v{wheel_version}", "Release tag does not match package version"
+          print(f"Validated release v{wheel_version}")
+          PY
+
+      - name: Publish validated distributions to PyPI
+        env:
+          TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
+          TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+        run: |
+          python -m pip install twine
+          python -m twine check --strict dist/*
+          python -m twine upload --non-interactive dist/*

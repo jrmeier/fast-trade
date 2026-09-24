@@ -8,9 +8,11 @@
 - Library is **Polars-native end-to-end**: indicators (FinTA), archive IO, frame prep, backtest engine, summary, CLI, and ML helpers.
 - Strategy YAML/dict inputs are unchanged; OHLC frames are `polars.DataFrame` with an explicit `date` column (no DatetimeIndex).
 - **pandas is removed** as a package dependency.
+- Completed the classifier and `column` transformer migration to Polars, fixing imports and classifier backtests in installations without pandas. Classifier features and predictions use an explicit `date` column; the classifier example follows the same API.
 - **Speed:** ~0.43s for a 1-year BTCUSDT 1m EMA-cross+RSI backtest (~2× vs pandas 2.1 on the same strategy); FinTA suite ~1.9× vs pandas FinTA (ATR ~5×, WMA ~100×, OBV ~3×). Account simulation and SAR/PSAR/KAMA/FRAMA use Numba. See `docs/PERFORMANCE.md`.
 
 ### Breaking Changes (vs 2.1.0)
+- Requires Python **3.11+**, dropping Python 3.10. Python 3.11–3.13 are supported and tested; Python 3.14 remains experimental because `hmmlearn` requires a source build and is not yet validated by the full test matrix.
 - Public dataframe APIs (`run_backtest`, archive loaders, FinTA, summaries) accept/return **Polars** frames, not pandas.
 - Call sites that passed `pd.DataFrame` must pass `pl.DataFrame`. `pl.from_pandas(...)` converts at the edge, but it needs pandas installed in your own environment since fast-trade no longer ships it.
 - FinTA no longer returns pandas Series/DataFrames or preserves a pandas index; use a `date` column.

@@ -13,7 +13,6 @@ authors = [
 license = { text = "GNU AGPLv3" }
 classifiers = [
     "Intended Audience :: Financial and Insurance Industry",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -25,7 +24,7 @@ classifiers = [
     "Natural Language :: English",
 ]
 keywords = ["backtesting", "currency", "ta", "polars", "finance", "numpy", "analysis", "technical analysis"]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "polars>=1.0.0",
     "requests>=2.32.5",
@@ -51,7 +50,7 @@ ft = "fast_trade.cli:main"
 ftv = "fast_trade.ftv:main"
 
 [project.optional-dependencies]
-dev = ["build", "coverage", "flake8", "pytest"]
+dev = ["build", "coverage", "flake8", "pytest", "twine"]
 
 [tool.setuptools]
 packages = ["fast_trade", "fast_trade.archive", "fast_trade.summary", "fast_trade.ml"]

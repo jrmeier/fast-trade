@@ -18,19 +18,23 @@ Notes:
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import pprint
 import sys
 
 import numpy as np
-import pandas as pd
+import polars as pl
 
 from fast_trade.archive.db_helpers import get_kline
+from fast_trade.frames import freq_to_timedelta
 from fast_trade.ml.classifier import run_classifier_backtest
 
 
-def _synthetic_ohlcv(rows: int = 1500, seed: int = 7, freq: str = "1h") -> pd.DataFrame:
+def _synthetic_ohlcv(rows: int = 1500, seed: int = 7, freq: str = "1h") -> pl.DataFrame:
     rng = np.random.default_rng(seed)
-    idx = pd.date_range("2024-01-01", periods=rows, freq=freq, tz="UTC")
+    start = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    interval = freq_to_timedelta(freq)
+    dates = pl.datetime_range(start, start + (rows - 1) * interval, interval=interval, eager=True)
     # Mild drift + noise so both label classes appear.
     rets = rng.normal(0.0004, 0.01, size=rows)
     close = 100 * np.cumprod(1.0 + rets)
@@ -39,15 +43,14 @@ def _synthetic_ohlcv(rows: int = 1500, seed: int = 7, freq: str = "1h") -> pd.Da
     open_ = np.roll(close, 1)
     open_[0] = close[0]
     volume = rng.uniform(100.0, 1000.0, size=rows)
-    return pd.DataFrame(
-        {"open": open_, "high": high, "low": low, "close": close, "volume": volume},
-        index=idx,
+    return pl.DataFrame(
+        {"date": dates, "open": open_, "high": high, "low": low, "close": close, "volume": volume},
     )
 
 
-def _load_archive(symbol: str, exchange: str, start: str, stop: str, freq: str) -> pd.DataFrame:
+def _load_archive(symbol: str, exchange: str, start: str, stop: str, freq: str) -> pl.DataFrame:
     df = get_kline(symbol, exchange, start_date=start, end_date=stop, freq=freq)
-    if df is None or df.empty:
+    if df is None or df.is_empty():
         raise SystemExit(
             f"No archive data for {exchange}:{symbol}. "
             f"Download first or pass --synthetic.\n"
@@ -92,7 +95,7 @@ def main(argv: list[str] | None = None) -> int:
         df = _load_archive(args.symbol, args.exchange, args.start, args.stop, args.freq)
         print(
             f"Loaded {args.exchange}:{args.symbol} "
-            f"{df.index.min()} → {df.index.max()} ({len(df)} rows)"
+            f"{df['date'].min()} → {df['date'].max()} ({len(df)} rows)"
         )
 
     result = run_classifier_backtest(

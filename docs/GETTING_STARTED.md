@@ -26,6 +26,8 @@ The project uses Polars dataframes (`pl.DataFrame` with a `date` column) end-to-
 
 ## Install
 
+Use Python 3.11 or newer; Python 3.11–3.13 are supported and tested. Python 3.14 is experimental because `hmmlearn` requires a source build and the full test matrix has not validated it.
+
 ### Local Development Install
 
 From the repo root:
@@ -211,6 +213,8 @@ python examples/ml_classifier_backtest.py --synthetic --signal-threshold 0.55
 ```
 
 Helpers live in `fast_trade/ml/classifier.py`. The strategy shape is documented in `examples/ml_classifier_strategy.yml` (uses the `column` datapoint transformer for precomputed signals). Training applies a purge gap of `horizon` bars so holdout metrics stay out-of-sample; strategy `freq` must match the dataframe bar size unless you opt into resampling.
+
+Classifier helpers use Polars frames with an explicit `date` column; pandas is not required. `build_classifier_features` returns `date` plus feature columns. `fit_return_classifier` returns the fit result, usable features with their dates, and a Polars label Series aligned by row. `predict_ml_signal` returns a frame containing `date` and `ml_signal`; `attach_ml_signal` aligns those signals to OHLCV rows by date. `run_classifier_backtest` returns Polars frames in `result.df` and `result.trade_df`.
 
 ## Important Files
 

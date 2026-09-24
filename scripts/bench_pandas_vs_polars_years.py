@@ -17,7 +17,6 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
-import statistics
 import subprocess
 import sys
 import tempfile

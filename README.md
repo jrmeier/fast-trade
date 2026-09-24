@@ -2,7 +2,7 @@
 
 [![License: AGPL v3](https://img.shields.io/github/license/jrmeier/fast-trade)](LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/fast-trade.svg?style=flat-square)](https://pypi.org/project/fast-trade/)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Python application](https://github.com/jrmeier/fast-trade/workflows/Python%20application/badge.svg)](https://github.com/jrmeier/fast-trade/actions)
 
 A library built with backtest portability and performance in mind for trading strategy backtests. Dataframes are Polars-native (`pl.DataFrame` with a `date` column). There is also an [Archive](#Archive), which can be used to download compatible kline data from Binance (.com or .us) and Coinbase into local parquet datasets.
@@ -54,6 +54,8 @@ coverage report -m
 ```
 
 ## Install
+
+Requires Python 3.11 or newer. Python 3.11–3.13 are supported and tested. Python 3.14 is experimental because `hmmlearn` requires a source build; it is not yet part of the supported test matrix.
 
 ```bash
 pip install fast-trade
@@ -208,7 +210,7 @@ See `docs/CHANGELOG.md`.
 
 ## Release Notes
 
-Version `3.0.0` is a **breaking** release: the library is Polars-native end-to-end. `run_backtest`, archive loaders, FinTA, and summaries accept/return `polars.DataFrame` with an explicit `date` column. pandas is no longer a dependency. Strategy YAML/dict inputs are unchanged.
+Version `3.0.0` is a **breaking** release: the library requires Python 3.11+ and is Polars-native end-to-end. `run_backtest`, archive loaders, FinTA, and summaries accept/return `polars.DataFrame` with an explicit `date` column. pandas is no longer a dependency. Strategy YAML/dict inputs are unchanged.
 
 Prior `2.1.0` work (FXMacroData, HMM screener, MCP coverage, terminal UI removal) remains. See `docs/CHANGELOG.md` for the full change list and `docs/RELEASE.md` for the release checklist.
 
