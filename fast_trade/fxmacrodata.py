@@ -10,6 +10,24 @@ import urllib.request
 Params = Mapping[str, Any]
 
 
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Refuse redirects so the X-API-Key header is never sent to another URL."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def _urlopen(request: urllib.request.Request, timeout: float):
+    # A 3xx response surfaces as urllib.error.HTTPError instead of being followed.
+    return urllib.request.build_opener(_NoRedirectHandler).open(request, timeout=timeout)
+
+
+def _check_api_key(api_key: str) -> None:
+    # http.client echoes a bad header value in its error, so never pass one through.
+    if any(not "!" <= char <= "~" for char in api_key):
+        raise RuntimeError("FXMacroData API key contains whitespace or other invalid characters.")
+
+
 class FXMacroDataClient:
     """REST client for macro, FX, COT, commodity, and session data."""
 
@@ -26,7 +44,7 @@ class FXMacroDataClient:
             or os.getenv("FXMACRODATA_API_KEY")
             or os.getenv("FXMD_API_KEY")
             or ""
-        )
+        ).strip()
         self.base_url = base_url.rstrip("/") + "/"
         self.timeout = timeout
 
@@ -56,10 +74,11 @@ class FXMacroDataClient:
 
         headers = {"Accept": "application/json"}
         if self.api_key:
+            _check_api_key(self.api_key)
             headers["X-API-Key"] = self.api_key
         req = urllib.request.Request(url, headers=headers)
         try:
-            with urllib.request.urlopen(req, timeout=timeout or self.timeout) as resp:
+            with _urlopen(req, timeout=timeout or self.timeout) as resp:
                 payload = resp.read().decode("utf-8")
         except urllib.error.HTTPError as exc:
             body = exc.read().decode("utf-8", errors="replace")
@@ -76,11 +95,16 @@ class FXMacroDataClient:
             ) from exc
 
         try:
-            return json.loads(payload)
+            data = json.loads(payload)
         except json.JSONDecodeError as exc:
             raise RuntimeError(
                 f"FXMacroData response was not valid JSON for {url}: {exc.msg}"
             ) from exc
+        if not isinstance(data, dict):
+            raise RuntimeError(f"FXMacroData response for {url} was not a JSON object")
+        if "detail" in data and "data" not in data:
+            raise RuntimeError(f"FXMacroData request failed for {url}: {data['detail']}")
+        return data
 
     def data_catalogue(self, currency: str) -> Dict[str, Any]:
         self._maybe_require_currency_key(currency)

@@ -1,4 +1,6 @@
 import io
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest import mock
 from urllib.error import HTTPError, URLError
 
@@ -24,7 +26,7 @@ def test_request_uses_canonical_host_query_encoding_and_header_auth():
         captured["timeout"] = timeout
         return FakeResponse(b'{"data": []}')
 
-    with mock.patch("fast_trade.fxmacrodata.urllib.request.urlopen", side_effect=fake_urlopen):
+    with mock.patch("fast_trade.fxmacrodata._urlopen", side_effect=fake_urlopen):
         result = FXMacroDataClient(api_key="test-key", timeout=12).calendar(
             "USD", indicator="policy rate", start_date="2024-01-01"
         )
@@ -56,7 +58,7 @@ def test_require_api_key_includes_reason():
 
 def test_request_wraps_timeout_errors():
     with mock.patch(
-        "fast_trade.fxmacrodata.urllib.request.urlopen",
+        "fast_trade.fxmacrodata._urlopen",
         side_effect=TimeoutError("timed out"),
     ):
         with pytest.raises(RuntimeError, match="timed out"):
@@ -66,14 +68,14 @@ def test_request_wraps_timeout_errors():
 def test_request_wraps_http_errors():
     error = HTTPError("https://example.test", 401, "Unauthorized", {}, io.BytesIO(b"invalid key"))
 
-    with mock.patch("fast_trade.fxmacrodata.urllib.request.urlopen", side_effect=error):
+    with mock.patch("fast_trade.fxmacrodata._urlopen", side_effect=error):
         with pytest.raises(RuntimeError, match="HTTP 401: invalid key"):
             FXMacroDataClient().data_catalogue("USD")
 
 
 def test_request_wraps_url_errors():
     with mock.patch(
-        "fast_trade.fxmacrodata.urllib.request.urlopen",
+        "fast_trade.fxmacrodata._urlopen",
         side_effect=URLError("timed out"),
     ):
         with pytest.raises(RuntimeError, match="timed out"):
@@ -82,7 +84,7 @@ def test_request_wraps_url_errors():
 
 def test_request_wraps_invalid_json():
     with mock.patch(
-        "fast_trade.fxmacrodata.urllib.request.urlopen",
+        "fast_trade.fxmacrodata._urlopen",
         return_value=FakeResponse(b"not-json"),
     ):
         with pytest.raises(RuntimeError, match="not valid JSON"):
@@ -174,7 +176,68 @@ def test_endpoint_methods_build_expected_paths(method, args, expected_path):
         captured["url"] = request.full_url
         return FakeResponse(b"{}")
 
-    with mock.patch("fast_trade.fxmacrodata.urllib.request.urlopen", side_effect=fake_urlopen):
+    with mock.patch("fast_trade.fxmacrodata._urlopen", side_effect=fake_urlopen):
         getattr(FXMacroDataClient(api_key="k"), method)(*args)
 
     assert expected_path in captured["url"]
+
+
+def test_request_does_not_follow_redirects(monkeypatch):
+    for name in ("http_proxy", "HTTP_PROXY", "all_proxy", "ALL_PROXY"):
+        monkeypatch.delenv(name, raising=False)
+    paths = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            paths.append(self.path)
+            if self.path.startswith("/v1/"):
+                self.send_response(302)
+                self.send_header("Location", f"http://127.0.0.1:{self.server.server_port}/target")
+                self.end_headers()
+                return
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"{}")
+
+        def log_message(self, *args):
+            pass
+
+    server = HTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        client = FXMacroDataClient(api_key="secret-key", base_url=f"http://127.0.0.1:{server.server_port}/v1/")
+        with pytest.raises(RuntimeError, match="HTTP 302") as excinfo:
+            client.data_catalogue("USD")
+    finally:
+        server.shutdown()
+        server.server_close()
+
+    assert paths == ["/v1/data_catalogue/usd"]
+    assert "secret-key" not in str(excinfo.value)
+
+
+@pytest.mark.parametrize("api_key", ["secret\nkey", "secret key", "secret\x00key"])
+def test_request_rejects_bad_api_key_without_echoing_it(api_key):
+    with mock.patch("fast_trade.fxmacrodata._urlopen") as fake_urlopen:
+        with pytest.raises(RuntimeError, match="invalid characters") as excinfo:
+            FXMacroDataClient(api_key=api_key).data_catalogue("USD")
+
+    fake_urlopen.assert_not_called()
+    assert "secret" not in str(excinfo.value)
+
+
+def test_constructor_strips_api_key():
+    assert FXMacroDataClient(api_key=" test-key\n").api_key == "test-key"
+
+
+@pytest.mark.parametrize(
+    "body,message",
+    [
+        (b'{"detail": "Invalid API key"}', "Invalid API key"),
+        (b'["not", "an", "object"]', "not a JSON object"),
+    ],
+)
+def test_request_rejects_error_bodies_returned_with_200(body, message):
+    with mock.patch("fast_trade.fxmacrodata._urlopen", return_value=FakeResponse(body)):
+        with pytest.raises(RuntimeError, match=message):
+            FXMacroDataClient().data_catalogue("USD")
