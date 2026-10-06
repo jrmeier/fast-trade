@@ -216,6 +216,35 @@ Helpers live in `fast_trade/ml/classifier.py`. The strategy shape is documented 
 
 Classifier helpers use Polars frames with an explicit `date` column; pandas is not required. `build_classifier_features` returns `date` plus feature columns. `fit_return_classifier` returns the fit result, usable features with their dates, and a Polars label Series aligned by row. `predict_ml_signal` returns a frame containing `date` and `ml_signal`; `attach_ml_signal` aligns those signals to OHLCV rows by date. `run_classifier_backtest` returns Polars frames in `result.df` and `result.trade_df`.
 
+### Walk-forward comparison
+
+Evaluate rolling, chronological classifier fits against buy-and-hold, RSI and
+random exposure using `fast_trade.ml.walk_forward.walk_forward_evaluate`:
+
+```bash
+python examples/ml_walk_forward.py --synthetic
+python examples/ml_walk_forward.py \
+  --datafile examples/research/btc_usd_2025_q1/input.parquet \
+  --comission 0.1 --out-dir ft_archive/research/btc_q1
+```
+
+Training purges the forward-label horizon before every test window. Signals
+execute at the following bar close; every strategy shares the same bars, fees,
+starting cash and final exit. Test windows cannot overlap, and inputs must have
+regular bars without gaps. Missing feature rows stay flat rather than removing
+bars from the market history. Custom TA datapoints must be causal and use the
+input frequency.
+
+Outputs include `input.parquet`, `settings.yml`, `folds.csv` and `report.yml` with
+a dataset hash and environment versions. Returns are conventional changes from
+initial cash, and counts represent completed trades; these differ from the
+legacy summary definitions in [METRICS.md](METRICS.md). Each fold resets cash, so
+aggregate fold statistics are not a stitched portfolio result. Costs include
+commission on both sides, but exclude slippage, spreads and financing.
+
+See the [reproducible BTC-USD benchmark](../examples/research/btc_usd_2025_q1/README.md)
+for fixed settings and results. Its classifier does not establish a trading edge.
+
 ## Important Files
 
 - `README.md`: top-level project overview
@@ -226,6 +255,7 @@ Classifier helpers use Polars frames with an explicit `date` column; pandas is n
 - `hmm_screen_example.yml`: example config for `ft screen hmm`
 - `examples/ml_classifier_backtest.py`: classifier → `ml_signal` → backtest demo
 - `examples/ml_classifier_strategy.yml`: enter/exit pattern for classifier signals
+- `examples/ml_walk_forward.py`: purged walk-forward evaluation and report export
 
 ## Tips
 

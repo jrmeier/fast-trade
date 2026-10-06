@@ -1,0 +1,414 @@
+folds:
+- fold: 0
+  train_rows: 395
+  purged_train_rows: 5
+  test_rows: 100
+  train_start: '2025-01-01 20:00:00'
+  train_end: '2025-01-18 06:00:00'
+  test_start: '2025-01-18 12:00:00'
+  test_end: '2025-01-22 15:00:00'
+  test_accuracy: 0.7789473684210526
+  test_roc_auc: 0.6284626038781164
+  ml_return_perc: 0.26088061500000315
+  ml_num_trades: 3
+  ml_sharpe_ratio: 0.2671663363187926
+  buy_hold_return_perc: -0.3302927459999938
+  rsi_return_perc: 3.4202594639999973
+  rsi_num_trades: 1
+  random_return_perc: -3.740694840000003
+  random_num_trades: 13
+  beats_buy_hold: true
+  beats_rsi: false
+  beats_random: true
+- fold: 1
+  train_rows: 395
+  purged_train_rows: 5
+  test_rows: 100
+  train_start: '2025-01-06 00:00:00'
+  train_end: '2025-01-22 10:00:00'
+  test_start: '2025-01-22 16:00:00'
+  test_end: '2025-01-26 19:00:00'
+  test_accuracy: 0.8947368421052632
+  test_roc_auc: 0.6882352941176471
+  ml_return_perc: 0.0
+  ml_num_trades: 0
+  ml_sharpe_ratio: 0.0
+  buy_hold_return_perc: 0.5021760969999844
+  rsi_return_perc: 0.0
+  rsi_num_trades: 0
+  random_return_perc: -2.007449762000002
+  random_num_trades: 18
+  beats_buy_hold: false
+  beats_rsi: false
+  beats_random: true
+- fold: 2
+  train_rows: 395
+  purged_train_rows: 5
+  test_rows: 100
+  train_start: '2025-01-10 04:00:00'
+  train_end: '2025-01-26 14:00:00'
+  test_start: '2025-01-26 20:00:00'
+  test_end: '2025-01-30 23:00:00'
+  test_accuracy: 0.631578947368421
+  test_roc_auc: 0.6446666666666667
+  ml_return_perc: 0.2965221880000035
+  ml_num_trades: 12
+  ml_sharpe_ratio: 0.08698010944720952
+  buy_hold_return_perc: -0.008234559000008801
+  rsi_return_perc: 1.8328150549999922
+  rsi_num_trades: 1
+  random_return_perc: -1.5000574360000019
+  random_num_trades: 13
+  beats_buy_hold: true
+  beats_rsi: false
+  beats_random: true
+- fold: 3
+  train_rows: 395
+  purged_train_rows: 5
+  test_rows: 100
+  train_start: '2025-01-14 08:00:00'
+  train_end: '2025-01-30 18:00:00'
+  test_start: '2025-01-31 00:00:00'
+  test_end: '2025-02-04 03:00:00'
+  test_accuracy: 0.6
+  test_roc_auc: 0.5356012658227848
+  ml_return_perc: -5.903879119999999
+  ml_num_trades: 4
+  ml_sharpe_ratio: -1.1230679020438372
+  buy_hold_return_perc: -4.0415499520000004
+  rsi_return_perc: -1.0812750599999976
+  rsi_num_trades: 1
+  random_return_perc: -3.3331576539999963
+  random_num_trades: 18
+  beats_buy_hold: false
+  beats_rsi: false
+  beats_random: false
+- fold: 4
+  train_rows: 395
+  purged_train_rows: 5
+  test_rows: 100
+  train_start: '2025-01-18 12:00:00'
+  train_end: '2025-02-03 22:00:00'
+  test_start: '2025-02-04 04:00:00'
+  test_end: '2025-02-08 07:00:00'
+  test_accuracy: 0.8315789473684211
+  test_roc_auc: 0.5261044176706827
+  ml_return_perc: 0.45324297800000135
+  ml_num_trades: 2
+  ml_sharpe_ratio: 0.8251615096859045
+  buy_hold_return_perc: -2.977667526000005
+  rsi_return_perc: 0.0
+  rsi_num_trades: 0
+  random_return_perc: -3.3450541150000013
+  random_num_trades: 14
+  beats_buy_hold: true
+  beats_rsi: true
+  beats_random: true
+- fold: 5
+  train_rows: 395
+  purged_train_rows: 5
+  test_rows: 100
+  train_start: '2025-01-22 16:00:00'
+  train_end: '2025-02-08 02:00:00'
+  test_start: '2025-02-08 08:00:00'
+  test_end: '2025-02-12 11:00:00'
+  test_accuracy: 0.8
+  test_roc_auc: 0.40222222222222226
+  ml_return_perc: -3.136410213999996
+  ml_num_trades: 12
+  ml_sharpe_ratio: -1.838367455700865
+  buy_hold_return_perc: -0.2819881219999987
+  rsi_return_perc: 0.9257219430000019
+  rsi_num_trades: 1
+  random_return_perc: -2.370478487000005
+  random_num_trades: 11
+  beats_buy_hold: false
+  beats_rsi: false
+  beats_random: false
+- fold: 6
+  train_rows: 395
+  purged_train_rows: 5
+  test_rows: 100
+  train_start: '2025-01-26 20:00:00'
+  train_end: '2025-02-12 06:00:00'
+  test_start: '2025-02-12 12:00:00'
+  test_end: '2025-02-16 15:00:00'
+  test_accuracy: 0.9157894736842105
+  test_roc_auc: 0.757183908045977
+  ml_return_perc: 0.6214315520000069
+  ml_num_trades: 1
+  ml_sharpe_ratio: 0.74328604979675
+  buy_hold_return_perc: 1.8600657179999924
+  rsi_return_perc: 0.0
+  rsi_num_trades: 0
+  random_return_perc: -2.003070480000002
+  random_num_trades: 11
+  beats_buy_hold: false
+  beats_rsi: true
+  beats_random: true
+- fold: 7
+  train_rows: 395
+  purged_train_rows: 5
+  test_rows: 100
+  train_start: '2025-01-31 00:00:00'
+  train_end: '2025-02-16 10:00:00'
+  test_start: '2025-02-16 16:00:00'
+  test_end: '2025-02-20 19:00:00'
+  test_accuracy: 0.8421052631578947
+  test_roc_auc: 0.8294573643410852
+  ml_return_perc: -0.5593589229999973
+  ml_num_trades: 9
+  ml_sharpe_ratio: -0.31050670548715303
+  buy_hold_return_perc: 1.3038920150000077
+  rsi_return_perc: 0.0
+  rsi_num_trades: 0
+  random_return_perc: -2.9156731940000014
+  random_num_trades: 11
+  beats_buy_hold: false
+  beats_rsi: false
+  beats_random: true
+- fold: 8
+  train_rows: 395
+  purged_train_rows: 5
+  test_rows: 100
+  train_start: '2025-02-04 04:00:00'
+  train_end: '2025-02-20 14:00:00'
+  test_start: '2025-02-20 20:00:00'
+  test_end: '2025-02-24 23:00:00'
+  test_accuracy: 0.9263157894736842
+  test_roc_auc: 0.8598901098901098
+  ml_return_perc: -2.620700377000007
+  ml_num_trades: 4
+  ml_sharpe_ratio: -1.4177748916354687
+  buy_hold_return_perc: -6.924355776000002
+  rsi_return_perc: -3.8022949479999957
+  rsi_num_trades: 1
+  random_return_perc: -1.6021734630000006
+  random_num_trades: 4
+  beats_buy_hold: true
+  beats_rsi: true
+  beats_random: false
+- fold: 9
+  train_rows: 395
+  purged_train_rows: 5
+  test_rows: 100
+  train_start: '2025-02-08 08:00:00'
+  train_end: '2025-02-24 18:00:00'
+  test_start: '2025-02-25 00:00:00'
+  test_end: '2025-03-01 03:00:00'
+  test_accuracy: 0.5578947368421052
+  test_roc_auc: 0.5211352657004831
+  ml_return_perc: -8.062606970999997
+  ml_num_trades: 9
+  ml_sharpe_ratio: -2.0248269615932655
+  buy_hold_return_perc: -7.488701594000002
+  rsi_return_perc: -7.488701594000002
+  rsi_num_trades: 1
+  random_return_perc: -2.606732213999996
+  random_num_trades: 9
+  beats_buy_hold: false
+  beats_rsi: false
+  beats_random: false
+- fold: 10
+  train_rows: 395
+  purged_train_rows: 5
+  test_rows: 100
+  train_start: '2025-02-12 12:00:00'
+  train_end: '2025-02-28 22:00:00'
+  test_start: '2025-03-01 04:00:00'
+  test_end: '2025-03-05 07:00:00'
+  test_accuracy: 0.6947368421052632
+  test_roc_auc: 0.4698340874811463
+  ml_return_perc: -1.0416772919999984
+  ml_num_trades: 5
+  ml_sharpe_ratio: -0.25220075229187183
+  buy_hold_return_perc: 2.1700351120000017
+  rsi_return_perc: 4.256025440000011
+  rsi_num_trades: 1
+  random_return_perc: -0.36752769300000265
+  random_num_trades: 5
+  beats_buy_hold: false
+  beats_rsi: false
+  beats_random: false
+- fold: 11
+  train_rows: 395
+  purged_train_rows: 5
+  test_rows: 100
+  train_start: '2025-02-16 16:00:00'
+  train_end: '2025-03-05 02:00:00'
+  test_start: '2025-03-05 08:00:00'
+  test_end: '2025-03-09 11:00:00'
+  test_accuracy: 0.7789473684210526
+  test_roc_auc: 0.3190045248868778
+  ml_return_perc: -0.12994236100000167
+  ml_num_trades: 2
+  ml_sharpe_ratio: -0.811786992329906
+  buy_hold_return_perc: -4.089291062
+  rsi_return_perc: -0.19987265899999995
+  rsi_num_trades: 1
+  random_return_perc: -5.483879824999994
+  random_num_trades: 13
+  beats_buy_hold: true
+  beats_rsi: true
+  beats_random: true
+- fold: 12
+  train_rows: 395
+  purged_train_rows: 5
+  test_rows: 100
+  train_start: '2025-02-20 20:00:00'
+  train_end: '2025-03-09 06:00:00'
+  test_start: '2025-03-09 12:00:00'
+  test_end: '2025-03-13 15:00:00'
+  test_accuracy: 0.5894736842105263
+  test_roc_auc: 0.6428571428571429
+  ml_return_perc: -1.9085949150000059
+  ml_num_trades: 10
+  ml_sharpe_ratio: -0.2590081080601917
+  buy_hold_return_perc: -3.135223278999999
+  rsi_return_perc: -3.135223278999999
+  rsi_num_trades: 1
+  random_return_perc: -7.2272650800000005
+  random_num_trades: 15
+  beats_buy_hold: true
+  beats_rsi: true
+  beats_random: true
+- fold: 13
+  train_rows: 395
+  purged_train_rows: 5
+  test_rows: 100
+  train_start: '2025-02-25 00:00:00'
+  train_end: '2025-03-13 10:00:00'
+  test_start: '2025-03-13 16:00:00'
+  test_end: '2025-03-17 19:00:00'
+  test_accuracy: 0.7578947368421053
+  test_roc_auc: 0.4359903381642512
+  ml_return_perc: 0.17032423700000798
+  ml_num_trades: 2
+  ml_sharpe_ratio: 0.47322519367217786
+  buy_hold_return_perc: 5.3782191989999895
+  rsi_return_perc: 6.738452708999998
+  rsi_num_trades: 2
+  random_return_perc: -1.764842369999997
+  random_num_trades: 13
+  beats_buy_hold: false
+  beats_rsi: false
+  beats_random: true
+- fold: 14
+  train_rows: 395
+  purged_train_rows: 5
+  test_rows: 100
+  train_start: '2025-03-01 04:00:00'
+  train_end: '2025-03-17 14:00:00'
+  test_start: '2025-03-17 20:00:00'
+  test_end: '2025-03-21 23:00:00'
+  test_accuracy: 0.8842105263157894
+  test_roc_auc: 0.710594315245478
+  ml_return_perc: -2.428037501999991
+  ml_num_trades: 6
+  ml_sharpe_ratio: -1.878744590754526
+  buy_hold_return_perc: -0.21351458799999667
+  rsi_return_perc: 3.1754404429999994
+  rsi_num_trades: 1
+  random_return_perc: -4.244335149
+  random_num_trades: 22
+  beats_buy_hold: false
+  beats_rsi: false
+  beats_random: true
+- fold: 15
+  train_rows: 395
+  purged_train_rows: 5
+  test_rows: 100
+  train_start: '2025-03-05 08:00:00'
+  train_end: '2025-03-21 18:00:00'
+  test_start: '2025-03-22 00:00:00'
+  test_end: '2025-03-26 03:00:00'
+  test_accuracy: 0.8947368421052632
+  test_roc_auc: 0.7070588235294119
+  ml_return_perc: 0.0
+  ml_num_trades: 0
+  ml_sharpe_ratio: 0.0
+  buy_hold_return_perc: 3.5151813610000193
+  rsi_return_perc: 0.0
+  rsi_num_trades: 0
+  random_return_perc: -3.023775567999998
+  random_num_trades: 19
+  beats_buy_hold: false
+  beats_rsi: false
+  beats_random: true
+- fold: 16
+  train_rows: 395
+  purged_train_rows: 5
+  test_rows: 100
+  train_start: '2025-03-09 12:00:00'
+  train_end: '2025-03-25 22:00:00'
+  test_start: '2025-03-26 04:00:00'
+  test_end: '2025-03-30 07:00:00'
+  test_accuracy: 0.968421052631579
+  test_roc_auc: 0.9468085106382979
+  ml_return_perc: 0.30014839000001015
+  ml_num_trades: 1
+  ml_sharpe_ratio: 0.7410339477972187
+  buy_hold_return_perc: -5.326783770999999
+  rsi_return_perc: -2.687370538
+  rsi_num_trades: 1
+  random_return_perc: -1.5585650330000034
+  random_num_trades: 14
+  beats_buy_hold: true
+  beats_rsi: true
+  beats_random: true
+feature_columns:
+- ret_1
+- ret_5
+- ret_10
+- vol_20
+- range_pct
+- sma_ratio
+- volume_z
+- rsi
+- ema_fast
+- ema_slow
+- atr
+label_horizon: 5
+label_threshold: 0.01
+train_size: 400
+test_size: 100
+step_size: 100
+aggregate:
+  n_folds: 17
+  median_ml_return_perc: -0.12994236100000167
+  mean_ml_return_perc: -1.3934504538235273
+  total_ml_trades: 82
+  median_test_roc_auc: 0.6428571428571429
+  median_buy_hold_return_perc: -0.2819881219999987
+  pct_folds_beat_buy_hold: 41.17647058823529
+  median_random_return_perc: -2.606732213999996
+  pct_folds_beat_random: 70.58823529411765
+  median_rsi_return_perc: 0.0
+  pct_folds_beat_rsi: 35.294117647058826
+extras:
+  baselines:
+  - buy_hold
+  - random
+  - rsi
+  freq: 1h
+  comission: 0.1
+  random_state: 42
+  signal_lag: 1
+  base_balance: 1000.0
+  execution: signal at close; fill at a later close; force exit on last test close
+  costs: commission on entry and exit; slippage and financing are not modeled
+  aggregation: independent folds reset cash; returns are not stitched or annualized
+environment:
+  python: 3.11.11
+  fast-trade: 3.0.0
+  polars: 1.44.2
+  numpy: 2.4.2
+  scikit-learn: 1.8.0
+input:
+  source: ../../fast-trade/ft_archive/coinbase/BTC-USD.parquet
+  symbol: BTC-USD
+  exchange: coinbase
+  rows: 2160
+  start: '2025-01-01 00:00:00'
+  stop: '2025-03-31 23:00:00'
+  sha256: 3074a5a615c15dcda95d9064259f254b78ef40c6a76e5406db05f98499f68224
