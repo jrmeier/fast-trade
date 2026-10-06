@@ -2,7 +2,7 @@ import re
 
 import polars as pl
 
-from .frames import is_empty
+from .frames import is_empty, parse_freq
 from .transformers_map import transformers_map
 
 TRANSFORMER_GENERATED_KEYS = [
@@ -98,7 +98,11 @@ def validate_backtest(backtest):
             }
     freq = backtest.get("freq")
     if freq:
-        if not re.search(r"(^\d{1,4}((T)|(Min)|(H)|(h)|(D)|)$)", freq):
+        try:
+            count, _unit = parse_freq(freq)
+            if count <= 0:
+                raise ValueError("Frequency must be positive")
+        except ValueError:
             backtest_mirror["freq"] = {
                 "error": True,
                 "msgs": ["Chart period not valid"],

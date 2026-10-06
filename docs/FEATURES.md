@@ -48,6 +48,17 @@ ft_command_str("backtests show --index 1")
 
 All dedicated MCP CLI wrappers run with `--no-interactive`.
 
+## Backtest correctness
+
+- `start` and `stop` are optional. Archive loading accepts ISO dates, datetimes,
+  and epoch seconds/milliseconds; date-only stop bounds include the entire day.
+- Archive warmup includes float-valued indicator periods such as `41.0`.
+- Legacy frequency aliases remain supported; a bare number such as `"30"`
+  means 30 minutes. Validation uses the same frequency parser as the engine.
+- Invalid `any_enter`/`any_exit` rules raise during strategy validation.
+- Peak equity includes the marked value of open positions. Missing metrics or
+  malformed summary evaluation rules raise rather than silently being skipped.
+
 ## Related entrypoints
 
 - `ftv convert` is a separate console script and is not part of the MCP server today.

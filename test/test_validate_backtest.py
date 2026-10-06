@@ -237,3 +237,11 @@ def test_validate_start_is_optional_and_messages_are_spelled_correctly():
     assert errors["start"] is None
     errors = validate_backtest({**strategy, "start_date": "2024-01-01"})
     assert errors["start_date"]["msgs"] == ['Parameter "start_date" is deprecated; use "start" and "stop"']
+
+
+def test_frequency_validation_matches_engine_aliases_and_rejects_zero():
+    strategy = {"datapoints": [], "enter": [["close", ">", 10]], "exit": [["close", "<", 5]]}
+    for freq in ["1min", "1m", "30S", "2H", "1D", "1M", "30"]:
+        assert validate_backtest({**strategy, "freq": freq})["has_error"] is False
+    for freq in ["0h", "not_a_freq"]:
+        assert validate_backtest({**strategy, "freq": freq})["freq"]["error"] is True

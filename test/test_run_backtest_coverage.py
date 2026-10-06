@@ -1,6 +1,7 @@
 """Additional coverage tests for run_backtest.py entry points and edge branches."""
 
 from collections import namedtuple
+import datetime
 from unittest import mock
 
 import polars as pl
@@ -97,6 +98,41 @@ def test_invalid_optional_logic_fails_during_validation(runner, group):
     strategy = _valid_backtest(**{group: [["nonexistent_col", ">", 5]]})
     with pytest.raises(BacktestKeyError, match="nonexistent_col"):
         runner(strategy, df=_ohlcv())
+
+
+@pytest.mark.parametrize("start", [1523937600, 1523937600000, 1523937600.0, datetime.datetime(2018, 4, 17, 4)])
+def test_archive_warmup_normalizes_dates_and_float_lookbacks(start):
+    from fast_trade.run_backtest import _load_df_from_archive
+
+    strategy = _valid_backtest(
+        start=start, stop=1523937900000,
+        datapoints=[{"name": "sma", "transformer": "sma", "args": [3.0]}],
+    )
+    with mock.patch("fast_trade.run_backtest.get_kline", return_value=_ohlcv()) as load:
+        _load_df_from_archive(strategy)
+    assert load.call_args.args[2] == datetime.datetime(2018, 4, 17, 3, 57)
+    assert load.call_args.args[3] == datetime.datetime(2018, 4, 17, 4, 5)
+
+
+def test_archive_date_stop_includes_entire_day():
+    from fast_trade.run_backtest import _load_df_from_archive
+
+    with mock.patch("fast_trade.run_backtest.get_kline", return_value=_ohlcv()) as load:
+        _load_df_from_archive(_valid_backtest(start=None, stop="2018-04-17"))
+    assert load.call_args.args[2] is None
+    assert load.call_args.args[3] == datetime.datetime(2018, 4, 17, 23, 59, 59, 999999)
+
+
+def test_lookback_periods_include_float_args_but_ignore_flags_and_nonfinite_values():
+    from fast_trade.run_backtest import get_max_periods
+
+    assert get_max_periods({"args": [10, 41.0, True, "90", float("nan"), float("inf")]}) == 41
+    assert get_max_periods({}) == 0
+
+
+def test_bare_numeric_frequency_works_end_to_end():
+    result = run_backtest(_valid_backtest(freq="1"), df=_ohlcv())
+    assert "summary" in result
 
 
 def test_run_backtest_missing_data_when_archive_empty():

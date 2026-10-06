@@ -108,6 +108,8 @@ def parse_freq(freq: Optional[str]) -> tuple:
         raise ValueError(f"Unable to parse frequency: {freq!r}")
 
     count_text, unit_text = match.groups()
+    if count_text and not unit_text:
+        unit_text = "min"
     count = float(count_text) if count_text else 1.0
     if unit_text in CALENDAR_UNITS:
         unit = CALENDAR_UNITS[unit_text]

@@ -89,6 +89,12 @@ def test_parse_freq_aliases():
         utils.freq_to_polars("not_a_freq")
 
 
+def test_bare_numeric_frequency_means_minutes():
+    assert frames.parse_freq("30") == (30, "m")
+    assert frames.freq_to_timedelta("30") == datetime.timedelta(minutes=30)
+    assert utils.parse_freq("30") == "30m"
+
+
 def test_parse_freq_calendar_units_are_case_sensitive():
     """Capital "M" is a month, lowercase "m" and "Min" stay minutes."""
     assert utils.parse_freq("1M") == "1mo"
