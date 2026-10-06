@@ -355,7 +355,7 @@ def default_classifier_strategy(
         "exit_on_end": True,
         "base_balance": 1000,
         "lot_size": 1,
-        # Required by validate_backtest; None means "use the provided dataframe as-is".
+        # None means "use the provided dataframe as-is".
         "start": None,
         "stop": None,
     }
@@ -455,7 +455,6 @@ def run_classifier_backtest(
     )
 
     # Avoid re-slicing away the already-chosen window inside prepare_df.
-    # ``start`` must still be present for validate_backtest.
     strat["start"] = None
     strat["stop"] = None
     strat.pop("chart_start", None)

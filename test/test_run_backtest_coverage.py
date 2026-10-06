@@ -91,6 +91,14 @@ def test_run_backtest_raises_on_validation_error():
         run_backtest({"datapoints": [], "enter": [], "exit": []})
 
 
+@pytest.mark.parametrize("runner", [run_backtest, run_backtest_chunked])
+@pytest.mark.parametrize("group", ["any_enter", "any_exit"])
+def test_invalid_optional_logic_fails_during_validation(runner, group):
+    strategy = _valid_backtest(**{group: [["nonexistent_col", ">", 5]]})
+    with pytest.raises(BacktestKeyError, match="nonexistent_col"):
+        runner(strategy, df=_ohlcv())
+
+
 def test_run_backtest_missing_data_when_archive_empty():
     bt = _valid_backtest(
         symbol="BTCUSDT",

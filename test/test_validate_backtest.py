@@ -226,3 +226,14 @@ def test_validate_backtest_null_optional_logic_lists():
     errors = validate_backtest(backtest)
     # Should not raise; optional lists may be absent/None without hard error
     assert isinstance(errors, dict)
+
+
+def test_validate_start_is_optional_and_messages_are_spelled_correctly():
+    strategy = {
+        "datapoints": [], "enter": [["close", ">", 10]], "exit": [["close", "<", 5]],
+    }
+    errors = validate_backtest(strategy)
+    assert errors["has_error"] is False
+    assert errors["start"] is None
+    errors = validate_backtest({**strategy, "start_date": "2024-01-01"})
+    assert errors["start_date"]["msgs"] == ['Parameter "start_date" is deprecated; use "start" and "stop"']

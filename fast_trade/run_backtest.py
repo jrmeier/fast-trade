@@ -165,13 +165,7 @@ def _check_backtest_errors(backtest: dict) -> None:
     if not errors.get("has_error"):
         return
 
-    # find all the keys with values
-    error_keys = [key for key, value in errors.items() if value and key != "has_error"]
-    error_msgs = extract_error_messages(errors)
-    for ek in error_keys:
-        if ek not in ["any_enter", "any_exit"]:
-            # get the errors from the errors dict
-            raise BacktestKeyError(error_msgs)
+    raise BacktestKeyError(extract_error_messages(errors))
 
 
 def run_backtest(
