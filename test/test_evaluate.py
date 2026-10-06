@@ -1,3 +1,5 @@
+import pytest
+
 from fast_trade.evaluate import (
     evaluate_rules,
     handle_rule,
@@ -29,14 +31,15 @@ def test_evaluate_rules_empty_and_success():
     assert res == [True, True]
 
 
-def test_evaluate_rules_exception_is_printed_and_skipped(capsys):
-    rules = [["missing.key", ">", 1]]
-    all_ok, any_ok, res = evaluate_rules({"return_perc": 1.0}, rules)
-    captured = capsys.readouterr()
-    assert "missing" in captured.out or "KeyError" in captured.out
-    assert all_ok is False
-    assert any_ok is False
-    assert res == []
+def test_evaluate_rules_rejects_missing_key_after_passing_rule():
+    rules = [["return_perc", ">", 0], ["missing.key", ">", 1]]
+    with pytest.raises(KeyError, match="missing"):
+        evaluate_rules({"return_perc": 1.0}, rules)
+
+
+def test_evaluate_rules_rejects_malformed_rule():
+    with pytest.raises(IndexError):
+        evaluate_rules({"return_perc": 1.0}, [["return_perc"]])
 
 
 def test_evaluate_main_block_runs(capsys):
