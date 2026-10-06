@@ -1,0 +1,43 @@
+# Illustrative historical split; this quarter has already been inspected.
+# Reserve a new, untouched period before evaluating a strategy selected here.
+name: ml_search_example
+symbol: BTC-USD
+exchange: coinbase
+freq: 1h
+comission: 0.1
+random_state: 42
+signal_lag: 1
+base_balance: 1000
+
+data:
+  search_start: "2025-01-01"
+  search_stop: "2025-03-01"
+  holdout_start: "2025-03-01"
+  holdout_stop: "2025-04-01"
+
+space:
+  horizons: [3, 5, 10]
+  thresholds: [0.0, 0.01]
+  train_sizes: [300, 400]
+  test_sizes: [80]
+  use_ta: [true, false]
+  include_basic: [true]
+
+screen:
+  baselines: [buy_hold]
+  min_trades: 5
+  top_n: 20
+
+promote:
+  baselines: [buy_hold, rsi, random]
+  min_trades: 10
+  top_n: 5
+
+holdout:
+  baselines: [buy_hold, rsi, random]
+  min_trades: 5
+  top_n: 1
+  must_beat: [buy_hold, rsi]
+
+output:
+  dir: ft_archive/ml_search
