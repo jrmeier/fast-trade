@@ -1,4 +1,5 @@
 import datetime
+import math
 import operator
 import re
 import multiprocessing as mp
@@ -9,7 +10,7 @@ import polars as pl
 
 from fast_trade.archive.db_helpers import get_kline
 
-from .build_data_frame import prepare_df
+from .build_data_frame import parse_date_bound, prepare_df
 from .build_summary import build_summary
 from .evaluate import evaluate_rules
 from .frames import freq_to_timedelta, is_empty, to_polars
@@ -108,18 +109,19 @@ def _prepare_df(df: pl.DataFrame, backtest: dict) -> pl.DataFrame:
     return _ensure_date_dtype(to_polars(prepare_df(df, backtest)))
 
 
+def get_max_periods(datapoint: dict) -> int:
+    """Largest finite numeric lookback, including YAML float-valued periods."""
+    periods = [
+        int(arg) for arg in (datapoint.get("args") or [])
+        if isinstance(arg, (int, float)) and not isinstance(arg, bool) and math.isfinite(arg)
+    ]
+    return max(periods, default=0)
+
+
 def _load_df_from_archive(backtest: dict, progress_callback=None) -> pl.DataFrame:
     """Pull the data for a backtest out of the local archive."""
     if progress_callback:
         progress_callback({"phase": "data", "percent": 0})
-
-    # calculate the start date based on the max number of periods in any dp args
-    def get_max_periods(datapoint):
-        args = datapoint.get("args", [])
-        periods = [int(arg) for arg in args if isinstance(arg, int)]
-        if len(periods) == 0:
-            return 0
-        return max(periods)
 
     args = [get_max_periods(dp) for dp in backtest.get("datapoints", [])]
     max_periods = max(args) if args else 0
@@ -127,23 +129,10 @@ def _load_df_from_archive(backtest: dict, progress_callback=None) -> pl.DataFram
     freq = backtest.get("freq") or backtest.get("chart_period")
     td_freq = freq_to_timedelta(freq)
 
-    start = backtest.get("start", None)
-    if start and not isinstance(start, datetime.datetime):
-        # YAML may load bare dates as datetime.date
-        if isinstance(start, datetime.date):
-            start = datetime.datetime.combine(start, datetime.time.min)
-        else:
-            start = datetime.datetime.fromisoformat(str(start))
+    start = parse_date_bound(backtest.get("start"))
+    if start is not None:
         start = start - td_freq * max_periods
-
-    stop = backtest.get("stop", None)
-    if stop and not isinstance(stop, datetime.datetime):
-        if isinstance(stop, datetime.date):
-            stop = datetime.datetime.combine(stop, datetime.time.max)
-        else:
-            stop = datetime.datetime.fromisoformat(str(stop))
-    else:
-        stop = backtest.get("stop")
+    stop = parse_date_bound(backtest.get("stop"), upper=True)
 
     df = get_kline(
         backtest.get("symbol"),
@@ -165,13 +154,7 @@ def _check_backtest_errors(backtest: dict) -> None:
     if not errors.get("has_error"):
         return
 
-    # find all the keys with values
-    error_keys = [key for key, value in errors.items() if value and key != "has_error"]
-    error_msgs = extract_error_messages(errors)
-    for ek in error_keys:
-        if ek not in ["any_enter", "any_exit"]:
-            # get the errors from the errors dict
-            raise BacktestKeyError(error_msgs)
+    raise BacktestKeyError(extract_error_messages(errors))
 
 
 def run_backtest(

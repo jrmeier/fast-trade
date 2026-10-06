@@ -205,3 +205,18 @@ def test_build_summary():
     assert type(res["test_duration"]) is float
     assert trade_df.height == 3
     assert res["total_missing"] == 0
+
+
+def test_equity_peak_includes_unrealized_gains():
+    df = create_mock_trade_log().with_columns(
+        pl.Series("action", ["e", "h", "h", "h", "x", "e", "h", "h", "x"]),
+        pl.Series("account_value", [0.0] * 8 + [100.0]),
+        pl.Series("adj_account_value", [100.0, 110.0, 130.0, 120.0, 100.0, 100.0, 110.0, 120.0, 100.0]),
+        pl.Series("aux", [1.0] * 8 + [0.0]),
+    ).with_columns(
+        pl.col("adj_account_value").diff().alias("adj_account_value_change"),
+        pl.col("adj_account_value").pct_change().alias("adj_account_value_change_perc"),
+    )
+    summary, _ = build_summary(df, datetime.datetime.utcnow())
+    assert summary["equity_peak"] == 130.0
+    assert summary["equity_final"] == 100.0

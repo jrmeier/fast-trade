@@ -2,7 +2,7 @@ import re
 
 import polars as pl
 
-from .frames import is_empty
+from .frames import is_empty, parse_freq
 from .transformers_map import transformers_map
 
 TRANSFORMER_GENERATED_KEYS = [
@@ -69,7 +69,6 @@ def validate_backtest(backtest):
         "datapoints",
         "enter",
         "exit",
-        "start",
     ]
 
     curr_keys = list(backtest.keys())
@@ -78,14 +77,14 @@ def validate_backtest(backtest):
         if req not in curr_keys:
             backtest_mirror[req] = {
                 "error": True,
-                "msgs": [f'Paramater "{req}" required'],
+                "msgs": [f'Parameter "{req}" required'],
             }
 
     for deprecated in ["start_date", "end_date"]:
         if deprecated in curr_keys:
             backtest_mirror[deprecated] = {
                 "error": True,
-                "msgs": [f'Paramater "{deprecated}" is deprecated; use "start" and "stop"'],
+                "msgs": [f'Parameter "{deprecated}" is deprecated; use "start" and "stop"'],
             }
 
     base_balance = backtest.get("base_balance")
@@ -99,7 +98,11 @@ def validate_backtest(backtest):
             }
     freq = backtest.get("freq")
     if freq:
-        if not re.search(r"(^\d{1,4}((T)|(Min)|(H)|(h)|(D)|)$)", freq):
+        try:
+            count, _unit = parse_freq(freq)
+            if count <= 0:
+                raise ValueError("Frequency must be positive")
+        except ValueError:
             backtest_mirror["freq"] = {
                 "error": True,
                 "msgs": ["Chart period not valid"],

@@ -93,6 +93,9 @@ def parse_freq(freq: typing.Any) -> typing.Optional[str]:
         # pandas offsets and anything else with a usable repr
         freq = getattr(freq, "freqstr", None) or str(freq)
 
+    if freq.strip().isdigit():
+        return f"{int(freq)}m"
+
     match = _FREQ_PATTERN.match(freq)
     if not match:
         return None

@@ -48,7 +48,7 @@ __all__ = [
 def build_summary(df, performance_start_time):
     df = to_polars(df)
 
-    equity_peak = clean_float(df["account_value"].max(), 3)
+    equity_peak = clean_float(df["adj_account_value"].max(), 3)
     equity_final = clean_float(df["adj_account_value"][-1], 3)
     max_drawdown = clean_float(df["adj_account_value"].min(), 3)
 

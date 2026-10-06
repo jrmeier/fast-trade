@@ -59,19 +59,16 @@ def evaluate_rules(result: dict, rules: list) -> tuple:
     Returns
     -------
     tuple, (all(res), any(res), res)
+
+    Missing metrics and malformed rules raise their original exception so an
+    incomplete set of rules cannot silently pass evaluation.
     """
     if not rules:
         return False, False, []
 
     res = []
     for rule in rules:
-        try:
-            res.append(handle_rule(result, rule))
-        except Exception as e:
-            print(e)
-
-    if len(res) == 0:
-        return False, False, []
+        res.append(handle_rule(result, rule))
 
     return all(res), any(res), res
 
