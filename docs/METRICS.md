@@ -55,3 +55,13 @@ drawdown definitions.
 Paper portfolio `apply_action` does not apply the same commission model as
 `run_analysis.apply_logic_to_df`. Do not expect identical equity for the same
 signals across the two paths.
+
+## Walk-forward research reports
+
+`fast_trade.ml.walk_forward` measures all strategies from the same initial cash
+using `(final_equity / initial_cash - 1) * 100`, including entry and exit fees.
+Its trade counts are completed positions, including forced final exits.
+Its fold Sharpe is `mean / std(ddof=1) * sqrt(test_size)` over the real test bars;
+any forced-exit cost is charged on the final real bar. It is not annualized and
+does not subtract a risk-free rate. Each fold resets cash, so aggregate fold
+returns do not describe a single compounded portfolio.

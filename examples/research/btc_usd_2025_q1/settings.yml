@@ -1,0 +1,10 @@
+train_size: 400
+test_size: 100
+step_size: null
+horizon: 5
+threshold: 0.01
+freq: 1h
+comission: 0.1
+random_state: 42
+signal_lag: 1
+use_ta: true

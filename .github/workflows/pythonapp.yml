@@ -97,10 +97,12 @@ jobs:
           assert importlib.util.find_spec("pandas") is None, "pandas unexpectedly installed"
           import fast_trade
           from fast_trade.ml.classifier import run_classifier_backtest
+          from fast_trade.ml.walk_forward import walk_forward_evaluate
           from fast_trade.transformers_map import COLUMN
 
           assert Path(fast_trade.__file__).resolve().is_relative_to(Path(sys.prefix).resolve())
           assert callable(run_classifier_backtest) and callable(COLUMN)
+          assert callable(walk_forward_evaluate)
           PY
           "$RUNNER_TEMP/wheel-smoke/bin/ft" --help
 
