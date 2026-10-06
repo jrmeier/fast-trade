@@ -245,6 +245,22 @@ commission on both sides, but exclude slippage, spreads and financing.
 See the [reproducible BTC-USD benchmark](../examples/research/btc_usd_2025_q1/README.md)
 for fixed settings and results. Its classifier does not establish a trading edge.
 
+### Bounded classifier search
+
+Search a small YAML grid with shared test dates, promote a few candidates and
+optionally score a separate fixed holdout:
+
+```bash
+python examples/ml_walk_forward_batch.py --synthetic --limit 4 --workers 2 \
+  --out ft_archive/ml_search/synthetic_demo
+```
+
+`examples/ml_search.yml` locks the ranges and costs before fitting. Confirmation
+is explicit (`--confirm-holdout`) and uses a frozen model trained only before
+the holdout boundary. Existing output directories are rejected; each stage
+saves separate reports, along with the full spec and input snapshots. See
+[ML_SEARCH.md](ML_SEARCH.md) for ranking, validation and holdout reuse limits.
+
 ## Important Files
 
 - `README.md`: top-level project overview
@@ -256,6 +272,7 @@ for fixed settings and results. Its classifier does not establish a trading edge
 - `examples/ml_classifier_backtest.py`: classifier → `ml_signal` → backtest demo
 - `examples/ml_classifier_strategy.yml`: enter/exit pattern for classifier signals
 - `examples/ml_walk_forward.py`: purged walk-forward evaluation and report export
+- `examples/ml_search.yml`: bounded classifier search configuration
 
 ## Tips
 

@@ -188,6 +188,7 @@ def walk_forward_evaluate(
     freq: Optional[str] = None, comission: float = 0.01, random_state: int = 42,
     baselines: Sequence[str] = ("buy_hold", "rsi", "random"),
     signal_lag: int = 1, base_balance: float = 1000.0,
+    test_start_row: Optional[int] = None,
 ) -> WalkForwardReport:
     """Fit each fold using only labels realized before its first test bar.
 
@@ -195,6 +196,8 @@ def walk_forward_evaluate(
     end-of-window exits. RSI has pre-test indicator history, but starts flat.
     Random exposure is calibrated from training labels only. Classification
     metrics exclude labels whose horizon extends past the test window.
+    ``test_start_row`` anchors the first test bar in the sorted input, allowing
+    different training window sizes to share identical test dates.
     """
     baseline_set = set(baselines)
     if baseline_set - {"buy_hold", "rsi", "random"}:
@@ -203,6 +206,8 @@ def walk_forward_evaluate(
         raise ValueError("horizon must be positive, smaller than test_size, and leave 20 training rows")
     if signal_lag < 1 or not np.isfinite(base_balance) or base_balance <= 0:
         raise ValueError("signal_lag must be >= 1 and base_balance must be positive and finite")
+    if test_start_row is not None and type(test_start_row) is not int:
+        raise ValueError("test_start_row must be an integer row position")
     if not np.isfinite(comission) or not 0 <= comission < 100 or not np.isfinite(threshold):
         raise ValueError("comission must be between 0 and 100; threshold must be finite")
     required = {"date", "open", "high", "low", "close", "volume"}
@@ -228,15 +233,20 @@ def walk_forward_evaluate(
     if not len(usable):
         raise ValueError("No usable feature rows after warmup")
     warmup = int(usable[0])
-    windows = iter_rolling_folds(df["date"][warmup:], train_size=train_size, test_size=test_size, step_size=step_size)
+    first_train = warmup if test_start_row is None else test_start_row - train_size
+    if first_train < warmup:
+        raise ValueError("test_start_row must leave a full training window after feature warmup")
+    windows = iter_rolling_folds(
+        df["date"][first_train:], train_size=train_size, test_size=test_size, step_size=step_size,
+    )
     labels = label_forward_return(df["close"], horizon=horizon, threshold=threshold).to_numpy()
     x = features.select(cols).to_numpy()
     valid_values = valid.to_numpy()
     rsi = TA.RSI(df, 14).to_numpy() if "rsi" in baseline_set else None
     folds = []
     for window in windows:
-        train_start = warmup + window.train_start_row
-        test_start = warmup + window.test_start_row
+        train_start = first_train + window.train_start_row
+        test_start = first_train + window.test_start_row
         # Purge by original bar position, before filtering invalid features.
         train_end = test_start - horizon
         good = valid_values[train_start:train_end] & np.isfinite(labels[train_start:train_end])
@@ -308,3 +318,34 @@ def walk_forward_evaluate(
 def report_to_frame(report: WalkForwardReport) -> pl.DataFrame:
     """Return a Polars fold table suitable for CSV or Parquet export."""
     return pl.DataFrame([asdict(fold) for fold in report.folds])
+
+
+def evaluate_fixed_split(
+    df: pl.DataFrame, train_index: pl.Series, test_index: pl.Series, **options: Any,
+) -> FoldMetrics:
+    """Fit once before a fixed holdout, reusing the rolling engine's contract.
+
+    Indices are explicit date Series for adjacent chronological raw-bar ranges.
+    Earlier input history warms features but cannot supply extra training rows.
+    The training range's final horizon is purged, and no holdout refit occurs.
+    Input after the final test date is ignored.
+    """
+    if train_index.is_empty() or test_index.is_empty():
+        raise ValueError("Training and test dates must be nonempty")
+    # Compare physical instants, not Python wall-clock equality: fold=0 and
+    # fold=1 of a repeated DST hour may otherwise compare equal.
+    dates = df.sort("date")["date"].dt.epoch("ns").to_list()
+    test_dates = test_index.dt.epoch("ns").to_list()
+    train_dates = train_index.dt.epoch("ns").to_list()
+    if test_dates[0] not in dates:
+        raise ValueError("Test dates must exist in the input")
+    start = dates.index(test_dates[0])
+    if (start < len(train_dates) or dates[start - len(train_dates):start] != train_dates
+            or dates[start:start + len(test_dates)] != test_dates):
+        raise ValueError("Training/test dates must be adjacent, ordered, disjoint raw-bar ranges")
+    frame = df.sort("date").head(start + len(test_dates))
+    report = walk_forward_evaluate(
+        frame, train_size=len(train_dates), test_size=len(test_dates),
+        test_start_row=start, **options,
+    )
+    return report.folds[0]
